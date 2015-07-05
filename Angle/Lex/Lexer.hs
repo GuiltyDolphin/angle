@@ -262,9 +262,10 @@ data Expr = ExprIdent LangIdent
           | ExprLit LangLit
           | ExprFunCall LangFunCall
           | ExprB Expr
+          | ExprOp LangOp
             deriving (Show)
             
-expr = tryScan exprB <|> tryScan exprFunCall <|> exprLit <|> exprIdent <?> "expression"
+expr = tryScan exprB <|> tryScan exprOp <|> tryScan exprFunCall <|> exprLit <|> exprIdent <?> "expression"
        
 exprB = liftM ExprB (within tokParenL tokParenR expr)
 
@@ -272,9 +273,6 @@ exprIdent = liftM ExprIdent langIdent
             
 type LangIdent = String
 langIdent = ident
-
-
-
 
 data LangFunCall = FC { funName :: LangIdent, funArgs :: [Expr] }
   deriving (Show)
@@ -292,6 +290,45 @@ langFunCall = do
   return FC { funName = name
             , funArgs = args }
   
+
+exprOp = liftM ExprOp langOp <?> "operation"
+data LangOp = UnOp Op | BinOp Op
+              deriving (Show)
+
+langOp = unOp <|> binOp <?> "operation"
+
+data Op = Add | Sub | Not
+          deriving (Show)
+
+
+opAdd = char '+' >> return Add
+opSub = char '-' >> return Sub
+opNot = char '^' >> return Not
+        
+-- |Unary operators
+-- >>> evalScan "^" unOp
+-- Right (...Not)
+unOp = liftM UnOp (choice [opNot])
+       
+-- |Binary operators
+-- >>> evalScan "+" binOp
+-- Right (...Add)
+--
+-- >>> evalScan "-" binOp
+-- Right (...Sub)
+binOp = liftM BinOp (choice [opAdd, opSub])
+-- 
+-- 
+-- unOp = do
+--   op <- choice [opNot]
+--   operand <- expr
+--   return $ UnOp op operand
+--          
+-- binOp = do
+--   l <- expr
+--   op <- choice [opAdd, opSub]
+--   r <- expr
+--   return $ BinOp op l r
   
 data Stmt = SingleStmt SingStmt | MultiStmt [Stmt]
             deriving (Show)
