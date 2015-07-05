@@ -182,9 +182,12 @@ data Op = Add | Sub
 
 data LangLit = LitStr String
              | LitInt Int
-             | LitList [Expr]
+             | LitList [LangLit]
              | LitBool Bool
                deriving (Show)
+
+langLit :: Scanner LangLit
+langLit = litStr <|> litInt <|> litList <|> litBool <?> "literal"
 
 -- |A literal string
 -- >>> evalScan "\"test\"" litStr
@@ -205,3 +208,37 @@ litStr = liftM LitStr (within tokStringStart tokStringEnd (many tokStringBodyCha
 -- ...
 litInt :: Scanner LangLit
 litInt = liftM (LitInt . read) (some tokDenaryDigit) <?> "integer"
+
+-- |Multi-type list
+-- >>> evalScan "[1,\"hello\",$t]" litList
+-- Right (... [... 1,... "hello",... True])
+--
+-- >>> evalScan "1,\"hello\",$t" litList
+-- Left ...
+-- ...
+litList :: Scanner LangLit
+litList = liftM LitList (within tokListStart tokListEnd (sepWith tokEltSep langLit)) <?> "list"
+
+
+-- |Boolean literal
+-- >>> evalScan "$t" litBool
+-- Right (... True)
+--
+-- >>> evalScan "$f" litBool
+-- Right (... False)
+--
+-- >>> evalScan "true" litBool
+-- Left ...
+-- ...
+litBool :: Scanner LangLit
+litBool = liftM LitBool (litTrue <|> litFalse)
+  where litTrue = string "$t" >> return True
+        litFalse = string "$f" >> return False
+
+
+
+
+
+
+
+
