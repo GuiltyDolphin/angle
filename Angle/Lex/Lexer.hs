@@ -274,6 +274,7 @@ exprB = liftM ExprB (within tokParenL tokParenR expr) <?> "bracketed expression"
 exprIdent = liftM ExprIdent langIdent
             
 type LangIdent = String
+langIdent :: Scanner LangIdent
 langIdent = ident <?> "identifier"
 
 data LangFunCall = FC { funName :: LangIdent, funArgs :: [Expr] }
@@ -292,7 +293,8 @@ langFunCall = do
   return FC { funName = name
             , funArgs = args }
   
-
+-- TODO: Issue with recursion when using binary operators
+-- Fix this? Or just keep the only parse operator solution.
 exprOp = liftM ExprOp langOp <?> "operation"
 data LangOp = UnOp Op | BinOp Op
               deriving (Show)
@@ -338,11 +340,19 @@ data Stmt = SingleStmt SingStmt | MultiStmt [Stmt]
             deriving (Show)
 
 stmt :: Scanner Stmt
-stmt = multiStmt <|> singleStmt <?> "statement"
+stmt = (multiStmt <|> singleStmt) <?> "statement"
        
 singleStmt :: Scanner Stmt
 singleStmt = liftM SingleStmt singStmt
        
+-- |Statement consisting of zero or more statements
+-- >>> evalScan "{}" multiStmt
+-- Right (...[])
+--
+-- >>> evalScan "{1;3}" multiStmt
+-- Right (...[...1...3...])
+--
+-- TODO: Is it wise to allow empty multi-statements?
 multiStmt :: Scanner Stmt
 multiStmt = do
   tokMultiStmtStart
@@ -359,9 +369,9 @@ data SingStmt = StmtAssign LangIdent Expr
 -- TODO: Last statement in a multi-statement block, or at
 -- end of file, shouldn't need to have a newline or semi-colon
 singStmt :: Scanner SingStmt
-singStmt = tryScan stmtAssign <* tokStmtEnd
+singStmt = tryScan stmtAssign <* checkStmtEnd
            <|> stmtStruct 
-           <|> stmtExpr <* tokStmtEnd
+           <|> stmtExpr <* checkStmtEnd
            
 stmtExpr :: Scanner SingStmt
 stmtExpr = liftM StmtExpr expr
@@ -394,9 +404,10 @@ langStruct = structFor <|> structWhile <|> structIf <?> "language construct"
 structFor = do
   keyword "for"
   name <- langIdent
-  keyword "in"
+  keyword " in"
   iter <- expr
-  keyword " do"
+  string " do"
+  optional tokNewLine
   body <- stmt
   return $ StructFor name iter body
 
@@ -426,3 +437,22 @@ structIf = do
                          stmt)
   return $ StructIf p thenBody elseBody
 
+        
+data LangFun = LangFun { funDeclName :: LangIdent
+                       , funDeclArgs :: [LangIdent]
+                       , funDeclBody :: Stmt } 
+               deriving (Show)
+             
+-- |Function definition
+-- >>> evalScan "defun foo(x) { print(x) }" langDefun
+-- Right (...funDeclName =..."foo", funDeclArgs =..."x"...)
+langDefun = do
+  keyword "defun"
+  name <- langIdent
+  argNames <- parens (sepWith (char ',') langIdent)
+  body <- stmt
+  return $ LangFun { funDeclName = name
+                   , funDeclArgs = argNames
+                   , funDeclBody = body }
+  
+  

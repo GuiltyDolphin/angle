@@ -28,11 +28,13 @@ module Angle.Lex.Token
     , tokTrue, tokFalse
     , tokPeriod
     , tokString
+    , tokNewLine
     , ident
     , angles
     , parens
     , keyword
     , exprSep
+    , checkStmtEnd
     ) where
     
 
@@ -72,8 +74,8 @@ tokListEnd = char ']' <?> "end of list"
 tokParenL = char '(' <?> "open parenthesis"
 tokParenR = char ')' <?> "close parenthesis"
 tokColon = char ':' <?> "colon"
-tokMultiStmtStart = tokWhitespace *> char '{' <?> "start of multi-statement"
-tokMultiStmtEnd = char '}' <* tokWhitespace <?> "end of multi-statement"
+tokMultiStmtStart = surrounded tokWhitespace (char '{') <?> "start of multi-statement"
+tokMultiStmtEnd = surrounded tokWhitespace (char '}') <?> "end of multi-statement"
 tokEltSep = char ',' <* tokWhitespace <?> "element separator"
 tokIdentStartChar = cond (`notElem` reservedChars) <?> "start of identifier"
 tokIdentBodyChar = tokIdentStartChar <?> "identifier character"
@@ -108,17 +110,24 @@ tokNewLine = char '\n' <?> "newline"
 --   (:) <$> tokIdentStartChar <*> many tokIdentBodyChar <?> "identifier"                 
 --         
 
+-- |Function/variable identifier (but not a keyword)
+-- >>> evalScan "test" ident
+-- Right "test"
+--
+-- >>> evalScan "return" ident
+-- Left ...
+-- ...
 ident = do
   noneFrom string keywords
-  res <- (:) <$> alpha <*> many (alpha <|> digit)
-  tokWhitespace
-  return res
+  (:) <$> alpha <*> many (alpha <|> digit)
 
 reservedChars = "<>;\n:{}\"'$@, "    
                 
-sepChar = ")};, "
+opChars = "*/+->=<|&^"
+sepChar = "{()};, =" ++ opChars
           
-exprSep = lookAhead (charFrom sepChar)
+          
+exprSep = lookAhead (charFrom sepChar) <?> "expression boundary"
                 
 alpha = charFrom ['A'..'z']
 digit = charFrom ['0'..'9']
@@ -127,11 +136,19 @@ keywords = ["defun", "do", "else", "false", "for", "if", "in", "return", "then",
            
 keyword str = string str <* tokSpace
 
-
+-- |Run scan within parentheses
+-- >>> evalScan "(test)" (parens (string "test"))
+-- Right "test"
+--
+-- >>> evalScan "test" (parens (string "test"))
+-- Left ...
+-- ...
 parens = within tokParenL tokParenR
          
 tokList = within tokListStart tokListEnd
+
 tokString = within tokStringStart tokStringEnd (many tokStringBodyChar) <?> "string"
+
 tokGroup sc = within tokGroupStart tokGroupEnd (sepWith tokGenSep sc) <?> "group"
 
 -- |Characters within angle brackets
@@ -145,3 +162,5 @@ angles = within (char '<') (char '>')
 
 
 tuple sc = within tokTupleStart tokTupleEnd (sepWith tokEltSep sc)
+
+checkStmtEnd = lookAhead tokMultiStmtEnd <|> tokStmtEnd
