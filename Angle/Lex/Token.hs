@@ -95,13 +95,14 @@ tokGroupEnd = tokParenR <?> "end of group"
 tokTupleStart = tokParenL <?> "start of tuple"
 tokTupleEnd = tokParenR <?> "end of tuple"
 tokSpace = char ' ' <?> "space"
-tokWhitespace = many tokSpace <?> "whitespace"
-tokAssign = surrounded tokWhitespace (char '=') <?> "assignment operator"
+tokWhitespace = cond isSpace <?> "whitespace"
+tokAssign = surrounded spaces (char '=') <?> "assignment operator"
 tokRangeSep = string ".." <?> "range separator"
 tokTrue = string "true" <?> "true"
 tokFalse = string "false" <?> "false"
 tokPeriod = char '.' <?> "period"
 tokNewLine = char '\n' <?> "newline"
+tokEOF = notScan anyChar <?> "eof"
 
 -- prop> \xs -> not $ any (`notElem` reservedChars) xs
 -- prop> \xs -> evalScan xs ident
@@ -164,3 +165,8 @@ angles = within (char '<') (char '>')
 tuple sc = within tokTupleStart tokTupleEnd (sepWith tokEltSep sc)
 
 checkStmtEnd = lookAhead tokMultiStmtEnd <|> tokStmtEnd
+
+               
+whitespace = many tokWhitespace
+
+spaces = many tokSpace

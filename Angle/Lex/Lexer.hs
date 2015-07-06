@@ -304,10 +304,12 @@ langOp = unOp <|> binOp <?> "operation"
 data Op = Add | Sub | Not
           deriving (Show)
 
+spacedOp :: Scanner Op -> Scanner Op
+spacedOp = surrounded spaces
 opAdd, opSub, opNot :: Scanner Op
-opAdd = char '+' >> return Add
-opSub = char '-' >> return Sub
-opNot = char '^' >> return Not
+opAdd = spacedOp $ char '+' >> return Add
+opSub = spacedOp $ char '-' >> return Sub
+opNot = spacedOp $ char '^' >> return Not
         
 -- |Unary operators
 -- >>> evalScan "^" unOp
@@ -323,6 +325,21 @@ unOp = liftM UnOp (choice [opNot])
 -- Right (...Sub)
 binOp :: Scanner LangOp
 binOp = liftM BinOp (choice [opAdd, opSub])
+        
+checkOp op = do
+  lookAhead (notScan op)
+  l <- expr
+  p <- op
+  r <- expr
+  return $ BOp p l r
+         
+binOp' sc :: Scanner Op
+         
+         
+data BOp = BOp Op Expr Expr
+           deriving (Show)
+opAdd' = checkOp 
+  
 -- 
 -- 
 -- unOp = do
