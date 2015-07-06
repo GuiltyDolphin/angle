@@ -15,6 +15,7 @@ module Angle.Lex.Helpers
     , surrounded
     , (<?>)
     , oneFrom
+    , anyChar
     , evalScan
     , Scanner
     ) where
@@ -142,6 +143,9 @@ oneFrom scf xs = choice $ map scf xs
 -- ...
 notChar :: Char -> Scanner Char
 notChar ch = cond (/=ch)
+             
+-- |Matches any character, used for determining eof
+anyChar = scanChar <?> "any character"
 
 parseNonGreedy :: Scanner a -> Scanner a
 parseNonGreedy sc = do
@@ -156,9 +160,9 @@ parseNonGreedy sc = do
 --   parseNonGreedy lh
 --   return res)
 lookAhead :: Scanner a -> Scanner a
-lookAhead lh = do
+lookAhead sc = do
   pos <- get
-  res <- lh
+  res <- sc
   put pos
   return res
 
@@ -169,6 +173,13 @@ lookAhead lh = do
 --
 -- >>> evalScan "hello" (notScan (char 't') *> char 'h')
 -- Right 'h'
+--
+-- TODO: Might want to have (Show a) =>
+--  to allow a reasonable error message where
+--  the character is printed
+-- TODO: Try to find a way of setting the
+--  unexpected error message to the originally
+--  expected error message
 notScan :: Scanner a -> Scanner ()
 notScan sc = tryScan (do
   res <- optional (tryScan (lookAhead sc))
@@ -219,3 +230,4 @@ evalScan :: String -> Scanner a -> Either ScanError a
 evalScan str sc = runReader (evalStateT (runErrorT (runScanner sc)) defaultState) env
   where defaultState = ScanState { sourcePos = (0,0,0) }
         env = ScanEnv { sourceText = str }
+
