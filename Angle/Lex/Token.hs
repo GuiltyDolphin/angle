@@ -29,18 +29,21 @@ module Angle.Lex.Token
     , tokPeriod
     , tokString
     , tokNewLine
+    , tokEOF
     , ident
     , angles
     , parens
     , keyword
     , exprSep
     , checkStmtEnd
+    , whitespace
+    , spaces
     ) where
     
 
 import Angle.Lex.Helpers
 import Control.Applicative
-import Data.Char (isDigit)
+import Data.Char (isDigit, isSpace)
 
 -- TODO: This doesn't actually do anything.
 data Token = TokFunStart
@@ -74,9 +77,9 @@ tokListEnd = char ']' <?> "end of list"
 tokParenL = char '(' <?> "open parenthesis"
 tokParenR = char ')' <?> "close parenthesis"
 tokColon = char ':' <?> "colon"
-tokMultiStmtStart = surrounded tokWhitespace (char '{') <?> "start of multi-statement"
-tokMultiStmtEnd = surrounded tokWhitespace (char '}') <?> "end of multi-statement"
-tokEltSep = char ',' <* tokWhitespace <?> "element separator"
+tokMultiStmtStart = surrounded whitespace (char '{') <?> "start of multi-statement"
+tokMultiStmtEnd = surrounded whitespace (char '}') <?> "end of multi-statement"
+tokEltSep = char ',' <* whitespace <?> "element separator"
 tokIdentStartChar = cond (`notElem` reservedChars) <?> "start of identifier"
 tokIdentBodyChar = tokIdentStartChar <?> "identifier character"
 tokStringStart = char '"' <?> "start of string"

@@ -410,9 +410,12 @@ stmtStruct = liftM StmtStruct langStruct
 data LangStruct = StructFor LangIdent Expr Stmt
                 | StructWhile Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)
+                | StructDefun LangIdent [LangIdent] Stmt
+                | StructReturn Expr -- TODO: Probably don't 
+                                    -- need this
                   deriving (Show)
                   
-langStruct = structFor <|> structWhile <|> structIf <?> "language construct"
+langStruct = structFor <|> structWhile <|> structIf <|> structDefun <|> structReturn <?> "language construct"
              
              
 -- |For loop
@@ -461,15 +464,24 @@ data LangFun = LangFun { funDeclName :: LangIdent
                deriving (Show)
              
 -- |Function definition
--- >>> evalScan "defun foo(x) { print(x) }" langDefun
--- Right (...funDeclName =..."foo", funDeclArgs =..."x"...)
-langDefun = do
+-- >>> evalScan "defun foo(x) { print(x) }" structDefun
+-- Right (..."foo"..."x"...)
+structDefun :: Scanner LangStruct
+structDefun = do
   keyword "defun"
   name <- langIdent
   argNames <- parens (sepWith (char ',') langIdent)
+  optional tokStmtEnd
   body <- stmt
-  return $ LangFun { funDeclName = name
-                   , funDeclArgs = argNames
-                   , funDeclBody = body }
+  return $ StructDefun name argNames body
+         
+structReturn = liftM StructReturn (keyword "return" *> expr) <?> "return construct"
+
+         
+
+program :: Scanner [Stmt]
+program = do
+  followed tokEOF (some stmt)
   
+  -- sepWith (some tokNewLine) stmt
   
