@@ -218,11 +218,11 @@ litInt = liftM (LitInt . read) (some tokDenaryDigit) <?> "integer literal"
 -- >>> evalScan "12.3" litFloat
 -- Right (...12.3)
 litFloat :: Scanner LangLit
-litFloat = liftM (LitFloat . read) $ do
+litFloat = liftM (LitFloat . read) (do
              first <- some tokDenaryDigit
              char '.'
              rest <- some tokDenaryDigit
-             return (first ++ "." ++ rest)
+             return (first ++ "." ++ rest)) <?> "floating-point literal"
              
 
 -- |Multi-type list
@@ -250,11 +250,13 @@ litBool = liftM LitBool (litTrue <|> litFalse) <?> "boolean literal"
 -- |Dotted range of values
 -- >>> evalScan "(1..7)" litRange
 -- Right (...1...7...)
+--
+-- TODO: Add additional `step' to ranges (1..7..3)
 litRange = parens (do
   start <- expr
   tokRangeSep
   end <- expr
-  return $ LitRange start end)
+  return $ LitRange start end) <?> "range literal"
 
 
 
@@ -267,12 +269,12 @@ data Expr = ExprIdent LangIdent
             
 expr = tryScan exprB <|> tryScan exprOp <|> tryScan exprFunCall <|> exprLit <|> exprIdent <?> "expression"
        
-exprB = liftM ExprB (within tokParenL tokParenR expr)
+exprB = liftM ExprB (within tokParenL tokParenR expr) <?> "bracketed expression"
 
 exprIdent = liftM ExprIdent langIdent
             
 type LangIdent = String
-langIdent = ident
+langIdent = ident <?> "identifier"
 
 data LangFunCall = FC { funName :: LangIdent, funArgs :: [Expr] }
   deriving (Show)
@@ -300,7 +302,7 @@ langOp = unOp <|> binOp <?> "operation"
 data Op = Add | Sub | Not
           deriving (Show)
 
-
+opAdd, opSub, opNot :: Scanner Op
 opAdd = char '+' >> return Add
 opSub = char '-' >> return Sub
 opNot = char '^' >> return Not
@@ -308,6 +310,7 @@ opNot = char '^' >> return Not
 -- |Unary operators
 -- >>> evalScan "^" unOp
 -- Right (...Not)
+unOp :: Scanner LangOp
 unOp = liftM UnOp (choice [opNot])
        
 -- |Binary operators
@@ -316,6 +319,7 @@ unOp = liftM UnOp (choice [opNot])
 --
 -- >>> evalScan "-" binOp
 -- Right (...Sub)
+binOp :: Scanner LangOp
 binOp = liftM BinOp (choice [opAdd, opSub])
 -- 
 -- 
@@ -333,35 +337,49 @@ binOp = liftM BinOp (choice [opAdd, opSub])
 data Stmt = SingleStmt SingStmt | MultiStmt [Stmt]
             deriving (Show)
 
-stmt = singleStmt <|> multiStmt <?> "statement"
+stmt :: Scanner Stmt
+stmt = multiStmt <|> singleStmt <?> "statement"
+       
+singleStmt :: Scanner Stmt
 singleStmt = liftM SingleStmt singStmt
        
+multiStmt :: Scanner Stmt
 multiStmt = do
   tokMultiStmtStart
   body <- many stmt
   tokMultiStmtEnd
   return $ MultiStmt body
 
+-- | A single statement;
 data SingStmt = StmtAssign LangIdent Expr
               | StmtStruct LangStruct
               | StmtExpr Expr
                 deriving (Show)
                 
-singStmt = stmtAssign <|> stmtStruct <|> stmtExpr
+-- TODO: Last statement in a multi-statement block, or at
+-- end of file, shouldn't need to have a newline or semi-colon
+singStmt :: Scanner SingStmt
+singStmt = tryScan stmtAssign <* tokStmtEnd
+           <|> stmtStruct 
+           <|> stmtExpr <* tokStmtEnd
+           
+stmtExpr :: Scanner SingStmt
 stmtExpr = liftM StmtExpr expr
            
 -- |Variable assignment
 -- >>> evalScan "x=5" stmtAssign
 -- Right (..."x"...5...)
+stmtAssign :: Scanner SingStmt
 stmtAssign = do
   name <- langIdent
   tokAssign
   val <- expr
   return $ StmtAssign name val
                 
-         
+stmtStruct :: Scanner SingStmt 
 stmtStruct = liftM StmtStruct langStruct
 
+-- |Specialised language constructs
 data LangStruct = StructFor LangIdent Expr Stmt
                 | StructWhile Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)

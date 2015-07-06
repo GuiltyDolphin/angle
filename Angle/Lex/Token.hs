@@ -99,6 +99,7 @@ tokRangeSep = string ".." <?> "range separator"
 tokTrue = string "true" <?> "true"
 tokFalse = string "false" <?> "false"
 tokPeriod = char '.' <?> "period"
+tokNewLine = char '\n' <?> "newline"
 
 -- prop> \xs -> not $ any (`notElem` reservedChars) xs
 -- prop> \xs -> evalScan xs ident
