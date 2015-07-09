@@ -16,6 +16,8 @@ module Angle.Lex.Helpers
     , (<?>)
     , oneFrom
     , anyChar
+    , manyTill
+    , someTill
     , evalScan
     , Scanner
     ) where
@@ -186,6 +188,7 @@ notScan sc = tryScan (do
   case res of Nothing -> return ()
               Just _ -> unexpectedErr "notscan")
 
+
 -- |Fail if any scanners built from `scf' succeed
 -- >>> evalScan "test" (noneFrom char "abc")
 -- Right ()
@@ -206,6 +209,21 @@ sepWith sep sc = tryScan (do
   case s of
     Nothing -> return [fs]
     Just _ -> liftM (fs:) (sepWith sep sc))
+
+-- |Collect sc until `ti' succeeds
+-- >>> evalScan "abc.def" (manyTill (char '.') alpha)
+-- Right "abc"
+manyTill :: Scanner b -> Scanner a -> Scanner [a]
+manyTill ti sc = many (notScan ti *> sc)
+                 
+-- |Like `manyTill', but `sc' must succeed before `ti'
+-- >>> evalScan "123.456" (someTill (char '.') digit)
+--
+-- >>> evalScan ".123" (someTill (char '.') digit)
+-- Left ...
+-- ...
+someTill :: Scanner b -> Scanner a -> Scanner [a]
+someTill ti sc = (:) <$> sc <*> manyTill ti sc
 
 -- Fail the scan with the location and provided message.
 failScan :: String -> Scanner a
