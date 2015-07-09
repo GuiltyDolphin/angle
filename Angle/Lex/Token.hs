@@ -106,6 +106,15 @@ tokFalse = string "false" <?> "false"
 tokPeriod = char '.' <?> "period"
 tokNewLine = char '\n' <?> "newline"
 tokEOF = notScan anyChar <?> "eof"
+         
+tokInt = some tokDenaryDigit <?> "integer"
+
+tokFloat :: Scanner Float
+tokFloat = do
+  f <- tokInt
+  tokPeriod
+  rest <- tokInt
+  return $ read (f ++ "." ++ rest)
 
 -- prop> \xs -> not $ any (`notElem` reservedChars) xs
 -- prop> \xs -> evalScan xs ident
