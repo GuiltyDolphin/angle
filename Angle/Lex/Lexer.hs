@@ -1,6 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
-module Angle.Lex.Lexer () where
+module Angle.Lex.Lexer 
+    ( Expr(..)
+    ) where
 
 -- Write this!
 import Angle.Lex.Helpers
