@@ -106,7 +106,7 @@ data Expr = ExprIdent LangIdent
           | ExprOp LangOp
             deriving (Show)
             
-expr = tryScan exprB <|> tryScan exprOp <|> tryScan exprFunCall <|> exprLit <|> exprIdent <?> "expression"
+expr = tryScan exprOp <|> tryScan exprB <|> tryScan exprFunCall <|> exprLit <|> exprIdent <?> "expression"
        
 exprB = liftM ExprB (within tokParenL tokParenR expr) <?> "bracketed expression"
 
@@ -170,15 +170,14 @@ unOp = choice $ map unOpC [opNot]
 -- >>> evalScan "-" binOp
 -- Right (...Sub)
 binOp :: Scanner LangOp
-binOp = choice (map binOpC [opMult, opDiv, opAdd, opSub]) <?> "binary operator"
-        
-binOpC :: Scanner Op -> Scanner LangOp
-binOpC op = do
-  s <- someTill op anyChar
-  l <- expr
+binOp = choice (map binOpI [opMult, opDiv, opAdd, opSub]) <?> "binary operator"
+
+binOpI op = tryScan (parens $ do
   p <- op
+  l <- expr
+  tokSpace
   r <- expr
-  return $ BinOp p l r
+  return $ BinOp p l r)
   
         
 checkOp op = do
@@ -188,7 +187,12 @@ checkOp op = do
   r <- expr
   return $ BOp p l r
          
-         
+-- Possible ways of fixing the operators:
+--  Use the 'minimum precedence' expressions
+--    Either through State or Reader (or even passing to each
+--    expr function) - keep track of the precedence of
+--    the current expression / the minimum precedence required
+--    for an expression to be parsed.
 data BOp = BOp Op Expr Expr
            deriving (Show)
 opAdd' = checkOp 
