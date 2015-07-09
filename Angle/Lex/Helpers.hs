@@ -198,6 +198,15 @@ notScan sc = tryScan (do
 -- ...
 noneFrom :: (a -> Scanner a) -> [a] -> Scanner ()
 noneFrom scf = notScan . oneFrom scf
+               
+
+-- [[[
+chain :: [Scanner a] -> Scanner [a]
+chain = sequence
+        
+chainFlat :: [Scanner [a]] -> Scanner [a]
+chainFlat scs = chain scs >>= return . concat
+-- ]]]
 
 -- |List of `sc' separated with `sep'
 -- >>> evalScan "1,2,3" (sepWith (char ',') (charFrom ['1'..'9']))
