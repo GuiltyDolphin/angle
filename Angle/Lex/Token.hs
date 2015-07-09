@@ -30,6 +30,7 @@ module Angle.Lex.Token
     , tokString
     , tokNewLine
     , tokEOF
+    , tokStmtBetween
     , ident
     , angles
     , parens
@@ -98,6 +99,7 @@ tokGroupEnd = tokParenR <?> "end of group"
 tokTupleStart = tokParenL <?> "start of tuple"
 tokTupleEnd = tokParenR <?> "end of tuple"
 tokSpace = char ' ' <?> "space"
+-- Might be an issue with this
 tokWhitespace = cond isSpace <?> "whitespace"
 tokAssign = surrounded spaces (char '=') <?> "assignment operator"
 tokRangeSep = string ".." <?> "range separator"
@@ -106,6 +108,7 @@ tokFalse = string "false" <?> "false"
 tokPeriod = char '.' <?> "period"
 tokNewLine = char '\n' <?> "newline"
 tokEOF = notScan anyChar <?> "eof"
+tokStmtBetween = whitespace <?> "ignored characters"
          
 tokInt = some tokDenaryDigit <?> "integer"
 
@@ -156,7 +159,8 @@ keyword str = string str <* tokSpace
 -- >>> evalScan "test" (parens (string "test"))
 -- Left ...
 -- ...
-parens = within tokParenL tokParenR
+parens :: Scanner a -> Scanner a
+parens sc = within tokParenL tokParenR sc <?> "parentheses"
          
 tokList = within tokListStart tokListEnd
 

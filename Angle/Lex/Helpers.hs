@@ -47,7 +47,7 @@ cond :: (Char -> Bool) -> Scanner Char
 cond f = tryScan $ do
   ch <- scanChar
   if f ch then return ch
-  else failScan . concat $ ["unexpected character: ", show ch]
+  else unexpectedErr ("character: " ++ show ch)  -- failScan . concat $ ["unexpected character: ", show ch]
 
 -- Attempt to satisfy the provided scanner, but revert
 -- the state upon failure.

@@ -7,12 +7,8 @@ module Angle.Parse.Parser
 import Angle.Lex.Lexer
 import Control.Monad.Reader
 import Control.Monad.Error
-    
 
-newtype LangEnv = Env [(Expr, Expr)]
-    
-class LangAdd a b c | a b -> c where
-    langAdd :: a -> b -> c
-
-instance (Num a) => LangAdd a a a where
-    langAdd = (+)
+data LangError = TypeError Expr
+               | SyntaxError String
+               | UndefinedIdent String
+               | DefaultError String

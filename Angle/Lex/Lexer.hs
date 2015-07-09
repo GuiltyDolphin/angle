@@ -106,11 +106,11 @@ data Expr = ExprIdent LangIdent
           | ExprOp LangOp
             deriving (Show)
             
-expr = tryScan exprOp <|> tryScan exprB <|> tryScan exprFunCall <|> exprLit <|> exprIdent <?> "expression"
+expr = tryScan exprB <|> exprOp <|> tryScan exprFunCall <|> exprLit <|> exprIdent <?> "expression"
        
 exprB = liftM ExprB (within tokParenL tokParenR expr) <?> "bracketed expression"
 
-exprIdent = liftM ExprIdent langIdent
+exprIdent = liftM ExprIdent langIdent <?> "identifier"
             
 type LangIdent = String
 langIdent :: Scanner LangIdent
@@ -126,15 +126,15 @@ exprFunCall = liftM ExprFunCall langFunCall
 -- |Standard function call
 -- >>> evalScan "fun(1,2)" langFunCall
 -- Right (...funName =..."fun", funArgs = [...1...,...2...]...)
-langFunCall = do
+langFunCall = (do
   name <- langIdent
   args <- arglist
   return FC { funName = name
-            , funArgs = args }
+            , funArgs = args }) <?> "function call"
   
 -- TODO: Issue with recursion when using binary operators
 -- Fix this? Or just keep the only parse operator solution.
-exprOp = liftM ExprOp langOp <?> "operation"
+exprOp = liftM ExprOp langOp -- <?> "operation"
 -- data LangOp = UnOp Op Expr | BinOp Op Expr Expr
 --               deriving (Show)
                        
@@ -143,21 +143,22 @@ data LangOp = SpecOp Op Expr | MultiOp Op [Expr]
               deriving (Show)
 
 -- langOp = unOp <|> binOp <?> "operation"
-langOp = specOp <|> multiOp <?> "operation"
+langOp = specOp <|> multiOp -- <?> "operation"
 
-data Op = Mult | Div | Add | Sub | Not
+data Op = OpMult | OpDiv | OpAdd | OpSub | OpNot | OpEq
           deriving (Show)
 
-spacedOp :: Scanner Op -> Scanner Op
-spacedOp = surrounded spaces
 opMult, opDiv, opAdd, opSub, opNot :: Scanner Op
-opMult = spacedOp $ char '*' >> return Mult
-opDiv = spacedOp $ char '/' >> return Div
-opAdd = spacedOp $ char '+' >> return Add
-opSub = spacedOp $ char '-' >> return Sub
-opNot = spacedOp $ char '^' >> return Not
+opMult = char '*' >> return OpMult <?> "operator (*)"
+opDiv = char '/' >> return OpDiv <?> "operator (/)"
+opAdd = char '+' >> return OpAdd <?> "operator (+)"
+opSub = char '-' >> return OpSub <?> "operator (-)"
+opNot = char '^' >> return OpNot <?> "operator (^)"
+opEq = string "==" >> return OpEq <?> "operator (==)"
        
-
+-- |Operators that can be used outside parentheses
+-- >>> evalScan "^true" specOp
+-- Right (...Not...True...)
 specOp :: Scanner LangOp
 specOp = choice (map preOp specOps) <?> "special operator"
                        
@@ -169,18 +170,23 @@ preOp sc = do
   opr <- expr
   return $ SpecOp op opr
          
+-- |Operators called within parentheses that may have
+-- multiple operands
+-- >>> evalScan "(+ 1 3)" multiOp
+-- Right (...Add...1...3...)
 multiOp :: Scanner LangOp
-multiOp = choice (map multOp multiOps) <?> "multi operator"
+multiOp = choice (map multOp multiOps) <?> "operator expression"
           
 multiOps :: [Scanner Op]
-multiOps = [opMult, opDiv, opAdd, opSub]
+multiOps = [opMult, opDiv, opAdd, opSub, opEq]
            
 multOp :: Scanner Op -> Scanner LangOp
-multOp sc = parens $ do
+multOp sc = tryScan . parens $ do
               op <- sc
-              oprs <- sepWith whitespace expr
+              tokSpace
+              oprs <- sepWith tokSpace expr
               return $ MultiOp op oprs
-  
+                     
 data Stmt = SingleStmt SingStmt | MultiStmt [Stmt]
             deriving (Show)
 
@@ -209,14 +215,23 @@ multiStmt = do
 data SingStmt = StmtAssign LangIdent Expr
               | StmtStruct LangStruct
               | StmtExpr Expr
+              | StmtComment String
                 deriving (Show)
                 
+
 -- TODO: Last statement in a multi-statement block, or at
 -- end of file, shouldn't need to have a newline or semi-colon
 singStmt :: Scanner SingStmt
-singStmt = tryScan stmtAssign <* checkStmtEnd
+singStmt = tokStmtBetween *> 
+           (   tryScan stmtAssign <* checkStmtEnd
            <|> stmtStruct 
            <|> stmtExpr <* checkStmtEnd
+           <|> stmtComment) <* tokStmtBetween
+               
+stmtComment = (do
+  char '#'
+  cmt <- many (notChar '\n')
+  return $ StmtComment cmt) <?> "comment"
            
 stmtExpr :: Scanner SingStmt
 stmtExpr = liftM StmtExpr expr
@@ -309,7 +324,7 @@ structReturn = liftM StructReturn (keyword "return" *> expr) <?> "return constru
 
 program :: Scanner [Stmt]
 program = do
-  followed tokEOF (some stmt)
+  followed tokEOF (many stmt)
   
   -- sepWith (some tokNewLine) stmt
   
