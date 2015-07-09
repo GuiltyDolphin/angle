@@ -296,27 +296,34 @@ langFunCall = do
 -- TODO: Issue with recursion when using binary operators
 -- Fix this? Or just keep the only parse operator solution.
 exprOp = liftM ExprOp langOp <?> "operation"
-data LangOp = UnOp Op | BinOp Op
+data LangOp = UnOp Op Expr | BinOp Op Expr Expr
               deriving (Show)
 
 langOp = unOp <|> binOp <?> "operation"
 
-data Op = Add | Sub | Not
+data Op = Mult | Div | Add | Sub | Not
           deriving (Show)
 
 spacedOp :: Scanner Op -> Scanner Op
 spacedOp = surrounded spaces
-opAdd, opSub, opNot :: Scanner Op
+opMult, opDiv, opAdd, opSub, opNot :: Scanner Op
+opMult = spacedOp $ char '*' >> return Mult
+opDiv = spacedOp $ char '/' >> return Div
 opAdd = spacedOp $ char '+' >> return Add
 opSub = spacedOp $ char '-' >> return Sub
 opNot = spacedOp $ char '^' >> return Not
         
 -- |Unary operators
--- >>> evalScan "^" unOp
+-- >>> evalScan "^" unOpC
 -- Right (...Not)
-unOp :: Scanner LangOp
-unOp = liftM UnOp (choice [opNot])
-       
+unOpC :: Scanner Op -> Scanner LangOp
+unOpC op = do 
+  p <- op
+  r <- expr
+  return $ UnOp p r
+      
+unOp = choice $ map unOpC [opNot]
+
 -- |Binary operators
 -- >>> evalScan "+" binOp
 -- Right (...Add)
@@ -324,7 +331,16 @@ unOp = liftM UnOp (choice [opNot])
 -- >>> evalScan "-" binOp
 -- Right (...Sub)
 binOp :: Scanner LangOp
-binOp = liftM BinOp (choice [opAdd, opSub])
+binOp = choice (map binOpC [opMult, opDiv, opAdd, opSub]) <?> "binary operator"
+        
+binOpC :: Scanner Op -> Scanner LangOp
+binOpC op = do
+  s <- someTill op anyChar
+  l <- expr
+  p <- op
+  r <- expr
+  return $ BinOp p l r
+  
         
 checkOp op = do
   lookAhead (notScan op)
@@ -333,13 +349,13 @@ checkOp op = do
   r <- expr
   return $ BOp p l r
          
-binOp' sc :: Scanner Op
-         
          
 data BOp = BOp Op Expr Expr
            deriving (Show)
 opAdd' = checkOp 
-  
+         
+testOps = [checkOp opMult, checkOp opAdd]
+          
 -- 
 -- 
 -- unOp = do
