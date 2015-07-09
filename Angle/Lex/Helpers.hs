@@ -113,13 +113,9 @@ surrounded surr = tryScan . within surr surr
 -- Left ...
 -- ...
 followed :: Scanner a -> Scanner b -> Scanner b
-followed f sc = do
-  res <- sc
-  f
-  return res
-  -- tryScan (sc <* f)
+followed f sc = sc <* f
 
--- Use first Scanner that succeeds
+-- |Use first Scanner that succeeds
 -- evalScan "test" (choice [char 'e', char 't'])
 -- Right 't'
 --
