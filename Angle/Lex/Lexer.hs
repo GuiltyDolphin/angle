@@ -11,16 +11,8 @@ module Angle.Lex.Lexer
 -- Write this!
 import Angle.Lex.Helpers
 import Angle.Lex.Token
-import Control.Monad (liftM2)
 import Control.Monad.State
 import Control.Applicative
-import Control.Monad.Error
-import Data.Monoid
-import Control.Monad.Reader
-import Data.Maybe (fromJust)
-import Data.List (span, break)
-import Data.Char (isAlphaNum, isAlpha, isNumber, digitToInt, isDigit, isAscii)
-import qualified Data.Map as M
 
 
 exprLit = liftM ExprLit langLit
@@ -161,7 +153,12 @@ data LangOp = SpecOp Op Expr | MultiOp Op [Expr]
 -- langOp = unOp <|> binOp <?> "operation"
 langOp = specOp <|> multiOp -- <?> "operation"
 
-data Op = OpMult | OpDiv | OpAdd | OpSub | OpNot | OpEq
+data Op = OpMult 
+        | OpDiv 
+        | OpAdd 
+        | OpSub 
+        | OpNot 
+        | OpEq
           deriving (Show)
         
 opMult, opDiv, opAdd, opSub, opNot :: Scanner Op
@@ -185,7 +182,7 @@ specOps :: [Scanner Op]
 specOps = [opNot]
           
 preOp sc = do
-  op <- sc
+  op  <- sc
   opr <- expr
   return $ SpecOp op opr
          
@@ -206,7 +203,8 @@ multOp sc = tryScan . parens $ do
               oprs <- sepWith tokSpace expr
               return $ MultiOp op oprs
                      
-data Stmt = SingleStmt SingStmt | MultiStmt [Stmt]
+data Stmt = SingleStmt SingStmt 
+          | MultiStmt [Stmt]
             deriving (Show)
 
 stmt :: Scanner Stmt
@@ -245,8 +243,8 @@ singStmt :: Scanner SingStmt
 singStmt = tokStmtBetween *> 
            (   tryScan stmtAssign <* checkStmtEnd
            <|> stmtStruct 
-           <|> stmtExpr <* checkStmtEnd
-           <|> stmtComment) <* tokStmtBetween
+           <|> stmtExpr           <* checkStmtEnd
+           <|> stmtComment)       <* tokStmtBetween
                
 stmtComment = (do
   char '#'
@@ -263,7 +261,7 @@ stmtAssign :: Scanner SingStmt
 stmtAssign = do
   name <- langIdent
   tokAssign
-  val <- expr
+  val  <- expr
   return $ StmtAssign name val
                 
 stmtStruct :: Scanner SingStmt 
@@ -279,7 +277,12 @@ data LangStruct = StructFor LangIdent Expr Stmt
                   deriving (Show)
                   
                   
-langStruct = structFor <|> structWhile <|> structIf <|> structDefun <|> structReturn <?> "language construct"
+langStruct =     structFor 
+             <|> structWhile 
+             <|> structIf 
+             <|> structDefun 
+             <|> structReturn 
+             <?> "language construct"
              
              
 -- |For loop
@@ -333,19 +336,19 @@ data LangFun = LangFun { funDeclName :: LangIdent
 structDefun :: Scanner LangStruct
 structDefun = do
   keyword "defun"
-  name <- langIdent
+  name     <- langIdent
   argNames <- parens (sepWith (char ',') langIdent)
   optional tokStmtEnd
-  body <- stmt
+  body     <- stmt
   return $ StructDefun name argNames body
          
-structReturn = liftM StructReturn (keyword "return" *> expr) <?> "return construct"
+structReturn = liftM StructReturn (keyword "return" *> expr) 
+               <?> "return construct"
 
          
 
 program :: Scanner [Stmt]
-program = do
-  followed tokEOF (many stmt)
+program = followed tokEOF (many stmt)
   
   -- sepWith (some tokNewLine) stmt
   
