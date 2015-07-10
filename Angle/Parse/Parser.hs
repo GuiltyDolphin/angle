@@ -59,9 +59,41 @@ type LE = ErrorT LangError (ReaderT Env IO)
 --     Nothing -> return False
 --     Just _ -> return True
 
+int1 :: IO TestInt 
+int1 = newIORef 1
+       
+-- add1 :: TestInt -> IO TestInt
+-- add1 = return . (+1)
 
 opMap = [(OpNot, langNot)]
+
+langNot (LitBool x) = LitBool (not x)
+
+evalExpr :: Expr -> LangLit
+evalExpr (ExprLit x) = x
                        
+langLitJoin :: LangLit -> LangLit -> Either LangError LangLit
+langLitJoin (LitList xs) (LitList ys) = return $ LitList (xs++ys)
+langLitJoin x (LitList _) = Left (TypeError $ TypeUnexpected (typeOf x) LList)
+langLitJoin l@(LitList _) x = langLitJoin x l
+
+                            
+langLitAdd :: LangLit -> LangLit -> Either LangError LangLit
+langLitAdd l@(LitList _) r = langLitJoin l r
+langLitAdd (LitInt x) (LitInt y) = return $ LitInt (x + y)
+langLitAdd (LitFloat x) r 
+    = case r of
+        LitInt y -> return $ LitFloat (x + fromIntegral y)
+        LitFloat y -> return $ LitFloat (x + y)
+        _ -> Left . TypeError $ TypeUnexpected (typeOf r) LFloat
+langLitAdd l r@(LitFloat _) = langLitAdd r l
+langLitAdd l r 
+    | typeOf l /= typeOf r 
+        = Left . TypeError $ TypeMismatch ltype rtype
+    | otherwise 
+        = Left . TypeError $ TypeNotValid ltype
+    where ltype = typeOf l
+          rtype = typeOf r
                  
 data LangType = LList | LBool | LStr | LInt | LFloat
                 deriving (Eq)
