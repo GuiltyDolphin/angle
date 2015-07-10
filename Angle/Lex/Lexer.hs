@@ -165,12 +165,15 @@ data Op = OpMult | OpDiv | OpAdd | OpSub | OpNot | OpEq
           deriving (Show)
         
 opMult, opDiv, opAdd, opSub, opNot :: Scanner Op
-opMult = char '*' >> return OpMult <?> "operator (*)"
-opDiv = char '/' >> return OpDiv <?> "operator (/)"
-opAdd = char '+' >> return OpAdd <?> "operator (+)"
-opSub = char '-' >> return OpSub <?> "operator (-)"
-opNot = char '^' >> return OpNot <?> "operator (^)"
-opEq = string "==" >> return OpEq <?> "operator (==)"
+makeOp :: Scanner a -> Op -> Scanner Op
+makeOp sc op = sc >> return op
+
+opMult = makeOp (char '*')    OpMult <?> "operator (*)"
+opDiv  = makeOp (char '/')    OpDiv  <?> "operator (/)"
+opAdd  = makeOp (char '+')    OpAdd  <?> "operator (+)"
+opSub  = makeOp (char '-')    OpSub  <?> "operator (-)"
+opNot  = makeOp (char '^')    OpNot  <?> "operator (^)"
+opEq   = makeOp (string "==") OpEq   <?> "operator (==)"
        
 -- |Operators that can be used outside parentheses
 -- >>> evalScan "^true" specOp
