@@ -15,6 +15,8 @@ module Angle.Lex.Helpers
     , surrounded
     , (<?>)
     , oneFrom
+    , chain
+    , chainFlat
     , anyChar
     , manyTill
     , someTill
@@ -103,7 +105,7 @@ within start end sc = do
 -- Right "one"
 --
 surrounded :: Scanner a -> Scanner b -> Scanner b
-surrounded surr = tryScan . within surr surr
+surrounded surr = within surr surr
 
 -- |`f' succeeds after `sc'
 -- >>> evalScan "test" (followed (char 'e') (char 't'))
@@ -233,13 +235,6 @@ manyTill ti sc = many (notScan ti *> sc)
 -- ...
 someTill :: Scanner b -> Scanner a -> Scanner [a]
 someTill ti sc = (:) <$> (notScan ti *> sc) <*> manyTill ti sc
-
--- Fail the scan with the location and provided message.
-failScan :: String -> Scanner a
-failScan msg = do
-  pos <- liftM sourcePos get
-  throwError ((strMsg msg) { errPos=pos })
-  -- throwError . strMsg . concat $ [showPos pos, msg]
 
 -- If the scan fails, specify what was expected
 infix 0 <?>

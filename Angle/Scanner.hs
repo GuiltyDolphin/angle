@@ -77,9 +77,9 @@ instance Show ScanError where
     = cEp ++ cUm ++ cEm ++ errm
       where cEp = showPos ep ++ "\n"
             cEm = if null em then "" 
-                  else "expected " ++ em ++ "\n"
+                  else concat ["expected ", em, "\n"]
             cUm = if null um then "" 
-                  else "unexpected " ++ um ++ "\n"
+                  else concat ["unexpected ", um, "\n"]
             showPos :: SourcePos -> String
             showPos (ln,cn,_) =
               concat ["line: ", show ln, ", column: ", show cn]

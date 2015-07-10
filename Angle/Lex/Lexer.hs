@@ -15,6 +15,133 @@ import Control.Monad.State
 import Control.Applicative
 
 
+data Stmt = SingleStmt SingStmt 
+          | MultiStmt [Stmt]
+            deriving (Show)
+
+stmt :: Scanner Stmt
+stmt = (multiStmt <|> singleStmt) <?> "statement"
+       
+singleStmt :: Scanner Stmt
+singleStmt = liftM SingleStmt singStmt
+
+-- |Statement consisting of zero or more statements
+-- >>> evalScan "{}" multiStmt
+-- Right (...[])
+--
+-- >>> evalScan "{1;3}" multiStmt
+-- Right (...[...1...3...])
+--
+-- TODO: Is it wise to allow empty multi-statements?
+multiStmt :: Scanner Stmt
+multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
+
+-- | A single statement;
+data SingStmt = StmtAssign LangIdent Expr
+              | StmtComment String
+              | StmtStruct LangStruct
+              | StmtExpr Expr
+                deriving (Show)
+
+-- TODO: Last statement in a multi-statement block, or at
+-- end of file, shouldn't need to have a newline or semi-colon
+singStmt :: Scanner SingStmt
+singStmt = surrounded tokStmtBetween
+           (   tryScan stmtAssign <* checkStmtEnd
+           <|> stmtStruct 
+           <|> stmtExpr           <* checkStmtEnd
+           <|> stmtComment)
+               
+-- |Variable assignment
+-- >>> evalScan "x=5" stmtAssign
+-- Right (..."x"...5...)
+stmtAssign :: Scanner SingStmt
+stmtAssign = StmtAssign 
+             <$> (langIdent <* tokAssign) 
+             <*> expr
+
+stmtComment :: Scanner SingStmt
+stmtComment = StmtComment <$> (char '#' *> many (notChar '\n'))
+              <?> "comment"
+           
+stmtStruct :: Scanner SingStmt 
+stmtStruct = liftM StmtStruct langStruct
+
+stmtExpr :: Scanner SingStmt
+stmtExpr = liftM StmtExpr expr
+
+-- |Specialised language constructs
+data LangStruct = StructFor LangIdent Expr Stmt
+                | StructWhile Expr Stmt
+                | StructIf Expr Stmt (Maybe Stmt)
+                | StructDefun LangIdent [LangIdent] Stmt
+                | StructReturn Expr -- TODO: Probably don't 
+                                    -- need this
+                  deriving (Show)
+                  
+langStruct :: Scanner LangStruct
+langStruct =     structFor 
+             <|> structWhile 
+             <|> structIf 
+             <|> structDefun 
+             <|> structReturn 
+             <?> "language construct"
+             
+             
+-- |For loop
+-- >>> evalScan "for x in (2..8) do {}" structFor
+-- Right (..."x"...2...8...[]...)
+structFor :: Scanner LangStruct
+structFor = do
+  keyword "for"
+  name <- langIdent
+  keyword " in"
+  iter <- expr
+  string " do"
+  optional tokNewLine
+  body <- stmt
+  return $ StructFor name iter body
+
+-- |While loop
+-- >>> evalScan "while true do {}" structWhile
+-- Right (...True...[]...)         
+structWhile :: Scanner LangStruct
+structWhile = StructWhile 
+              <$> (keyword "while" *> expr)
+              <*> (keyword " do"   *> stmt)
+         
+-- |Conditional if statement
+-- >>> evalScan "if true then {}" structIf
+-- Right (...True...[]...Nothing)
+--
+-- >>> evalScan "if false then {} else {}" structIf
+-- Right (...False...[]...Just...[]...)
+structIf :: Scanner LangStruct
+structIf = StructIf
+           <$> (keyword "if" *> expr)
+           <*> (keyword " then" *> stmt)
+           <*> optional (keyword "else" *> stmt)
+
+        
+-- |Function definition
+-- >>> evalScan "defun foo(x) { print(x) }" structDefun
+-- Right (..."foo"..."x"...)
+structDefun :: Scanner LangStruct
+structDefun = StructDefun
+              <$> (keyword "defun" *> langIdent)
+              <*> parens (sepWith (char ',') langIdent)
+              <*> (optional tokStmtEnd *> stmt)
+         
+structReturn = liftM StructReturn (keyword "return" *> expr) 
+               <?> "return construct"
+
+         
+
+program :: Scanner [Stmt]
+program = followed tokEOF (many stmt)
+  
+  -- sepWith (some tokNewLine) stmt
+
 exprLit = liftM ExprLit langLit
 
 data LangLit = LitStr String
@@ -54,18 +181,16 @@ litStr = liftM LitStr tokString <?> "string literal"
 -- Left ...
 -- ...
 litInt :: Scanner LangLit
-litInt = liftM (LitInt . read) (some tokDenaryDigit) <?> "integer literal"
+litInt = liftA LitInt tokInt <?> "integer literal"
+-- litInt = liftM (LitInt . read) (some tokDenaryDigit) <?> "integer literal"
          
 
 -- |Floating-point literal
 -- >>> evalScan "12.3" litFloat
 -- Right (...12.3)
 litFloat :: Scanner LangLit
-litFloat = liftM (LitFloat . read) (do
-             first <- some tokDenaryDigit
-             char '.'
-             rest <- some tokDenaryDigit
-             return (first ++ "." ++ rest)) <?> "floating-point literal"
+litFloat = liftM LitFloat tokFloat 
+           <?> "floating-point literal"
              
 
 -- |Multi-type list
@@ -76,7 +201,8 @@ litFloat = liftM (LitFloat . read) (do
 -- Left ...
 -- ...
 litList :: Scanner LangLit
-litList = liftM LitList (within tokListStart tokListEnd (sepWith tokEltSep expr)) <?> "list literal"
+litList = liftM LitList (tokList $ sepWith tokEltSep expr) 
+          <?> "list literal"
 
 
 -- |Boolean literal
@@ -86,20 +212,20 @@ litList = liftM LitList (within tokListStart tokListEnd (sepWith tokEltSep expr)
 -- >>> evalScan "false" litBool
 -- Right (... False)
 litBool :: Scanner LangLit
-litBool = liftM LitBool (litTrue <|> litFalse) <?> "boolean literal"
-  where litTrue = tokTrue >> return True
-        litFalse = tokFalse >> return False
+litBool = liftM LitBool (litTrue <|> litFalse) 
+          <?> "boolean literal"
+    where litTrue  = tokTrue  >> return True
+          litFalse = tokFalse >> return False
                    
 -- |Dotted range of values
 -- >>> evalScan "(1..7)" litRange
 -- Right (...1...7...)
 --
 -- TODO: Add additional `step' to ranges (1..7..3)
-litRange = parens (do
-  start <- expr
-  tokRangeSep
-  end <- expr
-  return $ LitRange start end) <?> "range literal"
+litRange = parens (LitRange 
+                   <$> (expr <* tokRangeSep) 
+                   <*> expr)
+           <?> "range literal"
 
 
 
@@ -110,7 +236,12 @@ data Expr = ExprIdent LangIdent
           | ExprOp LangOp
             deriving (Show)
                      
-expr = tryScan exprB <|> exprOp <|> tryScan exprFunCall <|> exprLit <|> exprIdent <?> "expression"
+expr = tryScan exprB 
+       <|> exprOp 
+       <|> tryScan exprFunCall 
+       <|> exprLit 
+       <|> exprIdent 
+       <?> "expression"
        
 exprB = liftM ExprB (within tokParenL tokParenR expr) <?> "bracketed expression"
 
@@ -120,7 +251,7 @@ type LangIdent = String
 langIdent :: Scanner LangIdent
 langIdent = ident <?> "identifier"
 
-data LangFunCall = FC { funName :: LangIdent, funArgs :: [Expr] }
+data LangFunCall = FC LangIdent [Expr]
                    deriving (Show)
                  
 
@@ -131,29 +262,23 @@ exprFunCall = liftM ExprFunCall langFunCall
               
 -- |Standard function call
 -- >>> evalScan "fun(1,2)" langFunCall
--- Right (...funName =..."fun", funArgs = [...1...,...2...]...)
-langFunCall = (do
-  name <- langIdent
-  args <- arglist
-  return FC { funName = name
-            , funArgs = args }) <?> "function call"
+-- Right (..."fun" [...1...,...2...])
+langFunCall = FC <$> langIdent <*> arglist <?> "function call"
   
--- TODO: Issue with recursion when using binary operators
--- Fix this? Or just keep the only parse operator solution.
 exprOp = liftM ExprOp langOp -- <?> "operation"
 -- data LangOp = UnOp Op Expr | BinOp Op Expr Expr
 --               deriving (Show)
                        
 
-data LangOp = SpecOp Op Expr | MultiOp Op [Expr]
+data LangOp = SpecOp Op Expr 
+            | MultiOp Op [Expr]
               deriving (Show)
-            
-
 
 -- langOp = unOp <|> binOp <?> "operation"
 langOp = specOp <|> multiOp -- <?> "operation"
 
-data Op = OpMult 
+data Op = OpNeg
+        | OpMult 
         | OpDiv 
         | OpAdd 
         | OpSub 
@@ -165,6 +290,7 @@ opMult, opDiv, opAdd, opSub, opNot :: Scanner Op
 makeOp :: Scanner a -> Op -> Scanner Op
 makeOp sc op = sc >> return op
 
+opNeg  = makeOp (char '-')    OpNeg  <?> "operator (-)"
 opMult = makeOp (char '*')    OpMult <?> "operator (*)"
 opDiv  = makeOp (char '/')    OpDiv  <?> "operator (/)"
 opAdd  = makeOp (char '+')    OpAdd  <?> "operator (+)"
@@ -179,7 +305,7 @@ specOp :: Scanner LangOp
 specOp = choice (map preOp specOps) <?> "special operator"
                        
 specOps :: [Scanner Op]
-specOps = [opNot]
+specOps = [opNot, opNeg]
           
 preOp sc = do
   op  <- sc
@@ -197,158 +323,8 @@ multiOps :: [Scanner Op]
 multiOps = [opMult, opDiv, opAdd, opSub, opEq]
            
 multOp :: Scanner Op -> Scanner LangOp
-multOp sc = tryScan . parens $ do
-              op <- sc
-              tokSpace
-              oprs <- sepWith tokSpace expr
-              return $ MultiOp op oprs
+multOp sc = tryScan . parens $ MultiOp
+            <$> (sc <* tokSpace)
+            <*> sepWith (some tokWhitespace) expr
                      
-data Stmt = SingleStmt SingStmt 
-          | MultiStmt [Stmt]
-            deriving (Show)
-
-stmt :: Scanner Stmt
-stmt = (multiStmt <|> singleStmt) <?> "statement"
-       
-singleStmt :: Scanner Stmt
-singleStmt = liftM SingleStmt singStmt
-       
--- |Statement consisting of zero or more statements
--- >>> evalScan "{}" multiStmt
--- Right (...[])
---
--- >>> evalScan "{1;3}" multiStmt
--- Right (...[...1...3...])
---
--- TODO: Is it wise to allow empty multi-statements?
-multiStmt :: Scanner Stmt
-multiStmt = do
-  tokMultiStmtStart
-  body <- many stmt
-  tokMultiStmtEnd
-  return $ MultiStmt body
-
--- | A single statement;
-data SingStmt = StmtAssign LangIdent Expr
-              | StmtStruct LangStruct
-              | StmtExpr Expr
-              | StmtComment String
-                deriving (Show)
-                         
-                
-
--- TODO: Last statement in a multi-statement block, or at
--- end of file, shouldn't need to have a newline or semi-colon
-singStmt :: Scanner SingStmt
-singStmt = tokStmtBetween *> 
-           (   tryScan stmtAssign <* checkStmtEnd
-           <|> stmtStruct 
-           <|> stmtExpr           <* checkStmtEnd
-           <|> stmtComment)       <* tokStmtBetween
-               
-stmtComment = (do
-  char '#'
-  cmt <- many (notChar '\n')
-  return $ StmtComment cmt) <?> "comment"
-           
-stmtExpr :: Scanner SingStmt
-stmtExpr = liftM StmtExpr expr
-           
--- |Variable assignment
--- >>> evalScan "x=5" stmtAssign
--- Right (..."x"...5...)
-stmtAssign :: Scanner SingStmt
-stmtAssign = do
-  name <- langIdent
-  tokAssign
-  val  <- expr
-  return $ StmtAssign name val
-                
-stmtStruct :: Scanner SingStmt 
-stmtStruct = liftM StmtStruct langStruct
-
--- |Specialised language constructs
-data LangStruct = StructFor LangIdent Expr Stmt
-                | StructWhile Expr Stmt
-                | StructIf Expr Stmt (Maybe Stmt)
-                | StructDefun LangIdent [LangIdent] Stmt
-                | StructReturn Expr -- TODO: Probably don't 
-                                    -- need this
-                  deriving (Show)
-                  
-                  
-langStruct =     structFor 
-             <|> structWhile 
-             <|> structIf 
-             <|> structDefun 
-             <|> structReturn 
-             <?> "language construct"
-             
-             
--- |For loop
--- >>> evalScan "for x in (2..8) do {}" structFor
--- Right (..."x"...2...8...[]...)
-structFor = do
-  keyword "for"
-  name <- langIdent
-  keyword " in"
-  iter <- expr
-  string " do"
-  optional tokNewLine
-  body <- stmt
-  return $ StructFor name iter body
-
--- |While loop
--- >>> evalScan "while true do {}" structWhile
--- Right (...True...[]...)         
-structWhile = do
-  keyword "while"
-  p <- expr
-  keyword " do"
-  body <- stmt
-  return $ StructWhile p body
-         
--- |Conditional if statement
--- >>> evalScan "if true then {}" structIf
--- Right (...True...[]...Nothing)
---
--- >>> evalScan "if false then {} else {}" structIf
--- Right (...False...[]...Just...[]...)
-structIf = do
-  keyword "if"
-  p <- expr
-  keyword " then"
-  thenBody <- stmt
-  elseBody <- optional (do
-                         keyword "else"
-                         stmt)
-  return $ StructIf p thenBody elseBody
-
-        
-data LangFun = LangFun { funDeclName :: LangIdent
-                       , funDeclArgs :: [LangIdent]
-                       , funDeclBody :: Stmt } 
-               deriving (Show)
-             
--- |Function definition
--- >>> evalScan "defun foo(x) { print(x) }" structDefun
--- Right (..."foo"..."x"...)
-structDefun :: Scanner LangStruct
-structDefun = do
-  keyword "defun"
-  name     <- langIdent
-  argNames <- parens (sepWith (char ',') langIdent)
-  optional tokStmtEnd
-  body     <- stmt
-  return $ StructDefun name argNames body
-         
-structReturn = liftM StructReturn (keyword "return" *> expr) 
-               <?> "return construct"
-
-         
-
-program :: Scanner [Stmt]
-program = followed tokEOF (many stmt)
-  
-  -- sepWith (some tokNewLine) stmt
   

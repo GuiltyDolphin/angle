@@ -24,6 +24,9 @@ module Angle.Lex.Token
     , tokNewLine
     , tokEOF
     , tokStmtBetween
+    , tokList
+    , tokFloat
+    , tokInt
     , ident
     , parens
     , keyword
@@ -36,54 +39,57 @@ module Angle.Lex.Token
 
 import Angle.Lex.Helpers
 import Control.Applicative
-import Data.Char (isDigit, isSpace)
+import Data.Char (isDigit, isSpace, isAlpha, isAlphaNum)
 
-tokStmtEnd = char ';' <|> char '\n' <?> "end of statement"
-tokListStart = char '[' <?> "start of list"
-tokListEnd = char ']' <?> "end of list"
-tokParenL = char '(' <?> "open parenthesis"
-tokParenR = char ')' <?> "close parenthesis"
-tokColon = char ':' <?> "colon"
-tokMultiStmtStart = surrounded whitespace (char '{') <?> "start of multi-statement"
-tokMultiStmtEnd = surrounded whitespace (char '}') <?> "end of multi-statement"
-tokEltSep = char ',' <* whitespace <?> "element separator"
-tokIdentStartChar = cond (`notElem` reservedChars) <?> "start of identifier"
-tokIdentBodyChar = tokIdentStartChar <?> "identifier character"
-tokStringStart = char '"' <?> "start of string"
-tokStringEnd = char '"' <?> "end of string"
-tokStringBodyChar = notChar '"' <?> "string body"
-tokDenaryDigit = cond isDigit <?> "denary digit"
+tokStmtEnd        = char ';' <|> char '\n' 
+                                    <?> "end of statement"
+tokListStart      = char '['        <?> "start of list"
+tokListEnd        = char ']'        <?> "end of list"
+tokParenL         = char '('        <?> "open parenthesis"
+tokParenR         = char ')'        <?> "close parenthesis"
+tokColon          = char ':'        <?> "colon"
+tokMultiStmtStart = surrounded whitespace (char '{') 
+                                    <?> "start of multi-statement"
+tokMultiStmtEnd   = surrounded whitespace (char '}') 
+                                    <?> "end of multi-statement"
+tokEltSep         = char ',' <* whitespace 
+                                    <?> "element separator"
+tokIdentStartChar = cond isAlpha
+                                    <?> "start of identifier"
+tokIdentBodyChar  = cond isAlphaNum
+                                    <?> "identifier character"
+tokStringStart    = char '"'        <?> "start of string"
+tokStringEnd      = char '"'        <?> "end of string"
+tokStringBodyChar = notChar '"'     <?> "string body"
+tokDenaryDigit    = cond isDigit    <?> "denary digit"
 -- TODO: Think of a better (and more relevant) 
 -- name than `declaration'
-tokTupleStart = tokParenL <?> "start of tuple"
-tokTupleEnd = tokParenR <?> "end of tuple"
-tokSpace = char ' ' <?> "space"
+tokTupleStart     = tokParenL       <?> "start of tuple"
+tokTupleEnd       = tokParenR       <?> "end of tuple"
+tokSpace          = char ' '        <?> "space"
 -- Might be an issue with this
-tokWhitespace = cond isSpace <?> "whitespace"
-tokAssign = surrounded spaces (char '=') <?> "assignment operator"
-tokRangeSep = string ".." <?> "range separator"
-tokTrue = string "true" <?> "true"
-tokFalse = string "false" <?> "false"
-tokPeriod = char '.' <?> "period"
-tokNewLine = char '\n' <?> "newline"
-tokEOF = notScan anyChar <?> "eof"
-tokStmtBetween = whitespace <?> "ignored characters"
+tokWhitespace     = cond isSpace    <?> "whitespace"
+tokAssign         = surrounded spaces (char '=') 
+                                    <?> "assignment operator"
+tokRangeSep       = string ".."     <?> "range separator"
+tokTrue           = string "true"   <?> "true"
+tokFalse          = string "false"  <?> "false"
+tokPeriod         = char '.'        <?> "period"
+tokNewLine        = char '\n'       <?> "newline"
+tokEOF            = notScan anyChar <?> "eof"
+tokStmtBetween    = whitespace      <?> "ignored characters"
          
-tokInt = some tokDenaryDigit <?> "integer"
+tokInt :: (Integral a, Read a) => Scanner a
+tokInt = read <$> some tokDenaryDigit <?> "integer"
+         
+tokDigits :: Scanner String
+tokDigits = some tokDenaryDigit
 
 tokFloat :: Scanner Float
-tokFloat = do
-  f <- tokInt
-  tokPeriod
-  rest <- tokInt
-  return $ read (f ++ "." ++ rest)
+tokFloat = read <$> chainFlat [tokDigits, string ".", tokDigits]
 
--- prop> \xs -> not $ any (`notElem` reservedChars) xs
--- prop> \xs -> evalScan xs ident
--- ident = do 
---   noneFrom string keywords
---   (:) <$> tokIdentStartChar <*> many tokIdentBodyChar <?> "identifier"                 
---         
+tokList :: Scanner a -> Scanner a
+tokList = within tokListStart tokListEnd
 
 -- |Function/variable identifier (but not a keyword)
 -- >>> evalScan "test" ident
@@ -92,23 +98,28 @@ tokFloat = do
 -- >>> evalScan "return" ident
 -- Left ...
 -- ...
-ident = do
-  noneFrom string keywords
-  (:) <$> alpha <*> many (alpha <|> digit)
+ident = noneFrom string keywords *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar)
 
-reservedChars = "<>;\n:{}\"'$@, "    
-                
 opChars = "*/+->=<|&^"
 sepChar = "{()};, =" ++ opChars
           
           
 exprSep = lookAhead (charFrom sepChar) <?> "expression boundary"
                 
-alpha = charFrom ['A'..'z']
-digit = charFrom ['0'..'9']
-
-keywords = ["defun", "do", "else", "false", "for", "if", "in", "return", "then", "true", "while"]
+-- TODO: Add built-in functions
+keywords = [ "defun"
+           , "do"
+           , "else"
+           , "false"
+           , "for"
+           , "if"
+           , "in"
+           , "return"
+           , "then"
+           , "true"
+           , "while"]
            
+-- TODO: Is this needed?
 keyword str = string str <* tokSpace
 
 -- |Run scan within parentheses
@@ -119,13 +130,14 @@ keyword str = string str <* tokSpace
 -- Left ...
 -- ...
 parens :: Scanner a -> Scanner a
-parens sc = within tokParenL tokParenR sc <?> "parentheses"
+parens sc = within tokParenL tokParenR sc 
+            <?> "parentheses"
          
-tokList = within tokListStart tokListEnd
+tokString = within tokStringStart tokStringEnd 
+            (many tokStringBodyChar) <?> "string"
 
-tokString = within tokStringStart tokStringEnd (many tokStringBodyChar) <?> "string"
-
-tuple sc = within tokTupleStart tokTupleEnd (sepWith tokEltSep sc)
+tuple sc = within tokTupleStart tokTupleEnd 
+           (sepWith tokEltSep sc) <?> "tuple"
 
 checkStmtEnd = lookAhead tokMultiStmtEnd <|> tokStmtEnd
 
