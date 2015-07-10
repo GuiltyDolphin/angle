@@ -2,6 +2,10 @@
 {-# LANGUAGE FunctionalDependencies #-}
 module Angle.Lex.Lexer 
     ( Expr(..)
+    , LangLit(..)
+    , LangOp(..)
+    , Op(..)
+    , Stmt(..)
     ) where
 
 -- Write this!
@@ -24,13 +28,21 @@ exprLit = liftM ExprLit langLit
 data LangLit = LitStr String
              | LitInt Int
              | LitFloat Float
-             | LitList [LangLit]
+             | LitList [Expr]
              | LitBool Bool
              | LitRange Expr Expr
                deriving (Show)
+               
 
+-- |Language literals
 langLit :: Scanner LangLit
-langLit = litStr <|> tryScan litFloat <|> litInt <|> litList <|> litBool <|> litRange <?> "literal"
+langLit = litStr 
+          <|> tryScan litFloat 
+          <|> litInt 
+          <|> litList 
+          <|> litBool 
+          <|> litRange 
+          <?> "literal"
 
 -- |A literal string
 -- >>> evalScan "\"test\"" litStr
@@ -66,13 +78,13 @@ litFloat = liftM (LitFloat . read) (do
 
 -- |Multi-type list
 -- >>> evalScan "[1,\"hello\",true]" litList
--- Right (... [... 1,... "hello",... True])
+-- Right (... [... 1...,... "hello"...,... True...])
 --
 -- >>> evalScan "1,\"hello\",true" litList
 -- Left ...
 -- ...
 litList :: Scanner LangLit
-litList = liftM LitList (within tokListStart tokListEnd (sepWith tokEltSep langLit)) <?> "list literal"
+litList = liftM LitList (within tokListStart tokListEnd (sepWith tokEltSep expr)) <?> "list literal"
 
 
 -- |Boolean literal
@@ -105,7 +117,7 @@ data Expr = ExprIdent LangIdent
           | ExprB Expr
           | ExprOp LangOp
             deriving (Show)
-            
+                     
 expr = tryScan exprB <|> exprOp <|> tryScan exprFunCall <|> exprLit <|> exprIdent <?> "expression"
        
 exprB = liftM ExprB (within tokParenL tokParenR expr) <?> "bracketed expression"
@@ -117,7 +129,9 @@ langIdent :: Scanner LangIdent
 langIdent = ident <?> "identifier"
 
 data LangFunCall = FC { funName :: LangIdent, funArgs :: [Expr] }
-  deriving (Show)
+                   deriving (Show)
+                 
+
  
 arglist = within tokTupleStart tokTupleEnd (sepWith tokEltSep expr)
 
@@ -141,13 +155,15 @@ exprOp = liftM ExprOp langOp -- <?> "operation"
 
 data LangOp = SpecOp Op Expr | MultiOp Op [Expr]
               deriving (Show)
+            
+
 
 -- langOp = unOp <|> binOp <?> "operation"
 langOp = specOp <|> multiOp -- <?> "operation"
 
 data Op = OpMult | OpDiv | OpAdd | OpSub | OpNot | OpEq
           deriving (Show)
-
+        
 opMult, opDiv, opAdd, opSub, opNot :: Scanner Op
 opMult = char '*' >> return OpMult <?> "operator (*)"
 opDiv = char '/' >> return OpDiv <?> "operator (/)"
@@ -217,6 +233,7 @@ data SingStmt = StmtAssign LangIdent Expr
               | StmtExpr Expr
               | StmtComment String
                 deriving (Show)
+                         
                 
 
 -- TODO: Last statement in a multi-statement block, or at
@@ -257,6 +274,7 @@ data LangStruct = StructFor LangIdent Expr Stmt
                 | StructReturn Expr -- TODO: Probably don't 
                                     -- need this
                   deriving (Show)
+                  
                   
 langStruct = structFor <|> structWhile <|> structIf <|> structDefun <|> structReturn <?> "language construct"
              
