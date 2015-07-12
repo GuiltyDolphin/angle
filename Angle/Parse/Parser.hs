@@ -13,20 +13,6 @@ import Control.Applicative
 import Data.IORef
 
 
--- Mutable state
--- Various alternative exist for emulating or modifying state
---   in both pure and side-effecting scenarios.
--- The State Monad\footnote{https://hackage.haskell.org/package/mtl-1.1.0.2/docs/Control-Monad-State-Lazy.html} - Provides an effect of State without
---   side-effects by performing computations based on an initial
---   state.
--- The ST Monad\footnote{https://hackage.haskell.org/package/base-4.7.0.0/docs/Control-Monad-ST.html} - Provides mutable state
---   via memory on the machine - allows reading and writing to this memory.
----  Prevents users from accessing external threads by forcing code that uses it to be fully general in the current thread type.\footnote{https://wiki.haskell.org/Monad/ST}
--- IORefs\footnote{https://hackage.haskell.org/package/base-4.7.0.2/docs/Data-IORef.html} - Allow for mutable variable references through the IO Monad.
--- MVars\footnote{https://hackage.haskell.org/package/base-4.8.0.0/docs/Control-Concurrent-MVar.html} - Mutable locations that can either be empty of contain a value of some type.
---  Provides a simple API of putMVar and takeMVar. These will store or retrieve a value from an MVar or block if the MVar is full or empty, respectively.
--- TVars\footnote{https://hackage.haskell.org/package/stm-2.1.1.2/docs/Control-Concurrent-STM-TVar.html} - Transactional Variables that have shared memory locations and support atomic memory transactions.
--- To represent the 
 data LangError = TypeError TypeError
                | SyntaxError String
                | UndefinedIdent String
@@ -52,26 +38,11 @@ newtype IOLangError a = ILE { runIOLangError :: ErrorT LangError IO a }
            
 type LE = ErrorT LangError (ReaderT Env IO)
 
--- isBound :: String -> LE Bool
--- isBound s = do
---   env <- ask
---   case lookup env s of
---     Nothing -> return False
---     Just _ -> return True
-
-int1 :: IO TestInt 
-int1 = newIORef 1
-       
--- add1 :: TestInt -> IO TestInt
--- add1 = return . (+1)
 
 opMap = [(OpNot, langNot)]
 
 langNot (LitBool x) = LitBool (not x)
 
-evalExpr :: Expr -> LangLit
-evalExpr (ExprLit x) = x
-                       
 langLitJoin :: LangLit -> LangLit -> Either LangError LangLit
 langLitJoin (LitList xs) (LitList ys) = return $ LitList (xs++ys)
 langLitJoin x (LitList _) = Left (TypeError $ TypeUnexpected (typeOf x) LList)
