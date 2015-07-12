@@ -187,6 +187,8 @@ getFunVal name = do
     Just x -> return x
 
               
+evalBasic = eval M.empty
+            
 opSub (ExprLit (LitInt x)) (ExprLit (LitInt y)) = ExprLit (LitInt (x - y))
 opAdd (ExprLit (LitInt x)) (ExprLit (LitInt y)) = ExprLit (LitInt (x + y))
 
@@ -223,6 +225,12 @@ negLit _ = throwError "wrong type in negation!"
 addLit :: LangLit -> LangLit -> LangLit
 addLit (LitInt x) (LitInt y) = LitInt (x + y)
 
+-- |Execute expression
+execExpr :: Expr -> EvalCxt Expr
+execExpr (ExprOp op) = liftM ExprLit (execOp op)
+execExpr lit@(ExprLit _) = return lit
+execExpr (ExprIdent x)   = getVarVal x
+execExpr (ExprFunCall name args) = funCall name args
                                    
 execOp (MultiOp op exprs) = execMultOp op exprs
                             
@@ -237,6 +245,39 @@ reduceExprToLit x = do
   res <- execExpr x
   reduceExprToLit res
                   
+reduceStmtToLit :: Stmt -> EvalCxt LangLit
+reduceStmtToLit (SingleStmt (StmtExpr x)) = reduceExprToLit x
+reduceStmtToLit x = do
+  res <- execStmt x
+  reduceExprToLit res
+                  
+reduceToLit = reduceStmtToLit
+-- evalExpr (ExprFunCall fc) = funCall fc
+                            
+-- funCall :: FunCall -> ExprC
+-- funCall (FC name args) = do
+                        
+execSingStmt :: SingStmt -> EvalCxt Expr
+execSingStmt (StmtAssign x y) = assignVal x y
+execSingStmt (StmtExpr e) = execExpr e
+execSingStmt (StmtStruct x) = execStruct x
+                              
+execStmt :: Stmt -> EvalCxt Expr
+execStmt (SingleStmt s) = execSingStmt s
+execStmt (MultiStmt [s]) = execStmt s
+execStmt (MultiStmt stmts@(_:_)) = do
+  mapM_ execStmt (init stmts)
+  execStmt (last stmts)
+                          
+execStruct (StructDefun name args body) = assignFun name (CallSig args body)
+           
+  
+funCall :: Ident -> [Expr] -> EvalCxt Expr
+funCall name args = do
+  (CallSig argList body) <- getFunVal name
+  let zipped = zip args argList
+  forM_ zipped (\(val,argName) -> assignVal argName val)
+  execStmt body
 getProg :: String -> Stmt
 getProg s = case evalScan s stmt of
               Left _ -> undefined
