@@ -2,13 +2,16 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Angle.Parse.Parser
-    (
-    ) where
+    () where
 
 import Angle.Lex.Lexer
+import Angle.Lex.Helpers
 import Control.Monad.Reader
 import Control.Monad.Error
 import Control.Applicative
+import Control.Monad.State
+import qualified Data.Map as M
+import Debug.Trace (trace)
     
 import Data.IORef
 
@@ -143,3 +146,53 @@ type ExprC = EvalCxt Expr
 eval :: BindEnv -> EvalCxt a -> Either String a
 eval env = (`evalState` env) . runErrorT
            
+-- TODO: What is being assigned? Expression or literal?
+--  If expression: should only literals be assigned?
+--   i.e, the expression is reduced to a literal before assignment
+--   this would potentially remove laziness
+assignVal :: Ident -> Expr -> EvalCxt Expr
+assignVal name expr = do
+  val <- execExpr expr
+  modify $ M.alter (valAssign val) name
+  return expr
+    where valAssign v Nothing = Just (Just v, Nothing)
+          valAssign v (Just (_,f)) = Just (Just v, f)
+                                   
+assignFun :: Ident -> CallSig -> EvalCxt Expr
+assignFun name cs = do
+  modify (M.alter funAssign name)
+  return (ExprIdent name)
+      where funAssign Nothing = Just (Nothing, Just cs)
+            funAssign (Just (e,_)) = Just (e, Just cs)
+  
+getVar :: Ident -> EvalCxt (Maybe Expr, Maybe CallSig)
+getVar name = do
+  env <- get
+  case M.lookup name env of
+    Nothing -> throwError $ "not in scope: " ++ name
+    Just x -> return x
+    
+getVarVal :: Ident -> EvalCxt Expr
+getVarVal name = do
+  (e,_) <- getVar name
+  case e of
+    Nothing -> throwError $ "no value definition for " ++ name
+    Just v -> return v
+
+getFunVal :: Ident -> EvalCxt CallSig
+getFunVal name = do
+  (_,f) <- getVar name
+  case f of
+    Nothing -> throwError $ "no function definition: " ++ name
+    Just x -> return x
+
+              
+getProg :: String -> Stmt
+getProg s = case evalScan s stmt of
+              Left _ -> undefined
+              Right x -> x
+                         
+addxy val = getProg $ "y=(+ x " ++ show val ++ ");"
+addx val = getProg $ "x=(+ x " ++ show val ++ ");"
+valx = getProg $ "x;"
+assignx val = getProg $ "x=" ++ show val ++ ";"
