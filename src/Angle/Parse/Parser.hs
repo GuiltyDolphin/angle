@@ -7,6 +7,7 @@ module Angle.Parse.Parser
 
 import Angle.Lex.Lexer
 import Angle.Lex.Helpers
+import Angle.Types.Lang
 import Angle.Parse.Error
 
 import Control.Monad.Reader
@@ -60,7 +61,6 @@ langLitAdd l r
 
 type BindEnv = M.Map Ident (Maybe LangLit, Maybe CallSig)
 type Ident = String
-type Val = Int
 
 data CallSig = CallSig [Ident] Stmt
                deriving (Show)
@@ -87,7 +87,7 @@ assignVal name expr = do
 assignFun :: Ident -> CallSig -> EvalCxt Expr
 assignFun name cs = do
   modify (M.alter funAssign name)
-  return (ExprIdent name)
+  return LitNull
       where funAssign Nothing = Just (Nothing, Just cs)
             funAssign (Just (e,_)) = Just (e, Just cs)
   

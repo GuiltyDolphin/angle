@@ -1,27 +1,17 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 module Angle.Lex.Lexer 
-    ( Expr(..)
-    , LangLit(..)
-    , LangOp(..)
-    , Op(..)
-    , Stmt(..)
-    , SingStmt(..)
-    , program
-    , LangStruct(..)
+    ( program
     , stmt
     ) where
 
 -- Write this!
 import Angle.Lex.Helpers
+import Angle.Types.Lang
 import Angle.Lex.Token
 import Control.Monad.State
 import Control.Applicative
 
-
-data Stmt = SingleStmt SingStmt 
-          | MultiStmt [Stmt]
-            deriving (Show)
 
 stmt :: Scanner Stmt
 stmt = (multiStmt <|> singleStmt) <?> "statement"
@@ -39,13 +29,6 @@ singleStmt = liftM SingleStmt singStmt
 -- TODO: Is it wise to allow empty multi-statements?
 multiStmt :: Scanner Stmt
 multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
-
--- | A single statement;
-data SingStmt = StmtAssign LangIdent Expr
-              | StmtComment String
-              | StmtStruct LangStruct
-              | StmtExpr Expr
-                deriving (Show)
 
 -- TODO: Last statement in a multi-statement block, or at
 -- end of file, shouldn't need to have a newline or semi-colon
@@ -74,14 +57,6 @@ stmtStruct = liftM StmtStruct langStruct
 stmtExpr :: Scanner SingStmt
 stmtExpr = liftM StmtExpr expr
 
--- |Specialised language constructs
-data LangStruct = StructFor LangIdent Expr Stmt
-                | StructWhile Expr Stmt
-                | StructIf Expr Stmt (Maybe Stmt)
-                | StructDefun LangIdent [LangIdent] Stmt
-                | StructReturn Expr -- TODO: Probably don't 
-                                    -- need this
-                  deriving (Show)
                   
 langStruct :: Scanner LangStruct
 langStruct =     structFor 
@@ -148,13 +123,6 @@ program = liftM MultiStmt $ followed tokEOF (many stmt)
 
 exprLit = liftM ExprLit langLit
 
-data LangLit = LitStr String
-             | LitInt Int
-             | LitFloat Float
-             | LitList [Expr]
-             | LitBool Bool
-             | LitRange Expr Expr
-               deriving (Show)
                
 
 -- |Language literals
@@ -231,15 +199,6 @@ litRange = parens (LitRange
                    <*> expr)
            <?> "range literal"
 
-
-
-data Expr = ExprIdent LangIdent
-          | ExprLit LangLit
-          | ExprFunCall LangIdent [Expr]
-          | ExprB Expr
-          | ExprOp LangOp
-            deriving (Show)
-                     
 expr = tryScan exprB 
        <|> exprOp 
        <|> tryScan exprFunCall 
@@ -251,7 +210,6 @@ exprB = liftM ExprB (within tokParenL tokParenR expr) <?> "bracketed expression"
 
 exprIdent = liftM ExprIdent langIdent <?> "identifier"
             
-type LangIdent = String
 langIdent :: Scanner LangIdent
 langIdent = ident <?> "identifier"
 
@@ -271,26 +229,11 @@ exprFunCall = ExprFunCall <$> langIdent <*> arglist <?> "function call"
 -- langFunCall = FC <$> langIdent <*> arglist <?> "function call"
   
 exprOp = liftM ExprOp langOp -- <?> "operation"
--- data LangOp = UnOp Op Expr | BinOp Op Expr Expr
---               deriving (Show)
                        
-
-data LangOp = SpecOp Op Expr 
-            | MultiOp Op [Expr]
-              deriving (Show)
 
 -- langOp = unOp <|> binOp <?> "operation"
 langOp = specOp <|> multiOp -- <?> "operation"
 
-data Op = OpNeg
-        | OpMult 
-        | OpDiv 
-        | OpAdd 
-        | OpSub 
-        | OpNot 
-        | OpEq
-          deriving (Show)
-        
 opMult, opDiv, opAdd, opSub, opNot :: Scanner Op
 makeOp :: Scanner a -> Op -> Scanner Op
 makeOp sc op = sc >> return op
