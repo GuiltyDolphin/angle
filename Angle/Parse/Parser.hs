@@ -187,6 +187,56 @@ getFunVal name = do
     Just x -> return x
 
               
+opSub (ExprLit (LitInt x)) (ExprLit (LitInt y)) = ExprLit (LitInt (x - y))
+opAdd (ExprLit (LitInt x)) (ExprLit (LitInt y)) = ExprLit (LitInt (x + y))
+
+                                                  
+subLit :: LangLit -> LangLit -> LangLit
+subLit (LitInt x) (LitInt y) = LitInt (x - y)
+
+opCall :: Op -> Expr -> Expr -> ExprC
+opCall OpAdd exp1 exp2 = do
+  l <- execExpr exp1
+  r <- execExpr exp2
+  addOp l r
+         
+-- |Add operation
+-- >>> evalBasic $ addOp (exprInt 2) (exprInt 3)
+-- Right (...5...)
+addOp :: Expr -> Expr -> EvalCxt Expr
+addOp (ExprLit x) (ExprLit y) = return . ExprLit $ addLit x y
+addOp x@(ExprIdent _) r = do
+  l <- execExpr x
+  addOp l r
+addOp x y = throwError "wrong types in addition"
+        
+negOp :: Expr -> EvalCxt Expr
+negOp (ExprLit x) = liftM ExprLit (negLit x)
+negOp x = execExpr x >>= negOp
+          
+negLit :: LangLit -> EvalCxt LangLit
+negLit (LitInt x) = return $ LitInt (-x)
+negLit _ = throwError "wrong type in negation!"
+
+                                
+-- TODO: Version of this that can return errors
+addLit :: LangLit -> LangLit -> LangLit
+addLit (LitInt x) (LitInt y) = LitInt (x + y)
+
+                                   
+execOp (MultiOp op exprs) = execMultOp op exprs
+                            
+-- TODO: Check if reducing to literals is required (may be able
+--  to have expressions and allow for lazy)
+execMultOp OpAdd exprs = liftM (foldr1 addLit) (mapM reduceExprToLit exprs)
+                   
+                                   
+reduceExprToLit :: Expr -> EvalCxt LangLit
+reduceExprToLit (ExprLit x) = return x
+reduceExprToLit x = do
+  res <- execExpr x
+  reduceExprToLit res
+                  
 getProg :: String -> Stmt
 getProg s = case evalScan s stmt of
               Left _ -> undefined
