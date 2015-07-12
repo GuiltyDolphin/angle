@@ -113,3 +113,33 @@ instance Show LError where
                 cEe = show ee
                 showPos (ln,cn,_) =
                   concat ["line: ", show ln, ", column: ", show cn]
+
+-- **************
+-- Evaluating
+
+-- * Need to be able to return values from language literals
+-- * Need to be able to overload operator functions to act on different values of literals
+-- * Need to be able to retrieve the value of a variable from scope
+-- * Need to be able to assign values to variables
+
+-- $setup
+-- >>> let exprInt = ExprLit . LitInt
+-- >>> let exprId = ExprIdent
+-- >>> let exprAdd = ExprOp . MultiOp OpAdd
+-- >>> let evalExpr = evalBasic . reduceExprToLit
+-- >>> let evalStmt = evalBasic . reduceStmtToLit
+
+type BindEnv = M.Map Ident (Maybe Expr, Maybe CallSig)
+type Ident = String
+type Val = Int
+
+data CallSig = CallSig [Ident] Stmt
+               deriving (Show)
+    
+type EvalCxt = ErrorT String (State BindEnv)
+    
+type ExprC = EvalCxt Expr
+
+eval :: BindEnv -> EvalCxt a -> Either String a
+eval env = (`evalState` env) . runErrorT
+           
