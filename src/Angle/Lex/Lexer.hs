@@ -34,10 +34,14 @@ multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
 -- end of file, shouldn't need to have a newline or semi-colon
 singStmt :: Scanner SingStmt
 singStmt = surrounded tokStmtBetween
-           (   tryScan stmtAssign <* (char ';' <|> char '\n')
+           (   tryScan stmtAssign <* singStmtEnd
            <|> stmtStruct 
-           <|> stmtExpr           <* checkStmtEnd
+           <|> stmtExpr           <* singStmtEnd
            <|> stmtComment)
+
+singStmtEnd =     void (char ';')
+              <|> void (char '\n')
+              <|> tokEOF
                
 -- |Variable assignment
 -- >>> evalScan "x=5" stmtAssign
@@ -223,11 +227,6 @@ arglist = within tokTupleStart tokTupleEnd (sepWith tokEltSep expr)
 -- exprFunCall = liftM ExprFunCall langFunCall
 exprFunCall = ExprFunCall <$> langIdent <*> arglist <?> "function call"
               
--- -- |Standard function call
--- -- >>> evalScan "fun(1,2)" langFunCall
--- -- Right (..."fun" [...1...,...2...])
--- langFunCall = FC <$> langIdent <*> arglist <?> "function call"
-  
 exprOp = liftM ExprOp langOp -- <?> "operation"
                        
 

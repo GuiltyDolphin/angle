@@ -64,7 +64,7 @@ data ScanError = ScanError
                           -- above two categories
     , errPos :: SourcePos  -- The position in source 
                            -- where the error occurred
-    }
+    } deriving (Eq)
 
 instance Error ScanError where
   noMsg = ScanError { errMsg = "", expectedMsg=""
