@@ -3,6 +3,12 @@
 module Angle.Lex.Lexer 
     ( program
     , stmt
+      -- TODO: Exporting these for tests, check this
+    , litStr
+    , litInt
+    , litFloat
+    , litBool
+    , litRange
     ) where
 
 -- Write this!
