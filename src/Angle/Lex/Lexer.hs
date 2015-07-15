@@ -118,7 +118,7 @@ structIf = StructIf
 structDefun :: Scanner LangStruct
 structDefun = StructDefun
               <$> (string "defun " *> langIdent)
-              <*> parens (sepWith (char ',') langIdent)
+              <*> parens (sepWith (char ',') langIdent) <* tokStmtBetween
               <*> stmt
          
 structReturn = liftM StructReturn (keyword "return" *> expr) 
@@ -243,6 +243,9 @@ opMult, opDiv, opAdd, opSub, opNot :: Scanner Op
 makeOp :: Scanner a -> Op -> Scanner Op
 makeOp sc op = sc >> return op
 
+-- TODO: This conflicts with literal -ve for integers,
+-- either make it so that literals use the operator (probably
+-- slower) or resolve the conflict!
 opNeg  = makeOp (char '-')    OpNeg  <?> "operator (-)"
 opMult = makeOp (char '*')    OpMult <?> "operator (*)"
 opDiv  = makeOp (char '/')    OpDiv  <?> "operator (/)"

@@ -12,6 +12,7 @@ import Angle.Parse.Error
 
 import Control.Monad.Reader
 import Control.Monad.Error
+import Data.Maybe (fromJust)
 import Control.Applicative
 import Control.Monad.State
 import qualified Data.Map as M
@@ -237,9 +238,9 @@ getProg s = case evalScan s stmt of
               Left _ -> undefined
               Right x -> x
                          
-addxy val = getProg $ "y=(+ x " ++ show val ++ ");"
-addx val = getProg $ "x=(+ x " ++ show val ++ ");"
-valx = getProg $ "x;"
+addxy val   = getProg $ "y=(+ x " ++ show val ++ ");"
+addx val    = getProg $ "x=(+ x " ++ show val ++ ");"
+valx        = getProg   "x;"
 assignx val = getProg $ "x=" ++ show val ++ ";"
 
 basics = getProg "{(defun x(y) {y=(+ y 1)}); z=2; x(z)}"
