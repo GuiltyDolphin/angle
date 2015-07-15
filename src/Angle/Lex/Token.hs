@@ -78,7 +78,12 @@ tokEOF            = notScan anyChar <?> "eof"
 tokStmtBetween    = whitespace      <?> "ignored characters"
          
 tokInt :: (Integral a, Read a) => Scanner a
-tokInt = read <$> some tokDenaryDigit <?> "integer"
+tokInt = do
+  negve <- optional (char '-')
+  res <- read <$> some tokDenaryDigit <?> "integer"
+  case negve of
+    Nothing -> return res
+    Just _ -> return (-res)
          
 tokDigits :: Scanner String
 tokDigits = some tokDenaryDigit
