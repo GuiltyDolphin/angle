@@ -254,3 +254,51 @@ evalProg = evalBasic . evalStmt
 --  - exec for results with side-effects?
 
 
+
+-- *****************
+-- ***** SCOPE *****
+-- *****************
+
+data Scope = Scope 
+    { outerScope :: Maybe Scope -- ^Parent scope, if any
+    , bindings   :: BindEnv
+    } 
+
+-- | True if the given scope has no parent scopes.           
+isOutermostScope :: Scope -> Bool
+isOutermostScope s = case outerScope s of
+                    Nothing -> True
+                    Just _ -> False
+
+-- | @name `isDefinedIn` scope@ is True if @scope@
+-- contains a definition for @name@.
+isDefinedIn :: Ident -> Scope -> Bool
+isDefinedIn name scope = case M.lookup name (bindings scope) of
+                         Nothing -> False
+                         Just _ -> True
+                                   
+-- | Runs a function in the outer scope of that provided.
+-- Returns `Nothing' if no outer scope exists.
+withOuterScope :: Scope -> (Scope -> a) -> Maybe a
+withOuterScope sc f = liftM f (outerScope sc)
+                      
+-- | @withOutermostScope f scope@ runs @f@ in the parent-most
+-- scope of @scope@.
+withOutermostScope :: (Scope -> a) -> Scope -> a
+withOutermostScope f scope = if isOutermostScope scope
+                             then f scope
+                             else withOutermostScope f (fromJust $ outerScope scope)
+                      
+-- | Finds the local-most Scope that contains a definition
+-- for the specified identifier.
+innerScopeDefining :: Ident -> Scope -> Maybe Scope
+innerScopeDefining name scope = if name `isDefinedIn` scope
+                                then Just scope
+                                else join $ withOuterScope scope (innerScopeDefining name)
+
+                                     
+resolve :: Ident -> Scope -> Maybe (Maybe LangLit, Maybe CallSig)
+resolve name scope = if name `isDefinedIn` scope
+                     then fromCurrentScope name scope
+                     else outerScope scope >>= resolve name
+    where fromCurrentScope n s = M.lookup n (bindings s)
