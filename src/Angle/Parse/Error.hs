@@ -16,16 +16,19 @@ data LangError = TypeError TypeError
                | SyntaxError String
                | NameError NameError
                | DefaultError String
+               | UserError String -- TODO: Add keyword and
+                                  -- structures for allowing
+                                  -- the user to throw errors
                  
-typeErr = TypeError
-syntaxErr = SyntaxError
-nameErr = NameError
+typeErr    = TypeError
+syntaxErr  = SyntaxError
+nameErr    = NameError
 defaultErr = DefaultError
 
 instance Show LangError where
-    show (TypeError e) = "wrong type in expression: " ++ show e
-    show (SyntaxError s) = "syntax error: " ++ s
-    show (NameError v) = "name error: " ++ show v
+    show (TypeError e)    = "wrong type in expression: " ++ show e
+    show (SyntaxError s)  = "syntax error: " ++ s
+    show (NameError v)    = "name error: " ++ show v
     show (DefaultError s) = "defaultError: " ++ s
 
 instance Error LangError where
@@ -41,9 +44,9 @@ typeUnexpectedErr t1 = typeErr . TypeUnexpected t1
 typeNotValidErr      = typeErr . TypeNotValid
                
 instance Show TypeError where
-    show (TypeMismatch l r) = "type mismatch: got (" ++ show l ++ ", " ++ show r ++ ") but both types should be the same"
+    show (TypeMismatch l r)   = "type mismatch: got (" ++ show l ++ ", " ++ show r ++ ") but both types should be the same"
     show (TypeUnexpected l r) = "unexpected type: " ++ show l ++ ", expecting: " ++ show r
-    show (TypeNotValid l) = "type not valid for scenario: " ++ show l
+    show (TypeNotValid l)     = "type not valid for scenario: " ++ show l
                             
 data NameError = NameNotDefined LangIdent 
                | NameNotFunction LangIdent
