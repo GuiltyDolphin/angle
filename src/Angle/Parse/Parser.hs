@@ -493,3 +493,6 @@ upScope = do
 --     (hasFunctionDefinition :: VarVal -> Bool)
 --   - value definition
 --     (hasLiteralDefinition :: VarVal -> Bool)
+-- NOTES
+-- - record for determining builtins?
+--   (isBuiltin :: VarVal -> Bool)

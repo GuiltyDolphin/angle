@@ -41,6 +41,7 @@ instance Arbitrary LangLit where
                 , liftM LitFloat arbitrary
                 ]
 
+
 tests = [ testGroup "scope tests"
           []
         ]

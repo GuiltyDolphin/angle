@@ -40,9 +40,9 @@ multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
 -- end of file, shouldn't need to have a newline or semi-colon
 singStmt :: Scanner SingStmt
 singStmt = surrounded tokStmtBetween
-           (   tryScan stmtAssign <* singStmtEnd
+           (   tryScan (stmtAssign <* singStmtEnd)
            <|> stmtStruct 
-           <|> stmtExpr           <* singStmtEnd
+           <|> stmtExpr            <* singStmtEnd
            <|> stmtComment)
 
 singStmtEnd =     void (char ';')

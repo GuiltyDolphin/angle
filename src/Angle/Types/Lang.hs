@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Angle.Types.Lang
     ( Stmt(..)
     , SingStmt(..)
@@ -11,6 +13,9 @@ module Angle.Types.Lang
     , typeOf
     ) where
 
+import Control.Monad.Error
+import Control.Applicative
+    
 data Stmt = SingleStmt SingStmt 
           | MultiStmt [Stmt]
             deriving (Show, Eq)
@@ -64,6 +69,7 @@ instance Show LangType where
     show LTStr = "string"
     show LTInt = "integer"
     show LTFloat = "float"
+                   
 
 data Expr = ExprIdent LangIdent
           | ExprLit LangLit
