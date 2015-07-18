@@ -59,7 +59,17 @@ langLitAdd l r
 -- >>> let evalExpr = evalBasic . reduceExprToLit
 -- >>> let evalStmt = evalBasic . reduceStmtToLit
 
-type BindEnv = M.Map Ident (Maybe LangLit, Maybe CallSig)
+-- type VarVal = (Maybe LangLit, Maybe CallSig)
+data VarVal = VarVal { varLitDef :: Maybe LangLit
+                     , varFunDef :: Maybe CallSig
+                     } deriving (Show)
+            
+setVarLit :: VarVal -> LangLit -> VarVal
+setVarLit var val = var { varLitDef = Just val }
+setVarFun :: VarVal -> CallSig -> VarVal                    
+setVarFun var fd = var { varFunDef = Just fd }
+
+type BindEnv = M.Map Ident VarVal
 type Ident = String
 
 data CallSig = CallSig [Ident] Stmt
@@ -86,17 +96,20 @@ assignVal name expr = do
   val <- reduceExprToLit expr
   modify $ M.alter (valAssign val) name
   return val
-    where valAssign v Nothing = Just (Just v, Nothing)
-          valAssign v (Just (_,f)) = Just (Just v, f)
+    where valAssign v Nothing = Just emptyVar { varLitDef = Just v }
+          valAssign v (Just x) = Just x { varLitDef = Just v }
+
+infixl 4 =:
+(=:) = assignVal
                                    
 assignFun :: Ident -> CallSig -> ExecEnv LangLit
 assignFun name cs = do
   modify (M.alter funAssign name)
   return LitNull
-      where funAssign Nothing = Just (Nothing, Just cs)
-            funAssign (Just (e,_)) = Just (e, Just cs)
+    where funAssign Nothing = Just emptyVar { varFunDef = Just cs }
+          funAssign (Just v) = Just v { varFunDef = Just cs }
   
-getVar :: Ident -> ExecEnv (Maybe LangLit, Maybe CallSig)
+getVar :: Ident -> ExecEnv VarVal
 getVar name = do
   env <- get
   case M.lookup name env of
@@ -106,14 +119,14 @@ getVar name = do
  
 getVarVal :: Ident -> ExecEnv LangLit
 getVarVal name = do
-  (e,_) <- getVar name
+  e <- liftM varLitDef $ getVar name
   case e of
     Nothing -> throwError . nameNotValueErr $ name
     Just v -> return v
 
 getFunVal :: Ident -> ExecEnv CallSig
 getFunVal name = do
-  (_,f) <- getVar name
+  f <- liftM varFunDef $ getVar name
   case f of
     Nothing -> throwError . nameNotFunctionErr $ name
     Just x -> return x
@@ -260,16 +273,19 @@ evalProg = evalBasic . evalStmt
 -- ***** SCOPE *****
 -- *****************
 
+-- | Represents the current scope.
 data Scope = Scope 
     { outerScope :: Maybe Scope -- ^Parent scope, if any
     , bindings   :: BindEnv
-    } 
+    } deriving (Show)
+
 
 -- | True if the given scope has no parent scopes.           
 isOutermostScope :: Scope -> Bool
 isOutermostScope s = case outerScope s of
                     Nothing -> True
                     Just _ -> False
+
 
 -- | @name `isDefinedIn` scope@ is True if @scope@
 -- contains a definition for @name@.
@@ -278,28 +294,202 @@ isDefinedIn name scope = case M.lookup name (bindings scope) of
                          Nothing -> False
                          Just _ -> True
                                    
+
 -- | Runs a function in the outer scope of that provided.
+--
 -- Returns `Nothing' if no outer scope exists.
 withOuterScope :: Scope -> (Scope -> a) -> Maybe a
 withOuterScope sc f = liftM f (outerScope sc)
                       
+
 -- | @withOutermostScope f scope@ runs @f@ in the parent-most
 -- scope of @scope@.
 withOutermostScope :: (Scope -> a) -> Scope -> a
-withOutermostScope f scope = if isOutermostScope scope
-                             then f scope
-                             else withOutermostScope f (fromJust $ outerScope scope)
+withOutermostScope f scope = 
+    if isOutermostScope scope
+    then f scope
+    else withOutermostScope f (fromJust $ outerScope scope)
                       
+
 -- | Finds the local-most Scope that contains a definition
 -- for the specified identifier.
 innerScopeDefining :: Ident -> Scope -> Maybe Scope
-innerScopeDefining name scope = if name `isDefinedIn` scope
-                                then Just scope
-                                else join $ withOuterScope scope (innerScopeDefining name)
+innerScopeDefining name scope = 
+    if name `isDefinedIn` scope
+    then Just scope
+    else join $ withOuterScope scope (innerScopeDefining name)
+    
 
-                                     
-resolve :: Ident -> Scope -> Maybe (Maybe LangLit, Maybe CallSig)
+-- | @resolve name scope@ Retrieves the @name@'s value
+-- from the local-most scope in which it is defined.
+--
+-- Returns Nothing if there is no definition for @name@.
+resolve :: Ident -> Scope -> Maybe VarVal
 resolve name scope = if name `isDefinedIn` scope
                      then fromCurrentScope name scope
                      else outerScope scope >>= resolve name
     where fromCurrentScope n s = M.lookup n (bindings s)
+                                 
+-- | A scope with no parent or bindings
+emptyScope :: Scope
+emptyScope = Scope { 
+               outerScope = Nothing
+             , bindings = M.empty
+             }
+
+-- | Run a function over the bindings of a scope.
+onBindings :: (BindEnv -> BindEnv) -> Scope -> Scope
+onBindings f scope = scope { bindings = f $ bindings scope }
+
+-- | Boolean determines whether to overwrite ident if it
+-- exists.
+setVarInScope :: Ident -> VarVal -> Scope -> Bool -> Scope
+setVarInScope name val scope@(Scope{bindings=binds}) overwrite
+    = if name `isDefinedIn` scope 
+      then if overwrite
+           then scope {bindings=M.alter (\_ -> Just val) name binds}
+           else scope
+      else scope {bindings=M.alter (\_ -> Just val) name binds}
+          
+
+
+-- *****************************************
+-- * Env - A temporary test of environment *
+-- *****************************************
+data Env = Env { currentScope :: Scope
+               , envOptions :: OptionSet
+               } deriving (Show)
+         
+basicEnv :: Env
+basicEnv = Env { currentScope = emptyScope
+               , envOptions = defaultOptions
+               }
+         
+data OptionSet = OS { printName :: Bool }
+                 deriving (Show, Eq)
+                          
+
+defaultOptions :: OptionSet
+defaultOptions = OS { printName = True }
+
+               
+-- | Executes in environment `Env' with a result of @a@.
+newtype Exec a = Exec {runExec :: State Env a }
+    deriving (Functor, Applicative, Monad, MonadState Env)
+             
+runExecBasic :: Exec a -> a
+runExecBasic e = evalState (runExec e) basicEnv
+    
+newScope :: Exec ()
+newScope = do
+  env <- get
+  modifyScope (\s -> emptyScope {outerScope=Just s})
+  let oldScope = currentScope env
+      newScope = emptyScope { outerScope = Just oldScope }
+  put env { currentScope = newScope }
+
+lookupVar :: Ident -> Exec (Maybe VarVal)
+lookupVar name = do
+  env <- get
+  let res = resolve name (currentScope env)
+  return res
+
+         
+modifyScope :: (Scope -> Scope) -> Exec ()
+modifyScope f = do
+  env <- get
+  let oldScope = currentScope env
+      newScope = f oldScope
+  put env {currentScope=newScope}
+
+assignVar :: Ident -> LangLit -> Exec LangLit
+assignVar name val = do
+  env <- get
+  let oldScope = currentScope env
+      newScope = setVarInScope name (setVarLit emptyVar val) oldScope True
+  put env { currentScope = newScope }
+  return val
+
+emptyVar :: VarVal
+emptyVar = VarVal { varLitDef = Nothing, varFunDef = Nothing }
+         
+runWithEnv :: Env -> Exec a -> a
+runWithEnv env exec = evalState (runExec exec) env
+
+-- Little test program until tests are instantiated
+basicProg :: IO ()
+basicProg = do
+  prog1 <- return $ do
+    assignVar "x" (LitInt 5)
+  print (runExecBasic (prog1 *> lookupVar "x"))
+  prog2 <- return $ do
+              newScope
+              assignVar "x" (LitInt 6)
+  print (runExecBasic (prog1 *> prog2 *> lookupVar "x"))
+  print (runExecBasic (prog1 *> prog2 *> upScope *> lookupVar "x"))
+        
+upScope :: Exec ()
+upScope = do
+  modifyScope (\s -> fromJust $ outerScope s)
+  
+              
+-- Scope API:
+-- - changing scope
+--   - new scope    
+--     (newScope :: Maybe Scope -> Scope)
+--   - global scope 
+--     (globalScope :: Scope -> Scope)
+--   - parent scope 
+--     (parentScope :: Scope -> Maybe Scope)
+-- - setting variables
+--   - in current scope (maybe only applies to an Exec?)
+--     - function value
+--     - literal value
+-- - executing in different scopes
+--   - in a new scope
+--   - in the global scope
+--   - in the current scope
+--   - in the parent scope
+-- - resolving variables
+--   - check current scope, then outer scopes 
+--     (resolve :: Ident -> Scope -> Maybe VarVal)
+--   - only check current scope 
+--     (resolveCurrent :: Ident -> Scope -> Maybe VarVal)
+--   - only check global scope 
+--     (resolveGlobal :: Ident -> Scope -> Maybe VarVal)
+
+-- Scope API when in Exec
+-- - changing scope
+--   - make new scope
+--     (newScope :: Exec ())
+--   - go to parent
+--     (upScope :: Exec ())
+
+
+-- Exec Requirements
+-- - Errors
+--   - Custom datatype for Errors
+--   - Use ErrorT to add error handling
+-- - State
+--   - Current scope
+--   - Current settings
+
+
+-- VarVal API
+-- - retrieving values
+--   - function definition
+--     (varFunDef :: VarVal -> CallSig)
+--   - value definition
+--     (varLitDef :: VarVal -> LangLit)
+-- - setting values
+--   - function definition
+--     (varSetFunDef :: VarVal -> CallSig -> VarVal)
+--   - value definition
+--     (varSetLitDef :: VarVal -> LangLit -> VarVal)
+--   - empty (basic) VarVal
+--     (emptyVar :: VarVal)
+-- - checking definitions
+--   - function definition
+--     (hasFunctionDefinition :: VarVal -> Bool)
+--   - value definition
+--     (hasLiteralDefinition :: VarVal -> Bool)
