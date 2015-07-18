@@ -29,6 +29,7 @@ import Angle.Scanner ( scanChar, unexpectedErr
                      , ScanState(..)
                      , ScanError(..)
                      , ScanEnv(..)
+                     , beginningOfFile
                      ) 
 
 import Control.Monad.Reader
@@ -245,6 +246,6 @@ sc <?> msg = do
 -- Assumes reasonable default state.
 evalScan :: String -> Scanner a -> Either ScanError a
 evalScan str sc = runReader (evalStateT (runErrorT (runScanner sc)) defaultState) env
-  where defaultState = ScanState { sourcePos = (0,0,0) }
+  where defaultState = ScanState { sourcePos = beginningOfFile }
         env = ScanEnv { sourceText = str }
 
