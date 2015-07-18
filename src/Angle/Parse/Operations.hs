@@ -2,7 +2,11 @@ module Angle.Parse.Operations
     (
     ) where
 
+import qualified Data.Foldable as F
+import Control.Monad
+
 import Angle.Types.Lang
+import Angle.Types.Functions
 import Angle.Parse.Error
 
 addList :: LangLit -> LangLit -> LangLit
@@ -12,7 +16,9 @@ addNum :: (CanError m) => LangLit -> LangLit -> m LangLit
 addNum (LitInt x) (LitInt y) = return $ LitInt (x + y)
 addNum (LitFloat x) (LitFloat y) = return $ LitFloat (x + y)
 addNum (LitInt x) y@(LitFloat _) = addNum (LitFloat (fromIntegral x)) y
+addNum x@(LitInt _) y = cast x (typeOf y) >>= (`addNum` y)
 addNum x@(LitFloat _) y@(LitInt _) = addNum y x
+addNum x y = throwError $ typeMismatchErr (typeOf x) (typeOf y)
                                      
 
 -- If using foldr1, cannot support errors properly,

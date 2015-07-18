@@ -5,6 +5,7 @@ module Angle.Parse.Error
     ( typeMismatchErr
     , typeUnexpectedErr
     , typeNotValidErr
+    , typeCastErr
     , nameNotDefinedErr
     , nameNotFunctionErr
     , nameNotValueErr
@@ -58,15 +59,18 @@ instance Error LangError where
 data TypeError = TypeMismatch   LangType LangType
                | TypeUnexpected LangType LangType
                | TypeNotValid   LangType
+               | TypeCast LangType LangType
                  
 typeMismatchErr   t1 = typeErr . TypeMismatch   t1
 typeUnexpectedErr t1 = typeErr . TypeUnexpected t1
 typeNotValidErr      = typeErr . TypeNotValid
+typeCastErr       t1 = typeErr . TypeCast       t1
                
 instance Show TypeError where
     show (TypeMismatch l r)   = "type mismatch: got (" ++ show l ++ ", " ++ show r ++ ") but both types should be the same"
     show (TypeUnexpected l r) = "unexpected type: " ++ show l ++ ", expecting: " ++ show r
     show (TypeNotValid l)     = "type not valid for scenario: " ++ show l
+    show (TypeCast l r) = "cannot convert " ++ show l ++ " to " ++ show r
                             
 data NameError = NameNotDefined LangIdent 
                | NameNotFunction LangIdent
