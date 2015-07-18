@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE KindSignatures #-}
 module Angle.Parse.Error
     ( typeMismatchErr
     , typeUnexpectedErr
@@ -6,11 +9,28 @@ module Angle.Parse.Error
     , nameNotFunctionErr
     , nameNotValueErr
     , LangError
+    , CanError
+    , throwError
     ) where
 
 import Angle.Types.Lang
 
 import Control.Monad.Error
+   
+-- Errors
+-- Need to be able to throw errors from `pure' code,
+-- like in Operations.
+-- Adding a List and Int don't make sense, so need to
+-- throw an error when this occurs.
+-- Might make the code less pretty? Will need maybe more
+-- boilerplate and adding monads to this `pure' code.
+
+ 
+-- LangError API
+
+class (MonadError LangError m) => CanError (m :: * -> *)
+instance CanError (Either LangError)
+instance (Monad m) => CanError (ErrorT LangError m)
 
 data LangError = TypeError TypeError
                | SyntaxError String
