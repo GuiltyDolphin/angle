@@ -13,6 +13,8 @@ module Angle.Types.Lang
     , typeOf
     , Ident
     , CallSig(..)
+    , ArgSig(..)
+    , hasCatchAllArg
     ) where
 
 import Control.Monad.Error
@@ -39,9 +41,18 @@ data LangStruct = StructFor LangIdent Expr Stmt
                   deriving (Show, Eq)
                            
 data CallSig = CallSig 
-    { callArgs :: [Ident]
+    { callArgs :: ArgSig
     , callBody :: Stmt
     } deriving (Show, Eq)
+             
+data ArgSig = ArgSig { stdArgs :: [Ident]
+                     , catchAllArg :: Maybe Ident
+                     } deriving (Show, Eq)
+
+hasCatchAllArg :: ArgSig -> Bool
+hasCatchAllArg x = case catchAllArg x of
+                     Nothing -> False
+                     Just _ -> True
 
 data LangLit = LitStr String
              | LitInt Int
