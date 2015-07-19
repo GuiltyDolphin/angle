@@ -242,17 +242,18 @@ runExecIOEnv :: Env -> ExecIO a -> IO (Either LangError a)
 runExecIOEnv e x = evalStateT (runErrorT (runEIO x)) e
                    
 
-bStr :: LangLit -> LangLit
-bStr (LitInt x) = LitStr (show x)
-bStr (LitFloat x) = LitStr (show x)
-bStr (LitBool x) = LitStr (show x)
-bStr x@(LitStr _) = x
+builtinStr :: LangLit -> LangLit
+builtinStr (LitInt x) = LitStr (show x)
+builtinStr (LitFloat x) = LitStr (show x)
+builtinStr (LitBool x) = LitStr (show x)
+builtinStr x@(LitStr _) = x
+builtinStr (LitList xs) = LitStr (show xs)
                    
 callBuiltin :: Ident -> [Expr] -> ExecIO LangLit 
 callBuiltin "print" xs | length xs > 1 = throwError $ wrongNumberOfArgumentsErr (length xs) 1
                        | otherwise = do
   val <- execExpr (head xs)
-  let (LitStr toPrint) = bStr val
+  let (LitStr toPrint) = builtinStr val
   liftIO $ print toPrint
   return (LitStr toPrint)
 
