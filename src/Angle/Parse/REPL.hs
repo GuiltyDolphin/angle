@@ -1,4 +1,9 @@
-module Angle.Parse.REPL where
+module Angle.Parse.REPL 
+    ( main 
+    ) where
+    
+import Control.Monad
+import Control.Monad.State
 
 import Angle.Lex.Lexer
 import Angle.Lex.Helpers
