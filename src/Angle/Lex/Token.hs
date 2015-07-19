@@ -31,6 +31,7 @@ module Angle.Lex.Token
     , parens
     , keyword
     , exprSep
+    , exprEnd
     , checkStmtEnd
     , whitespace
     , spaces
@@ -39,6 +40,7 @@ module Angle.Lex.Token
 
 import Angle.Lex.Helpers
 import Control.Applicative
+import Control.Monad
 import Data.Char (isDigit, isSpace, isAlpha, isAlphaNum)
 
 tokStmtEnd        = char ';' <|> char '\n' 
@@ -74,7 +76,7 @@ tokTrue           = string "true"   <?> "true"
 tokFalse          = string "false"  <?> "false"
 tokPeriod         = char '.'        <?> "period"
 tokNewLine        = char '\n'       <?> "newline"
-tokEOF            = notScan anyChar <?> "eof"
+tokEOF            = notScan anyChar -- <?> "eof"
 tokStmtBetween    = whitespace      <?> "ignored characters"
          
 tokInt :: (Integral a, Read a) => Scanner a
@@ -105,7 +107,8 @@ ident = noneFrom string keywords *> ((:) <$> tokIdentStartChar <*> many tokIdent
 
 opChars = "*/+->=<|&^"
 sepChar = "{()};, =" ++ opChars
-          
+
+exprEnd = lookAhead $ (charFrom "});,")
           
 exprSep = lookAhead (charFrom sepChar) <?> "expression boundary"
                 

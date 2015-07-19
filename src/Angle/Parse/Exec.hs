@@ -277,6 +277,7 @@ callFun x args | isBuiltin x = callBuiltin x args
                                
 execStmt :: Stmt -> ExecIO LangLit
 execStmt (SingleStmt x) = execSingStmt x
+execStmt (MultiStmt []) = return LitNull
 execStmt (MultiStmt xs) = liftM last $ mapM execStmt xs
                           
 execSingStmt :: SingStmt -> ExecIO LangLit
