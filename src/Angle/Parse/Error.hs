@@ -9,6 +9,7 @@ module Angle.Parse.Error
     , nameNotDefinedErr
     , nameNotFunctionErr
     , nameNotValueErr
+    , wrongNumberOfArgumentsErr
     , LangError
     , CanError
     , throwError
@@ -36,6 +37,7 @@ instance (Monad m) => CanError (ErrorT LangError m)
 data LangError = TypeError TypeError
                | SyntaxError String
                | NameError NameError
+               | CallError CallError
                | DefaultError String
                | UserError String -- TODO: Add keyword and
                                   -- structures for allowing
@@ -44,6 +46,7 @@ data LangError = TypeError TypeError
 typeErr    = TypeError
 syntaxErr  = SyntaxError
 nameErr    = NameError
+callErr    = CallError
 defaultErr = DefaultError
 
 instance Show LangError where
@@ -85,6 +88,16 @@ instance Show NameError where
     show (NameNotDefined  name) = "not in scope: "         ++ name
     show (NameNotFunction name) = "not a valid function: " ++ name
     show (NameNotValue    name) = "no value assigned: "    ++ name
+                                  
+data CallError = 
+    WrongNumberOfArguments Int Int
+    deriving (Eq)
+             
+wrongNumberOfArgumentsErr x = callErr . WrongNumberOfArguments x
+             
+             
+instance Show CallError where
+    show (WrongNumberOfArguments x y) = "wrong number of arguments: expected " ++ show x ++ " but got " ++ show y
                                
 
 
