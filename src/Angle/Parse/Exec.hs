@@ -91,6 +91,20 @@ lookupVarLitF name = do
   case res of
     Nothing -> throwError $ nameNotValueErr name
     Just x -> return x
+              
+lookupVarFun :: Ident -> ExecIO (Maybe CallSig)
+lookupVarFun name = do
+  res <- lookupVar name
+  case res of 
+    Nothing -> return Nothing
+    Just x -> return $ varFunDef x
+
+lookupVarFunF :: Ident -> ExecIO CallSig
+lookupVarFunF name = do
+  res <- lookupVarFun name
+  case res of
+    Nothing -> throwError $ nameNotFunctionErr name
+    Just x -> return x
 
          
 lookupVarF :: Ident -> ExecIO VarVal

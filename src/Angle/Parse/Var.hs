@@ -4,6 +4,7 @@ module Angle.Parse.Var
     , setVarLit
     , setVarFun
     , varLitDef
+    , varFunDef
     ) where
 
     
