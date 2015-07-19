@@ -22,20 +22,17 @@ module Angle.Lex.Helpers
     , someTill
     , evalScan
     , Scanner
+    , SourcePos
+    , sourcePos
     ) where
-
-import Angle.Scanner ( scanChar, unexpectedErr
-                     , Scanner(..)
-                     , ScanState(..)
-                     , ScanError(..)
-                     , ScanEnv(..)
-                     , beginningOfFile
-                     ) 
 
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Error
 import Control.Applicative
+import Control.Monad.Writer
+    
+import Angle.Scanner
 
 -- | Succeeds if the predicate function returns
 --   true when passed the next character.
@@ -176,11 +173,11 @@ lookAhead sc = do
 -- TODO: Try to find a way of setting the
 --  unexpected error message to the originally
 --  expected error message
-notScan :: Scanner a -> Scanner ()
+notScan :: (Show a) => Scanner a -> Scanner ()
 notScan sc = tryScan (do
   res <- optional (tryScan (lookAhead sc))
   case res of Nothing -> return ()
-              Just _ -> unexpectedErr "notscan")
+              Just x -> unexpectedErr (show x))
 
 
 -- |Fail if any scanners built from `scf' succeed
@@ -190,7 +187,7 @@ notScan sc = tryScan (do
 -- >>> evalScan "test" (noneFrom char "tea")
 -- Left ...
 -- ...
-noneFrom :: (a -> Scanner a) -> [a] -> Scanner ()
+noneFrom :: (Show a) => (a -> Scanner a) -> [a] -> Scanner ()
 noneFrom scf = notScan . oneFrom scf
                
 
@@ -222,7 +219,7 @@ sepWith sep sc = tryScan (do
 --
 -- >>> evalScan ".abc" (manyTill (char '.') anyChar)
 -- Right ""
-manyTill :: Scanner b -> Scanner a -> Scanner [a]
+manyTill :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
 manyTill ti sc = many (notScan ti *> sc)
                  
 -- |Like `manyTill', but `sc' must succeed before `ti'
@@ -232,7 +229,7 @@ manyTill ti sc = many (notScan ti *> sc)
 -- >>> evalScan ".123" (someTill (char '.') anyChar)
 -- Left ...
 -- ...
-someTill :: Scanner b -> Scanner a -> Scanner [a]
+someTill :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
 someTill ti sc = (:) <$> (notScan ti *> sc) <*> manyTill ti sc
 
 -- If the scan fails, specify what was expected
@@ -242,7 +239,7 @@ sc <?> msg = do
   oldPos <- liftM sourcePos get
   sc `catchError` (\e -> do
     newPos <- liftM sourcePos get
-    if newPos == oldPos then throwError $ e { expectedMsg = msg, errPos=newPos }
+    if newPos == oldPos then throwError $ e {expectedMsg=msg}--expectedErr msg
     else throwError e)
 
 -- Used for evaluating a single Scanner with a given string.
@@ -251,4 +248,30 @@ evalScan :: String -> Scanner a -> Either ScanError a
 evalScan str sc = runReader (evalStateT (runErrorT (runScanner sc)) defaultState) env
   where defaultState = ScanState { sourcePos = beginningOfFile }
         env = ScanEnv { sourceText = str }
+
+              
+newtype Lexer a = Lexer 
+    { runLexer :: WriterT SourcePos Scanner a }
+    
+-- withPos :: Scanner a -> Lexer a
+-- withPos sc = do
+--   initPos <- liftM sourcePos get
+--   tell initPos
+--   res <- Lexer $ do 
+--                res <- sc
+--                return res
+--   return res
+                        
+--toLexer :: Scanner a -> Lexer a
+--toLexer sc = sc >>= Lexer
+--             
+--lexChar :: Char -> Lexer Char
+--lexChar c = do
+
+
+
+
+
+
+
 
