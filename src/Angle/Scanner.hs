@@ -5,8 +5,9 @@ module Angle.Scanner
   , scanChar
   , beginningOfFile
   , unexpectedErr
+  , expectedErr
   , Scanner
-  , SourcePos
+  , SourcePos(..)
   , ScanEnv(..)
   , ScanState(..)
   , ScanError(..)
@@ -20,7 +21,7 @@ import Control.Applicative
 import Control.Monad.Error
 -- | Represents a position in source.
 newtype SourcePos = SourcePos 
-    { getSourcePos :: (Integer, Integer, Integer) }
+    { getSourcePos :: (Int, Int, Int) }
     deriving (Eq)
 
 instance Show SourcePos where
@@ -33,15 +34,15 @@ beginningOfFile = SourcePos (0,0,0)
 
 
 -- | Retrieve the line number from a source position
-lineNo :: SourcePos -> Integer
+lineNo :: SourcePos -> Int
 lineNo (SourcePos (ln, _, _)) = ln
 
 -- | Retrieve the column number from a source position
-colNo :: SourcePos -> Integer
+colNo :: SourcePos -> Int
 colNo (SourcePos (_, cn, _)) = cn
 
 -- | Retrieve the source index from a source position
-sourceIndex :: SourcePos -> Integer
+sourceIndex :: SourcePos -> Int
 sourceIndex (SourcePos (_, _, si)) = si
 
 
@@ -105,7 +106,14 @@ instance Show ScanError where
                   else concat ["unexpected ", um, "\n"]
                      
 unexpectedErr :: String -> Scanner a
-unexpectedErr msg = throwError (noMsg { unexpectedMsg=msg })
+unexpectedErr msg = do
+  pos <- liftM sourcePos get
+  throwError (noMsg { unexpectedMsg=msg, errPos=pos })
+             
+expectedErr :: String -> Scanner a
+expectedErr msg = do
+  pos <- liftM sourcePos get
+  throwError (noMsg { expectedMsg=msg, errPos=pos})
 
 -- | Retrieves the next character from the
 -- stream whilst updating the position.

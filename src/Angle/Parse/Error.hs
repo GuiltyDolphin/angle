@@ -13,12 +13,16 @@ module Angle.Parse.Error
     , LangError
     , CanError
     , throwError
+    , langError
+    , SourcePos
+    , LError(..)
     ) where
 
-import Angle.Types.Lang
 
 import Control.Monad.Error
    
+import Angle.Types.Lang
+import Angle.Scanner
 -- Errors
 -- Need to be able to throw errors from `pure' code,
 -- like in Operations.
@@ -30,9 +34,9 @@ import Control.Monad.Error
  
 -- LangError API
 
-class (MonadError LangError m) => CanError (m :: * -> *)
-instance CanError (Either LangError)
-instance (Monad m) => CanError (ErrorT LangError m)
+class (MonadError LError m) => CanError (m :: * -> *)
+instance CanError (Either LError)
+instance (Monad m) => CanError (ErrorT LError m)
 
 data LangError = TypeError TypeError
                | SyntaxError String
@@ -103,7 +107,7 @@ instance Show CallError where
 
 data LError = LError { errorErr    :: LangError  -- The actual error
                      , errorSource :: String
-                     , lerrorPos   :: (Int, Int, Int) -- Position at which the error occurred
+                     , errorPos    :: (SourcePos, SourcePos) -- Position at which the error occurred
                      }
 
 instance Show LError where
@@ -112,14 +116,29 @@ instance Show LError where
     --       [ "error in statement: " ++ show es
     --       , "in expression: " ++ show ex
     --       , show ee ]
-    show (LError { errorErr=ee, lerrorPos=ep@(_,_,pos), errorSource=es })
+    show (LError { errorErr=ee, errorPos=(start,end), errorSource=es })
         = cEp ++ cEt ++ cEe
-          where cEp = showPos ep ++ "\n"
+          where (_,_,pos) = getSourcePos start
+                cEp = showPos start ++ "\n"
                 cEt = takeWhile (/='\n') (drop pos es)
                 cEe = show ee
-                showPos (ln,cn,_) =
-                  concat ["line: ", show ln, ", column: ", show cn]
+                showPos (SourcePos (ln,_,_)) =
+                  concat ["line: ", show ln]
                          
 instance Error LError where
-    noMsg = LError {errorErr=noMsg, lerrorPos=(0,0,0), errorSource=""}
+    noMsg = LError {errorErr=noMsg, errorPos=(beginningOfFile, beginningOfFile), errorSource=""}
     strMsg m = noMsg {errorErr=strMsg m}
+
+               
+langError :: (CanError m) => LangError -> m a
+langError e = throwError LError { errorErr = e }
+
+
+
+
+
+
+
+
+
+

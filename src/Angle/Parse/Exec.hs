@@ -37,11 +37,13 @@ import Angle.Types.Lang
 -- *****************************************
 data Env = Env { currentScope :: Scope
                , envOptions :: OptionSet
+               , sourceText :: String
                } deriving (Show)
          
 basicEnv :: Env
 basicEnv = Env { currentScope = emptyScope
                , envOptions = defaultOptions
+               , sourceText = ""
                }
          
 data OptionSet = OS { printName :: Bool }
@@ -312,3 +314,16 @@ execStructWhile = undefined
 --  eval and exec
 --  - eval for results without side-effects?
 --  - exec for results with side-effects?
+
+execRun :: [(Stmt, (SourcePos, SourcePos))] -> ExecIO ()
+execRun [] = return ()
+execRun xs = do
+  forM_ xs 
+            (\(x,pos) -> 
+             execStmt x `catchError` (\e -> do
+                                        source <- liftM sourceText get
+                                        throwError e { errorPos=pos
+                                                     , errorSource=source
+                                                     }))
+  
+  

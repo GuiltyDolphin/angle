@@ -46,7 +46,8 @@ singStmt = surrounded tokStmtBetween
            <|> stmtExpr            <* singStmtEnd
            <|> stmtComment)
 
-singStmtEnd =     void (char ';')
+singStmtEnd = void (lookAhead tokMultiStmtEnd)
+              <|> void (char ';')
               <|> void (char '\n')
               <|> tokEOF
                
@@ -214,11 +215,10 @@ litRange = parens (LitRange
 -- | Non-valued literal
 litNull = string "()" >> return LitNull
 
-expr = tryScan exprB 
-       <|> exprOp 
+expr = ((exprOp 
        <|> tryScan exprFunCall 
        <|> exprLit 
-       <|> exprIdent 
+       <|> exprIdent) <* exprEnd)
        <?> "expression"
        
 exprB = liftM ExprB (within tokParenL tokParenR expr) <?> "bracketed expression"
@@ -298,3 +298,15 @@ multOp sc = tryScan . parens $ MultiOp
             <*> sepWith (some tokWhitespace) expr
                      
   
+withPos :: Scanner a -> Scanner (a, (SourcePos, SourcePos))
+withPos sc = do
+  initPos <- liftM sourcePos get
+  res <- sc
+  endPos <- liftM sourcePos get
+  return (res, (initPos, endPos))
+         
+collecting :: Scanner a -> Scanner [(a, (SourcePos, SourcePos))]
+collecting = many . withPos
+
+stmtWithPos = withPos stmt
+progPos = followed tokEOF (collecting stmt)
