@@ -146,7 +146,7 @@ basicProg = do
       prog2 = newScope >> "x" |= LitInt 6
       prog3 = do
               "y" |= LitStr "hello"
-              let cs = CallSig ["a","b"] (MultiStmt [])
+              let cs = CallSig (ArgSig ["a","b"] Nothing) (MultiStmt [])
               argListBind [ExprIdent "x", ExprIdent "y"] cs
               liftM currentScope get
   r1 <- runExecIOBasic $ prog1 *> prog2 *> lookupVar "x"
@@ -171,12 +171,17 @@ argListBind :: [Expr] -> CallSig -> ExecIO ()
 argListBind args cs = do
   let params = callArgs cs
       la = length args
-      lp = length params
-  when (la /= lp) (throwError $ wrongNumberOfArgumentsErr la lp)
+      lp = length (stdArgs params)
+  when (la > lp && not (hasCatchAllArg params) || la < lp)
+           (throwError $ wrongNumberOfArgumentsErr la lp)
   vals <- mapM execExpr args
-  let toBind = zip params vals
+  let toBind = zip (stdArgs params) vals
+      fullBind = toBind ++
+                 if length toBind /= la
+                 then [(fromJust $ catchAllArg params, LitList $ map ExprLit (drop (length toBind) vals))]
+                 else [(fromJust $ catchAllArg params, LitList []) | hasCatchAllArg params] 
   newScope
-  forM_ toBind (uncurry assignVarLit)
+  forM_ fullBind (uncurry assignVarLit)
         
 
 defun = assignVarFun
@@ -201,7 +206,7 @@ execExpr (ExprOp x) = execOp x
 execExpr (ExprFunCall name args) = execFunCall name args
                                    
 execFunCall :: Ident -> [Expr] -> ExecIO LangLit
-execFunCall = undefined
+execFunCall = callFun
                       
 
 execOp :: LangOp -> ExecIO LangLit
@@ -257,7 +262,10 @@ isBuiltin = (`elem`builtins)
 
 callFun :: Ident -> [Expr] -> ExecIO LangLit
 callFun x args | isBuiltin x = callBuiltin x args
-
+               | otherwise = do
+  callsig <- lookupVarFunF x
+  argListBind args callsig
+  execStmt (callBody callsig)
                                
 execStmt :: Stmt -> ExecIO LangLit
 execStmt (SingleStmt x) = execSingStmt x
