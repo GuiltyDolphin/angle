@@ -33,6 +33,8 @@ runLine s = case evalScan s program of
 mainProg = do
   liftIO $ putStr "> "
   userInput <- liftIO getLine
+  st <- get
+  put st { sourceText=userInput}
   unless (userInput=="exit")
            (do 
              runLine userInput
@@ -43,3 +45,13 @@ main = runExecIOBasic mainProg
   -- putStr "> "
   -- userInput <- getLine
   -- unless (userInput=="exit") (processLine userInput >> main)
+
+       
+
+-- Ideas for Error tracking:
+-- - Expansion-based error finder
+--    when it encounters an error in a statement, requests the
+--    lexer to re-parse a small section of code between the
+--    statement boundaries and asks for smaller and smaller
+--    chunks until the position of the bad token is resolved.
+--    (resolvePosition :: Scanner a -> String -> (SourcePos, SourcePos))
