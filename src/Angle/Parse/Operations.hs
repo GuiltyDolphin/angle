@@ -19,7 +19,7 @@ addNum (LitFloat x) (LitFloat y) = return $ LitFloat (x + y)
 addNum (LitInt x) y@(LitFloat _) = addNum (LitFloat (fromIntegral x)) y
 addNum x@(LitInt _) y = cast x (typeOf y) >>= (`addNum` y)
 addNum x@(LitFloat _) y@(LitInt _) = addNum y x
-addNum x y = throwError $ typeMismatchErr (typeOf x) (typeOf y)
+addNum x y = langError $ typeMismatchErr (typeOf x) (typeOf y)
                                      
 
 -- If using foldr1, cannot support errors properly,
@@ -54,7 +54,7 @@ negNum (LitFloat x) = LitFloat (-x)
 
 negLit :: (CanError m) => LangLit -> m LangLit
 negLit x | isNumeric x = return $ negNum x
-         | otherwise = throwError $ typeNotValidErr (typeOf x)
+         | otherwise = langError $ typeNotValidErr (typeOf x)
          where isNumeric (LitInt _) = True
                isNumeric (LitFloat _) = True
                isNumeric _ = False

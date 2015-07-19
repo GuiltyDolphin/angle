@@ -91,7 +91,7 @@ lookupVarLitF :: Ident -> ExecIO LangLit
 lookupVarLitF name = do
   res <- lookupVarLit name
   case res of
-    Nothing -> throwError $ nameNotValueErr name
+    Nothing -> langError $ nameNotValueErr name
     Just x -> return x
               
 lookupVarFun :: Ident -> ExecIO (Maybe CallSig)
@@ -105,7 +105,7 @@ lookupVarFunF :: Ident -> ExecIO CallSig
 lookupVarFunF name = do
   res <- lookupVarFun name
   case res of
-    Nothing -> throwError $ nameNotFunctionErr name
+    Nothing -> langError $ nameNotFunctionErr name
     Just x -> return x
 
          
@@ -114,7 +114,7 @@ lookupVarF name = do
   res <- lookupVar name
   case res of
     Just x -> return x
-    Nothing -> throwError $ nameNotDefinedErr name
+    Nothing -> langError $ nameNotDefinedErr name
 
 -- | Modify the current scope using the given function.
 modifyScope :: (Scope -> Scope) -> ExecIO ()
@@ -175,7 +175,7 @@ argListBind args cs = do
       la = length args
       lp = length (stdArgs params)
   when (la > lp && not (hasCatchAllArg params) || la < lp)
-           (throwError $ wrongNumberOfArgumentsErr la lp)
+           (langError $ wrongNumberOfArgumentsErr la lp)
   vals <- mapM execExpr args
   let toBind = zip (stdArgs params) vals
       fullBind = toBind ++
@@ -229,18 +229,18 @@ execMultiOp OpAdd xs = do
 basicExpr = ExprOp (MultiOp OpAdd [ExprLit (LitInt 1), ExprLit (LitFloat 8)])
                        
 newtype ExecIO a = ExecIO 
-    { runEIO :: ErrorT LangError (StateT Env IO) a }
+    { runEIO :: ErrorT LError (StateT Env IO) a }
     deriving (Functor, Applicative, Monad
-             , MonadState Env, MonadError LangError
+             , MonadState Env, MonadError LError
              , CanError, MonadIO)
         
-withBasic :: Expr -> IO (Either LangError LangLit               )
+withBasic :: Expr -> IO (Either LError LangLit)
 withBasic e = evalStateT (runErrorT (runEIO (execExpr e))) basicEnv
               
-runExecIOBasic :: ExecIO a -> IO (Either LangError a)
+runExecIOBasic :: ExecIO a -> IO (Either LError a)
 runExecIOBasic = runExecIOEnv basicEnv
 
-runExecIOEnv :: Env -> ExecIO a -> IO (Either LangError a)
+runExecIOEnv :: Env -> ExecIO a -> IO (Either LError a)
 runExecIOEnv e x = evalStateT (runErrorT (runEIO x)) e
                    
 
@@ -292,7 +292,7 @@ execStructIf if' thn els = do
     (LitBool False) -> case els of 
                          Nothing -> return LitNull
                          Just s  -> execStmt s
-    x -> throwError $ typeUnexpectedErr (typeOf x) LTBool
+    x -> langError $ typeUnexpectedErr (typeOf x) LTBool
                     
 execStructFor = undefined
 execStructWhile = undefined

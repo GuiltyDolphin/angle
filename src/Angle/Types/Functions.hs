@@ -27,7 +27,7 @@ canCast x y | x == y = True
              
 -- | Change the type of the given literal.
 cast :: (CanError m) => LangLit -> LangType -> m LangLit
-cast x y | not $ canCast (typeOf x) y = throwError $ typeCastErr  (typeOf x) y
+cast x y | not $ canCast (typeOf x) y = langError $ typeCastErr  (typeOf x) y
          | typeOf x == y = return x
 cast (LitInt x) LTFloat  = return $ LitFloat (fromIntegral x)
 
@@ -48,7 +48,7 @@ shareCast x y = mostGeneral x == mostGeneral y
 reqType :: (CanError m) => LangType -> LangType -> m LangType
 reqType x y | x `canCast` y = return y
             | y `canCast` x = return x
-            | otherwise = throwError $ typeCastErr x y
+            | otherwise = langError $ typeCastErr x y
             
 -- Need a more efficient version of this?
 -- | True if all the values in the list have a common cast.
