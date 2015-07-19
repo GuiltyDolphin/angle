@@ -66,7 +66,7 @@ data LangLit = LitStr String
                deriving (Eq)
                         
 instance Show LangLit where
-    show (LitStr x) = x
+    show (LitStr x) = show x
     show (LitInt x) = show x
     show (LitFloat x) = show x
     show (LitList xs) = show xs

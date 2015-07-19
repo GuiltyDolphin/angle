@@ -244,24 +244,29 @@ runExecIOEnv :: Env -> ExecIO a -> IO (Either LError a)
 runExecIOEnv e x = evalStateT (runErrorT (runEIO x)) e
                    
 
-builtinStr :: LangLit -> LangLit
-builtinStr (LitInt x) = LitStr (show x)
-builtinStr (LitFloat x) = LitStr (show x)
-builtinStr (LitBool x) = LitStr (show x)
-builtinStr x@(LitStr _) = x
-builtinStr (LitList xs) = LitStr (show xs)
+toLitStr :: LangLit -> LangLit
+toLitStr (LitInt x) = LitStr (show x)
+toLitStr (LitFloat x) = LitStr (show x)
+toLitStr (LitBool x) = LitStr (show x)
+toLitStr x@(LitStr _) = x
+toLitStr (LitList xs) = LitStr (show xs)
                    
 callBuiltin :: Ident -> [Expr] -> ExecIO LangLit 
-callBuiltin "print" xs | length xs > 1 = throwError $ wrongNumberOfArgumentsErr (length xs) 1
-                       | otherwise = do
-  val <- execExpr (head xs)
-  let (LitStr toPrint) = builtinStr val
-  liftIO $ print toPrint
-  return (LitStr toPrint)
+callBuiltin "print" xs = mapM execExpr xs >>= builtinPrint
+callBuiltin "str"   xs = mapM execExpr xs >>= builtinStr
+         
+builtinPrint :: [LangLit] -> ExecIO LangLit
+builtinPrint xs = liftIO $ putStrLn res >> return (LitStr res)
+                  where res = concatMap show xs
+                              
+builtinStr :: [LangLit] -> ExecIO LangLit
+builtinStr [] = return $ LitStr ""
+builtinStr xs | length xs > 1 = langError $ wrongNumberOfArgumentsErr (length xs) 1
+              | otherwise = return $ toLitStr (head xs)
 
 isBuiltin :: Ident -> Bool
 isBuiltin = (`elem`builtins)
-    where builtins = ["print"]
+    where builtins = ["print", "str"]
 
 callFun :: Ident -> [Expr] -> ExecIO LangLit
 callFun x args | isBuiltin x = callBuiltin x args
