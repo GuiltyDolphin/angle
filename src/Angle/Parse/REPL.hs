@@ -4,11 +4,13 @@ module Angle.Parse.REPL
     
 import Control.Monad
 import Control.Monad.State
+import Control.Monad.Error
 
 import Angle.Lex.Lexer
 import Angle.Lex.Helpers
 import Angle.Parse.Exec
 import Angle.Parse.Error
+import Angle.Types.Lang
 
 processLine :: String -> IO ()
 processLine s = case evalScan s program of
@@ -24,7 +26,7 @@ runLine :: String -> ExecIO ()
 runLine s = case evalScan s program of
               Left err -> liftIO $ print err
               Right res -> do
-                toPrint <- execStmt res
+                toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> return LitNull)
                 liftIO $ print toPrint
 
 
