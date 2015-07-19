@@ -9,6 +9,7 @@ module Angle.Lex.Lexer
     , litFloat
     , litBool
     , litRange
+    , exprFunCall
     ) where
 
 -- Write this!
@@ -119,7 +120,7 @@ structDefun :: Scanner LangStruct
 structDefun = StructDefun
               <$> (string "defun " *> langIdent)
               <*> (CallSig 
-                   <$> parens (sepWith (char ',') langIdent) <* tokStmtBetween
+                   <$> callList' <* tokStmtBetween
                    <*> stmt)
          
 structReturn = liftM StructReturn (keyword "return" *> expr) 
@@ -231,8 +232,17 @@ langIdent = ident <?> "identifier"
 --                    deriving (Show)
                  
 
- 
+-- | Set of arguments for a function 
 arglist = within tokTupleStart tokTupleEnd (sepWith tokEltSep expr)
+
+callList' = do
+  tokTupleStart
+  params <- sepWith tokEltSep ident
+  catcher <- optional (string ".." *> ident)
+  tokTupleEnd
+  return $ ArgSig params catcher
+  
+  
 
 -- exprFunCall = liftM ExprFunCall langFunCall
 exprFunCall = ExprFunCall <$> langIdent <*> arglist <?> "function call"
