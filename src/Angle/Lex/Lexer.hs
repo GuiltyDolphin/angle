@@ -209,6 +209,9 @@ litRange = parens (LitRange
                    <$> (expr <* tokRangeSep) 
                    <*> expr)
            <?> "range literal"
+               
+-- | Non-valued literal
+litNull = string "()" >> return LitNull
 
 expr = tryScan exprB 
        <|> exprOp 
