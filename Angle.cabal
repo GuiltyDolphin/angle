@@ -15,13 +15,39 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
-executable Angle
-  main-is:             Main.hs
-  -- other-modules:
+library 
+  exposed-modules:     Angle.Lex.Lexer
+                     , Angle.Lex.Helpers
+                     , Angle.Types.Lang
+                     , Angle.Parse.Parser
+  --other-modules:       Angle.Parse.REPL
+                     , Angle.Parse.REPL
+                     , Angle.Parse.Exec
+                     , Angle.Parse.Error
   other-extensions:    GeneralizedNewtypeDeriving, MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances
-  build-depends:       base >=4.7 && <4.8, mtl >=2.1 && <2.2, containers >=0.5 && <0.6
+  build-depends:       HUnit >= 1.2.5.2
+                     , QuickCheck >= 2.7.6
+                     , base >=4.7 && <4.8
+                     , containers >=0.5 && <0.6
+                     , mtl >=2.1 && <2.2
+                     , test-framework >= 0.8.1.1
+                     , test-framework-hunit >= 0.3.0.1
+                     , test-framework-quickcheck2 >= 0.3.0.3
   hs-source-dirs:      src
   default-language:    Haskell2010
 
-testsuite angle-testsuite
-  type: exitcode-stdio-1.0
+test-suite angle-testsuite
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      src, tests
+  main-is:             TestSuite.hs
+  other-modules:       Angle.Lex.Lexer.Tests
+                     , Angle.Lex.Helpers.Tests
+                     , Angle.Parse.Parser.Tests
+                     , Tests.Instances
+  build-depends:       HUnit >= 1.2.5.2
+                     , QuickCheck >= 2.7.6
+                     , angle
+                     , base >=4.7 && <4.8
+                     , test-framework >= 0.8.1.1
+                     , test-framework-hunit >= 0.3.0.1
+                     , test-framework-quickcheck2 >= 0.3.0.3
