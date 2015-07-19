@@ -1,5 +1,6 @@
 module Angle.Parse.Operations
-    (
+    ( addLit
+    , negLit
     ) where
 
 import qualified Data.Foldable as F
@@ -26,8 +27,8 @@ addNum x y = throwError $ typeMismatchErr (typeOf x) (typeOf y)
 -- ^ Maybe fixed
 addLit :: (CanError m) => [LangLit] -> m LangLit
 addLit xs@(LitList _:_) = return $ foldr1 addList xs 
-addLit xs@(LitInt _:_) = foldM addNum (head xs) xs
-addLit xs@(LitFloat _:_) = foldM addNum (head xs) xs
+addLit (x@(LitInt _):xs) = foldM addNum x xs
+addLit (x@(LitFloat _):xs) = foldM addNum x xs
 
 notBool :: LangLit -> LangLit
 notBool (LitBool x) = LitBool (not x)
@@ -45,3 +46,15 @@ orBool (LitBool x) (LitBool y) = LitBool (x || y)
                                  
 orLit :: [LangLit] -> LangLit
 orLit xs@(LitBool _:_) = foldr1 orBool xs
+
+                         
+negNum :: LangLit -> LangLit
+negNum (LitInt x) = LitInt (-x)
+negNum (LitFloat x) = LitFloat (-x)
+
+negLit :: (CanError m) => LangLit -> m LangLit
+negLit x | isNumeric x = return $ negNum x
+         | otherwise = throwError $ typeNotValidErr (typeOf x)
+         where isNumeric (LitInt _) = True
+               isNumeric (LitFloat _) = True
+               isNumeric _ = False
