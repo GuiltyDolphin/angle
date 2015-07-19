@@ -4,6 +4,8 @@ module Angle.Parse.Scope
     , VarVal(..)
     , emptyVar
     , BindEnv
+    , setVarInScope
+    , resolve
     ) where
 
 import Control.Monad

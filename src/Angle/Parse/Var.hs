@@ -1,5 +1,9 @@
 module Angle.Parse.Var
-    (
+    ( VarVal
+    , emptyVar
+    , setVarLit
+    , setVarFun
+    , varLitDef
     ) where
 
     
