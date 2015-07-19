@@ -57,11 +57,23 @@ hasCatchAllArg x = case catchAllArg x of
 data LangLit = LitStr String
              | LitInt Int
              | LitFloat Float
-             | LitList [Expr]
+             | LitList [Expr]     -- See below
              | LitBool Bool
-             | LitRange Expr Expr
+             | LitRange Expr Expr -- Might want Expr version of
+                                  -- this, then have
+                                  -- LitRange LangLit LangLit
              | LitNull
-               deriving (Show, Eq)
+               deriving (Eq)
+                        
+instance Show LangLit where
+    show (LitStr x) = x
+    show (LitInt x) = show x
+    show (LitFloat x) = show x
+    show (LitList xs) = show xs
+    show (LitBool x) = if x then "true" else "false"
+    show (LitRange x y) = "(" ++ show x ++ ".." ++ show y ++ ")"
+    show LitNull = "null"
+
                         
 data LangType = LTStr
               | LTInt
