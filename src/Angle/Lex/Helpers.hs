@@ -207,11 +207,14 @@ chainFlat = liftM concat . chain
 -- Right "123"
 sepWith :: Scanner a -> Scanner b -> Scanner [b]
 sepWith sep sc = tryScan (do
-  fs <- sc
-  s <- optional sep
-  case s of
-    Nothing -> return [fs]
-    Just _ -> liftM (fs:) (sepWith sep sc))
+  fsm <- optional sc
+  case fsm of
+    Nothing -> return []
+    Just fs -> do
+        s <- optional sep
+        case s of
+          Nothing -> return [fs]
+          Just _ -> liftM (fs:) (sepWith sep sc))
 
 -- |Collect sc until `ti' succeeds
 -- >>> evalScan "abc.def" (manyTill (char '.') anyChar)
