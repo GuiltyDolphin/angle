@@ -11,6 +11,8 @@ module Angle.Types.Lang
     , LangIdent
     , LangType(..)
     , typeOf
+    , Ident
+    , CallSig(..)
     ) where
 
 import Control.Monad.Error
@@ -31,10 +33,15 @@ data SingStmt = StmtAssign LangIdent Expr
 data LangStruct = StructFor LangIdent Expr Stmt
                 | StructWhile Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)
-                | StructDefun LangIdent [LangIdent] Stmt
+                | StructDefun LangIdent CallSig
                 | StructReturn Expr -- TODO: Probably don't 
                                     -- need this
                   deriving (Show, Eq)
+                           
+data CallSig = CallSig 
+    { callArgs :: [Ident]
+    , callBody :: Stmt
+    } deriving (Show, Eq)
 
 data LangLit = LitStr String
              | LitInt Int
@@ -79,7 +86,8 @@ data Expr = ExprIdent LangIdent
             deriving (Show, Eq)
                      
 type LangIdent = String
-
+type Ident = String
+    
 data LangOp = SpecOp Op Expr 
             | MultiOp Op [Expr]
               deriving (Show, Eq)

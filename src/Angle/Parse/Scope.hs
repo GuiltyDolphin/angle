@@ -3,7 +3,6 @@ module Angle.Parse.Scope
     , emptyScope
     , VarVal(..)
     , emptyVar
-    , CallSig(..)
     , BindEnv
     ) where
 
@@ -19,13 +18,6 @@ import Angle.Types.Lang
 type BindEnv = M.Map Ident VarVal
 
     
-type Ident = String
-
-
-data CallSig = CallSig [Ident] Stmt
-               deriving (Show)
-
-
 -- Scope API:
 -- - changing scope
 --   - new scope    
@@ -50,6 +42,8 @@ data CallSig = CallSig [Ident] Stmt
 --     (resolveCurrent :: Ident -> Scope -> Maybe VarVal)
 --   - only check global scope 
 --     (resolveGlobal :: Ident -> Scope -> Maybe VarVal)
+-- TODO/NOTES
+-- - Resolving literals & functions rather than just name
 
 -- Scope API when in Exec
 -- - changing scope

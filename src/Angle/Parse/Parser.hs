@@ -70,11 +70,7 @@ setVarFun :: VarVal -> CallSig -> VarVal
 setVarFun var fd = var { varFunDef = Just fd }
 
 type BindEnv = M.Map Ident VarVal
-type Ident = String
 
-data CallSig = CallSig [Ident] Stmt
-               deriving (Show)
-    
 -- | Environment in which programs are executed.
 newtype ExecEnv a = ExecEnv
     { runExecEnv :: ErrorT LangError (State BindEnv) a }
@@ -237,7 +233,7 @@ evalSingStmt (StmtAssign x y) = assignVal x y
 evalSingStmt (StmtExpr e) = evalExpr e
 -- evalSingStmt (StmtStruct x) = execStruct x
                           
-execStruct (StructDefun name args body) = assignFun name (CallSig args body)
+execStruct (StructDefun name (CallSig args body)) = assignFun name (CallSig args body)
            
   
 funCall :: Ident -> [Expr] -> ExecEnv LangLit

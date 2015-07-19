@@ -118,8 +118,9 @@ structIf = StructIf
 structDefun :: Scanner LangStruct
 structDefun = StructDefun
               <$> (string "defun " *> langIdent)
-              <*> parens (sepWith (char ',') langIdent) <* tokStmtBetween
-              <*> stmt
+              <*> (CallSig 
+                   <$> parens (sepWith (char ',') langIdent) <* tokStmtBetween
+                   <*> stmt)
          
 structReturn = liftM StructReturn (keyword "return" *> expr) 
                <?> "return construct"

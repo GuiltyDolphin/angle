@@ -31,9 +31,8 @@ import Angle.Types.Lang
 --   (isConst :: VarVal -> Bool)
 --   cannot assign to constants
 
-type Ident = String
-data CallSig = CallSig [Ident] Stmt
-               deriving (Show)
+
+
 
 -- | Represents a variable definition.
 data VarVal = VarVal 
