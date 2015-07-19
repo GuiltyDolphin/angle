@@ -42,7 +42,9 @@ testCastSame :: LangLit -> LangType -> Property
 testCastSame l t = typeOf l == t ==> monadicEither $ do
                      res <- liftM typeOf $ run $ cast l t
                      assert (res == t)
-             
+            
+-- Extracts a property from monadic Either code, giving
+-- a failing property if the result is a Left. 
 monadicEither :: PropertyM (Either e) a -> Property
 monadicEither = monadic (\x -> case x of
                                  Left _ -> property False
@@ -52,7 +54,10 @@ testGeneral :: LangType -> LangType -> Property
 testGeneral x y = canCast x y || canCast y x
                   ==> mostGeneral x == mostGeneral y
 
-tests = undefined
+tests = [ testGroup "casting"
+          [ testProperty "casting to same type" testCastSame
+          ]
+        ]
 
 
 
