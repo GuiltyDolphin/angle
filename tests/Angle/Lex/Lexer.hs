@@ -45,6 +45,13 @@ testRangeNum x y = evalScan toTest litRange == Right expected
     where toTest = concat ["(", show x, "..", show y, ")"]
           expected = LitRange (exprInt x) (exprInt y)
 
+
+-- FUNCTIONS
+testEmptyCall :: Bool
+testEmptyCall = evalScan "foo()" exprFunCall
+ == Right (ExprFunCall "foo" [])
+
+
 tests = [ testGroup "literals"
           [ testProperty "boolean" testLitBool
           , testProperty "range" testRangeNum
@@ -52,7 +59,10 @@ tests = [ testGroup "literals"
           , testProperty "string" testLitStr
 --          , testProperty "float" testLitFloat
           ]
-        ]
+          , testGroup "functions"
+                          [ testProperty "no args from empty call" testEmptyCall
+                          ]
+ ]
 
 
 
