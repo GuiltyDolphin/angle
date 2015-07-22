@@ -82,7 +82,7 @@ tokStmtBetween    = whitespace      <?> "ignored characters"
 tokInt :: (Integral a, Read a) => Scanner a
 tokInt = do
   negve <- optional (char '-')
-  res <- read <$> some tokDenaryDigit <?> "integer"
+  res <- read <$> tokDigits <?> "integer"
   case negve of
     Nothing -> return res
     Just _ -> return (-res)
@@ -90,8 +90,17 @@ tokInt = do
 tokDigits :: Scanner String
 tokDigits = some tokDenaryDigit
 
+-- TODO: Might be able to use a standard read?
 tokFloat :: Scanner Float
-tokFloat = read <$> chainFlat [tokDigits, string ".", tokDigits]
+tokFloat = do
+  negve <- optional (char '-')
+  fst <- tokDigits
+  rst <- (:) <$> char '.' <*> tokDigits
+  let res = read $ fst ++ rst
+  case negve of
+    Nothing -> return res
+    Just _ ->  return (-res)
+-- tokFloat = read <$> chainFlat [tokDigits, string ".", tokDigits]
 
 tokList :: Scanner a -> Scanner a
 tokList = within tokListStart tokListEnd

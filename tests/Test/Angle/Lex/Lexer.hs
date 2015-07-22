@@ -16,16 +16,28 @@ import Angle.Lex.Lexer
 import Angle.Lex.Helpers (evalScan)
 import Angle.Types.Lang
     
+import TestHelper
+    
+
+testShowSynStmt :: Stmt -> Bool
+testShowSynStmt x = showSynTest x stmt
+                    
+testShowSynSingStmt :: SingStmt -> Bool
+testShowSynSingStmt x = showSynTest x singStmt
+                        
+testShowSynLangStruct :: LangStruct -> Bool
+testShowSynLangStruct x = showSynTest x langStruct
+                          
+testShowSynExpr :: Expr -> Bool
+testShowSynExpr x = showSynTest x expr
+                        
+showSynTest :: (ShowSyn a, Eq a) => a -> Scanner a -> Bool
+showSynTest x sc = evalScan (showSyn x) sc == Right x
+
+    
 
 exampleAssign = "x = 1"
                 
-instance Arbitrary LangLit where
-    arbitrary = oneof
-                [ liftM LitInt arbitrary
---                , liftM LitFloat arbitrary -- Issue with e in float
-                , liftM LitBool arbitrary
-                , liftM LitStr (liftM (filter (/='"')) arbitrary)
-                ]
                 
 checkFloatStr :: Float -> Bool
 checkFloatStr x = not $ 'e' `elem` (show x) 
@@ -46,10 +58,6 @@ testLitInt x = evalScan (show x) litInt == Right (LitInt x)
                
 testLitNull :: Bool
 testLitNull = evalScan "()" litNull == Right LitNull
-               
---testLitFloat :: Small Float -> Bool
---testLitFloat x' = evalScan (show x) litFloat == Right (LitFloat x)
---                  where x = getSmall x'
 
 testLitBool :: Bool
 testLitBool = evalScan "true" litBool == Right (LitBool True)
@@ -81,20 +89,12 @@ testOpAdd = evalScan "(+ 1 2)" langOp
 testOpNeg :: Bool
 testOpNeg = evalScan "-x" langOp ==  Right (SpecOp OpNeg (ExprIdent (LangIdent "x")))
 
-newtype ValidIdent = ValidIdent { getValidIdent :: String }
-    deriving (Show)
-instance Arbitrary ValidIdent where
-    arbitrary = (liftM ValidIdent) $ (:) <$> chooseAlpha <*> listOf chooseAlphaNum
-                
-chooseAlpha = oneof [choose ('a','z'), choose ('A','Z')]
-chooseDigit = choose ('0','9')
-chooseAlphaNum = oneof [chooseAlpha, chooseDigit]
 
 tests = [ testGroup "literals"
           [ testProperty "boolean" testLitBool
-          , testProperty "range" testRange
-          , testProperty "integer" testLitInt
-          , testProperty "string" testLitStr
+--          , testProperty "range" testRange
+ --         , testProperty "integer" testLitInt
+  --        , testProperty "string" testLitStr
 --          , testProperty "float" testLitFloat
           ]
         , testGroup "functions"
@@ -102,5 +102,12 @@ tests = [ testGroup "literals"
           ]
         , testGroup "operators"
           [ testProperty "addition operator" testOpAdd
+          , testProperty "negation operator" testOpNeg
+          ]
+        , testGroup "show syntax"
+          [ testProperty "Stmt" testShowSynStmt
+----          , testProperty "SingStmt" testShowSynSingStmt
+--          , testProperty "LangStruct" testShowSynLangStruct
+--          , testProperty "Expr" testShowSynExpr
           ]
         ]

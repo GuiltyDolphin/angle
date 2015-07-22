@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
-module Angle.Lex.Helpers.Tests 
+module Test.Angle.Lex.Helpers
     ( tests
     ) where
 
@@ -61,7 +61,7 @@ instance Show (Scanner Char) where
 instance CoArbitrary (Scanner Char) where
 
 testSomeTillChar :: Char -> String -> Property
-testSomeTillChar c s = c `notElem` s ==> evalScan (s++[c]) (someTill (char c) anyChar) == Right s
+testSomeTillChar c s = c `notElem` s && not (null s) ==> evalScan (s++[c]) (someTill (char c) anyChar) == Right s
                        
 testAnyCharEmpty :: Bool
 testAnyCharEmpty = case evalScan "" anyChar of
@@ -71,7 +71,7 @@ testAnyCharEmpty = case evalScan "" anyChar of
 testAnyChar :: Char -> Bool
 testAnyChar c = evalScan [c] anyChar == Right c
                 
-testNotScan :: String -> Scanner a -> Bool
+testNotScan :: (Show a) => String -> Scanner a -> Bool
 testNotScan s sc = if doesScan s sc then doesNotScan s (notScan sc)
                    else doesScan s (notScan sc)
                         

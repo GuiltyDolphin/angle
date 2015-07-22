@@ -9,7 +9,15 @@ module Angle.Lex.Lexer
     , litFloat
     , litBool
     , litRange
+    , litNull
     , exprFunCall
+    , progPos
+    , langOp
+    , exprLit
+    , langLit
+    , langStruct
+    , singStmt
+    , expr
     ) where
 
 -- Write this!
@@ -42,9 +50,9 @@ multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
 singStmt :: Scanner SingStmt
 singStmt = surrounded tokStmtBetween
            (   tryScan (stmtAssign <* singStmtEnd)
-           <|> stmtStruct 
+           <|> tryScan stmtStruct 
            <|> stmtExpr            <* singStmtEnd
-           <|> stmtComment)
+           <|> stmtComment) <?> "statement"
 
 singStmtEnd = void (lookAhead tokMultiStmtEnd)
               <|> void (char ';')
@@ -141,11 +149,12 @@ exprLit = liftM ExprLit langLit
 -- |Language literals
 langLit :: Scanner LangLit
 langLit = litStr 
+          <|> litNull
+          <|> litRange 
+          <|> litBool 
+          <|> litList 
           <|> tryScan litFloat 
           <|> litInt 
-          <|> litList 
-          <|> litBool 
-          <|> litRange 
           <?> "literal"
 
 -- |A literal string
@@ -215,10 +224,10 @@ litRange = parens (LitRange
 -- | Non-valued literal
 litNull = string "()" <|> string "null" >> return LitNull
 
-expr = ((exprOp 
+expr = (   tryScan exprLit
+       <|> exprOp
        <|> tryScan exprFunCall 
-       <|> exprLit 
-       <|> exprIdent) <* exprEnd)
+       <|> exprIdent)
        <?> "expression"
        
 exprIdent = liftM ExprIdent langIdent <?> "identifier"
@@ -285,13 +294,13 @@ preOp sc = do
 -- >>> evalScan "(+ 1 3)" multiOp
 -- Right (...Add...1...3...)
 multiOp :: Scanner LangOp
-multiOp = choice (map multOp multiOps) <?> "operator expression"
+multiOp = parens (choice $ map multOp multiOps) <?> "operator expression"
           
 multiOps :: [Scanner Op]
 multiOps = [opMult, opDiv, opAdd, opSub, opEq]
            
 multOp :: Scanner Op -> Scanner LangOp
-multOp sc = tryScan . parens $ MultiOp
+multOp sc = MultiOp
             <$> (sc <* tokSpace)
             <*> sepWith (some tokWhitespace) expr
                      
