@@ -213,7 +213,7 @@ litRange = parens (LitRange
            <?> "range literal"
                
 -- | Non-valued literal
-litNull = string "()" >> return LitNull
+litNull = string "()" <|> string "null" >> return LitNull
 
 expr = ((exprOp 
        <|> tryScan exprFunCall 
