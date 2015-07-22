@@ -226,7 +226,7 @@ exprB = liftM ExprB (within tokParenL tokParenR expr) <?> "bracketed expression"
 exprIdent = liftM ExprIdent langIdent <?> "identifier"
             
 langIdent :: Scanner LangIdent
-langIdent = ident <?> "identifier"
+langIdent = liftM LangIdent ident <?> "identifier"
 
 -- data LangFunCall = FC LangIdent [Expr]
 --                    deriving (Show)
@@ -237,8 +237,8 @@ arglist = within tokTupleStart tokTupleEnd (sepWith tokEltSep expr)
 
 callList' = do
   tokTupleStart
-  params <- sepWith tokEltSep ident
-  catcher <- optional (string ".." *> ident)
+  params <- liftM (map LangIdent) $ sepWith tokEltSep ident
+  catcher <- optional $ liftM LangIdent (string ".." *> ident)
   tokTupleEnd
   return $ ArgSig params catcher
   

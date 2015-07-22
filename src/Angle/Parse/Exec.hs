@@ -74,34 +74,34 @@ newScope = do
       newScope = emptyScope { outerScope = Just oldScope }
   put env { currentScope = newScope }
 
-lookupVar :: Ident -> ExecIO (Maybe VarVal)
+lookupVar :: LangIdent -> ExecIO (Maybe VarVal)
 lookupVar name = do
   env <- get
   let res = resolve name (currentScope env)
   return res
          
-lookupVarLit :: Ident -> ExecIO (Maybe LangLit)
+lookupVarLit :: LangIdent -> ExecIO (Maybe LangLit)
 lookupVarLit name = do
   res <- lookupVar name
   case res of 
     Nothing -> return Nothing
     Just x -> return $ varLitDef x
   
-lookupVarLitF :: Ident -> ExecIO LangLit
+lookupVarLitF :: LangIdent -> ExecIO LangLit
 lookupVarLitF name = do
   res <- lookupVarLit name
   case res of
     Nothing -> langError $ nameNotValueErr name
     Just x -> return x
               
-lookupVarFun :: Ident -> ExecIO (Maybe CallSig)
+lookupVarFun :: LangIdent -> ExecIO (Maybe CallSig)
 lookupVarFun name = do
   res <- lookupVar name
   case res of 
     Nothing -> return Nothing
     Just x -> return $ varFunDef x
 
-lookupVarFunF :: Ident -> ExecIO CallSig
+lookupVarFunF :: LangIdent -> ExecIO CallSig
 lookupVarFunF name = do
   res <- lookupVarFun name
   case res of
@@ -109,7 +109,7 @@ lookupVarFunF name = do
     Just x -> return x
 
          
-lookupVarF :: Ident -> ExecIO VarVal
+lookupVarF :: LangIdent -> ExecIO VarVal
 lookupVarF name = do
   res <- lookupVar name
   case res of
@@ -124,15 +124,15 @@ modifyScope f = do
       newScope = f oldScope
   put env {currentScope=newScope}
 
-assignVarLit :: Ident -> LangLit -> ExecIO LangLit
+assignVarLit :: LangIdent -> LangLit -> ExecIO LangLit
 assignVarLit name val = do
   modifyScope $ flip (setVarInScope name $ setVarLit emptyVar val) True
   return val
          
-assignVar :: Ident -> VarVal -> ExecIO ()
+assignVar :: LangIdent -> VarVal -> ExecIO ()
 assignVar name val = modifyScope $ flip (setVarInScope name val) True
                      
-assignVarFun :: Ident -> CallSig -> ExecIO ()
+assignVarFun :: LangIdent -> CallSig -> ExecIO ()
 assignVarFun name val = modifyScope $ flip (setVarInScope name $ setVarFun emptyVar val) True
 
 runWithEnv :: Env -> Exec a -> Either LangError a
@@ -207,7 +207,7 @@ execExpr (ExprIdent x) = lookupVarLitF x
 execExpr (ExprOp x) = execOp x
 execExpr (ExprFunCall name args) = execFunCall name args
                                    
-execFunCall :: Ident -> [Expr] -> ExecIO LangLit
+execFunCall :: LangIdent -> [Expr] -> ExecIO LangLit
 execFunCall = callFun
                       
 
@@ -251,9 +251,9 @@ toLitStr (LitBool x) = LitStr (show x)
 toLitStr x@(LitStr _) = x
 toLitStr (LitList xs) = LitStr (show xs)
                    
-callBuiltin :: Ident -> [Expr] -> ExecIO LangLit 
-callBuiltin "print" xs = mapM execExpr xs >>= builtinPrint
-callBuiltin "str"   xs = mapM execExpr xs >>= builtinStr
+callBuiltin :: LangIdent -> [Expr] -> ExecIO LangLit 
+callBuiltin (LangIdent "print") xs = mapM execExpr xs >>= builtinPrint
+callBuiltin (LangIdent "str")   xs = mapM execExpr xs >>= builtinStr
          
 builtinPrint :: [LangLit] -> ExecIO LangLit
 builtinPrint xs = liftIO $ putStrLn res >> return (LitStr res)
@@ -264,11 +264,11 @@ builtinStr [] = return $ LitStr ""
 builtinStr xs | length xs > 1 = langError $ wrongNumberOfArgumentsErr (length xs) 1
               | otherwise = return $ toLitStr (head xs)
 
-isBuiltin :: Ident -> Bool
-isBuiltin = (`elem`builtins)
+isBuiltin :: LangIdent -> Bool
+isBuiltin = ((`elem`builtins) . getIdent)
     where builtins = ["print", "str"]
 
-callFun :: Ident -> [Expr] -> ExecIO LangLit
+callFun :: LangIdent -> [Expr] -> ExecIO LangLit
 callFun x args | isBuiltin x = callBuiltin x args
                | otherwise = do
   callsig <- lookupVarFunF x

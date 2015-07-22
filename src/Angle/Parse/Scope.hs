@@ -17,7 +17,7 @@ import Angle.Types.Lang
 
 
 
-type BindEnv = M.Map Ident VarVal
+type BindEnv = M.Map LangIdent VarVal
 
     
 -- Scope API:
@@ -74,7 +74,7 @@ isOutermostScope s = case outerScope s of
 
 -- | @name `isDefinedIn` scope@ is True if @scope@
 -- contains a definition for @name@.
-isDefinedIn :: Ident -> Scope -> Bool
+isDefinedIn :: LangIdent -> Scope -> Bool
 isDefinedIn name scope = case M.lookup name (bindings scope) of
                          Nothing -> False
                          Just _ -> True
@@ -98,7 +98,7 @@ withOutermostScope f scope =
 
 -- | Finds the local-most Scope that contains a definition
 -- for the specified identifier.
-innerScopeDefining :: Ident -> Scope -> Maybe Scope
+innerScopeDefining :: LangIdent -> Scope -> Maybe Scope
 innerScopeDefining name scope = 
     if name `isDefinedIn` scope
     then Just scope
@@ -109,7 +109,7 @@ innerScopeDefining name scope =
 -- from the local-most scope in which it is defined.
 --
 -- Returns Nothing if there is no definition for @name@.
-resolve :: Ident -> Scope -> Maybe VarVal
+resolve :: LangIdent -> Scope -> Maybe VarVal
 resolve name scope = if name `isDefinedIn` scope
                      then fromCurrentScope name scope
                      else outerScope scope >>= resolve name
@@ -128,7 +128,7 @@ onBindings f scope = scope { bindings = f $ bindings scope }
 
 -- | Boolean determines whether to overwrite ident if it
 -- exists.
-setVarInScope :: Ident -> VarVal -> Scope -> Bool -> Scope
+setVarInScope :: LangIdent -> VarVal -> Scope -> Bool -> Scope
 setVarInScope name val scope@(Scope{bindings=binds}) overwrite
     = if name `isDefinedIn` scope 
       then if overwrite

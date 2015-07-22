@@ -89,9 +89,9 @@ nameNotFunctionErr = nameErr . NameNotFunction
 nameNotValueErr    = nameErr . NameNotValue
 
 instance Show NameError where
-    show (NameNotDefined  name) = "not in scope: "         ++ name
-    show (NameNotFunction name) = "not a valid function: " ++ name
-    show (NameNotValue    name) = "no value assigned: "    ++ name
+    show (NameNotDefined  (LangIdent name)) = "not in scope: "         ++ name
+    show (NameNotFunction (LangIdent name)) = "not a valid function: " ++ name
+    show (NameNotValue    (LangIdent name)) = "no value assigned: "    ++ name
                                   
 data CallError = 
     WrongNumberOfArguments Int Int

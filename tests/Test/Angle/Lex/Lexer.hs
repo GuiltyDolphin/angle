@@ -59,7 +59,7 @@ testLitBool = evalScan "true" litBool == Right (LitBool True)
 
 testRange :: LangLit -> LangLit -> Bool
 testRange x y = evalScan toTest litRange == Right expected
-    where toTest = concat ["(", show x, "..", show y, ")"]
+    where toTest = concat ["(", showSyn x, "..", showSyn y, ")"]
           expected = LitRange (ExprLit x) (ExprLit y)
                      
 testLangLitInt :: Int -> Bool
@@ -72,14 +72,14 @@ testLangLitBool = evalScan "true" langLit == Right (LitBool True) && evalScan "f
 -- FUNCTIONS
 testEmptyCall :: Bool
 testEmptyCall = evalScan "foo()" exprFunCall
- == Right (ExprFunCall "foo" [])
+ == Right (ExprFunCall (LangIdent "foo") [])
     
 testOpAdd :: Bool
 testOpAdd = evalScan "(+ 1 2)" langOp
  == Right (MultiOp OpAdd [ExprLit (LitInt 1), ExprLit (LitInt 2)])
     
 testOpNeg :: Bool
-testOpNeg = evalScan "-x" langOp ==  Right (SpecOp OpNeg (ExprIdent "x"))
+testOpNeg = evalScan "-x" langOp ==  Right (SpecOp OpNeg (ExprIdent (LangIdent "x")))
 
 newtype ValidIdent = ValidIdent { getValidIdent :: String }
     deriving (Show)

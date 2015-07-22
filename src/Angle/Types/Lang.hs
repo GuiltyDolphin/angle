@@ -45,8 +45,8 @@ data CallSig = CallSig
     , callBody :: Stmt
     } deriving (Show, Eq)
              
-data ArgSig = ArgSig { stdArgs :: [Ident]
-                     , catchAllArg :: Maybe Ident
+data ArgSig = ArgSig { stdArgs :: [LangIdent]
+                     , catchAllArg :: Maybe LangIdent
                      } deriving (Show, Eq)
 
 hasCatchAllArg :: ArgSig -> Bool

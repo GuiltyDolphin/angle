@@ -103,7 +103,7 @@ tokList = within tokListStart tokListEnd
 -- >>> evalScan "return" ident
 -- Left ...
 -- ...
-ident = noneFrom string keywords *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar)
+ident = noneFrom (\x -> string x <* exprEnd) keywords *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar)
 
 opChars = "*/+->=<|&^"
 sepChar = "{()};, =" ++ opChars
