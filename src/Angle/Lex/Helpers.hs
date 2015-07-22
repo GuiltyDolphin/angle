@@ -19,6 +19,7 @@ module Angle.Lex.Helpers
     , chainFlat
     , anyChar
     , manyTill
+    , manyTill'
     , someTill
     , evalScan
     , Scanner
@@ -222,6 +223,10 @@ sepWith sep sc = tryScan (do
 manyTill :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
 manyTill ti sc = many (notScan ti *> sc)
                  
+-- | Like `manyTill', but also consume @ti@.
+manyTill' :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
+manyTill' ti sc = manyTill ti sc <* ti
+                 
 -- |Like `manyTill', but `sc' must succeed before `ti'
 -- >>> evalScan "123.456" (someTill (char '.') anyChar)
 -- Right "123"
@@ -267,11 +272,3 @@ newtype Lexer a = Lexer
 --             
 --lexChar :: Char -> Lexer Char
 --lexChar c = do
-
-
-
-
-
-
-
-

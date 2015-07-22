@@ -60,9 +60,9 @@ stmtAssign = StmtAssign
              <*> expr
 
 stmtComment :: Scanner SingStmt
-stmtComment = StmtComment <$> (char '#' *> many (notChar '\n'))
+stmtComment = StmtComment <$> (char '#' *> manyTill' (void (char '\n') <|> void (string "-#")) anyChar)
               <?> "comment"
-           
+                  
 stmtStruct :: Scanner SingStmt 
 stmtStruct = liftM StmtStruct langStruct
 
