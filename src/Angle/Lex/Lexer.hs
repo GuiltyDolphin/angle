@@ -221,8 +221,6 @@ expr = ((exprOp
        <|> exprIdent) <* exprEnd)
        <?> "expression"
        
-exprB = liftM ExprB (within tokParenL tokParenR expr) <?> "bracketed expression"
-
 exprIdent = liftM ExprIdent langIdent <?> "identifier"
             
 langIdent :: Scanner LangIdent

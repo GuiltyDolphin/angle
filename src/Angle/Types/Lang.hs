@@ -104,7 +104,6 @@ instance Show LangType where
 data Expr = ExprIdent LangIdent
           | ExprLit LangLit
           | ExprFunCall LangIdent [Expr]
-          | ExprB Expr
           | ExprOp LangOp
             deriving (Show, Eq)
                      
