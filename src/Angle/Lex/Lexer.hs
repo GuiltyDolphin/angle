@@ -84,11 +84,11 @@ langStruct =     structFor
 -- Right (..."x"...2...8...[]...)
 structFor :: Scanner LangStruct
 structFor = do
-  keyword "for"
+  string "for "
   name <- langIdent
-  keyword " in"
+  string " in "
   iter <- expr
-  string " do"
+  string " do "
   optional tokNewLine
   body <- stmt
   return $ StructFor name iter body
@@ -98,8 +98,8 @@ structFor = do
 -- Right (...True...[]...)         
 structWhile :: Scanner LangStruct
 structWhile = StructWhile 
-              <$> (keyword "while" *> expr)
-              <*> (keyword " do"   *> stmt)
+              <$> (string "while " *> expr)
+              <*> (string " do "   *> stmt)
          
 -- |Conditional if statement
 -- >>> evalScan "if true then {}" structIf
@@ -109,9 +109,9 @@ structWhile = StructWhile
 -- Right (...False...[]...Just...[]...)
 structIf :: Scanner LangStruct
 structIf = StructIf
-           <$> (keyword "if" *> expr)
-           <*> (keyword " then" *> stmt)
-           <*> optional (keyword "else" *> stmt)
+           <$> (string "if " *> expr)
+           <*> (string " then " *> stmt)
+           <*> optional (string "else " *> stmt)
 
         
 -- |Function definition
@@ -124,7 +124,7 @@ structDefun = StructDefun
                    <$> callList' <* tokStmtBetween
                    <*> stmt)
          
-structReturn = liftM StructReturn (keyword "return" *> expr) 
+structReturn = liftM StructReturn (string "return " *> expr) 
                <?> "return construct"
 
          
