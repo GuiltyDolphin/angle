@@ -3,8 +3,9 @@ module Angle.Parse.Exec
     ( runExecIOBasic
     , runExecIOEnv
     , execStmt
+    , execRun
     , ExecIO
-    , Env
+    , Env(..)
     ) where
 
 import Control.Applicative
@@ -142,22 +143,22 @@ infix 4 |=
 (|=) = assignVarLit
 
 -- Little test program until tests are instantiated
-basicProg :: IO ()
-basicProg = do
-  let prog1 = "x" |= LitInt 5          
-      prog2 = newScope >> "x" |= LitInt 6
-      prog3 = do
-              "y" |= LitStr "hello"
-              let cs = CallSig (ArgSig ["a","b"] Nothing) (MultiStmt [])
-              argListBind [ExprIdent "x", ExprIdent "y"] cs
-              liftM currentScope get
-  r1 <- runExecIOBasic $ prog1 *> prog2 *> lookupVar "x"
-  liftIO $ print r1
-  mapM_ (\x -> runExecIOBasic x >>= liftIO . print)
-           [ prog1 *> lookupVar "x"
-           , prog1 *> prog2 *> lookupVar "x"
-           , prog1 *> prog2 *> upScope *> lookupVar "x"
-           ]
+-- basicProg :: IO ()
+-- basicProg = do
+--   let prog1 = "x" |= LitInt 5          
+--       prog2 = newScope >> "x" |= LitInt 6
+--       prog3 = do
+--               "y" |= LitStr "hello"
+--               let cs = CallSig (ArgSig ["a","b"] Nothing) (MultiStmt [])
+--               argListBind [ExprIdent "x", ExprIdent "y"] cs
+--               liftM currentScope get
+--   r1 <- runExecIOBasic $ prog1 *> prog2 *> lookupVar "x"
+--   liftIO $ print r1
+--   mapM_ (\x -> runExecIOBasic x >>= liftIO . print)
+--            [ prog1 *> lookupVar "x"
+--            , prog1 *> prog2 *> lookupVar "x"
+--            , prog1 *> prog2 *> upScope *> lookupVar "x"
+--            ]
   -- liftIO $ print $ runExecIOBasic $ prog1 *> prog2 *> upScope *> prog3
   
               
