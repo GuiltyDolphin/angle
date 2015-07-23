@@ -80,7 +80,7 @@ instance Arbitrary Expr where
     arbitrary = frequency 
                 [ (9, liftArby ExprIdent)
                 , (6, liftArby  ExprLit)
-                , (1, liftArby2 ExprFunCall)
+                , (1, liftM2 ExprFunCall arbitrary (liftArby getTinyList))
                 , (4, liftArby  ExprOp)
                 ]
     shrink (ExprIdent x) = map ExprIdent (shrink x)
@@ -90,7 +90,7 @@ instance Arbitrary Expr where
 
 instance Arbitrary ArgSig where
     arbitrary = do
-      args <- arbitrary
+      args <- liftArby getTinyList
       catchArg <- arbitrary
       return ArgSig { Angle.Types.Lang.stdArgs = args, catchAllArg = catchArg }
     shrink (ArgSig x y) = zipWith ArgSig (shrink x) (shrink y)
@@ -98,7 +98,7 @@ instance Arbitrary ArgSig where
 instance Arbitrary Stmt where
     arbitrary = frequency
                 [ (9, liftArby SingleStmt)
-                , (1, liftArby MultiStmt)
+                , (1, liftM MultiStmt (liftArby getTinyList))
                 ]
     shrink (SingleStmt x) = map SingleStmt (shrink x)
     shrink (MultiStmt xs) = map MultiStmt (shrink xs)
@@ -180,3 +180,27 @@ instance Arbitrary ValidComment where
             where isValidComment x | '\n' `elem` x = False
                                    | "-#" `isInfixOf` x = False
                                    | otherwise = True
+
+maxSmallListLength = 50         
+maxTinyListLength = 10
+
+newtype SmallList a = SmallList { getSmallList :: [a] }
+    deriving (Show)
+             
+newtype TinyList a = TinyList { getTinyList :: [a] }
+    deriving (Show)
+
+             
+instance (Arbitrary a) => Arbitrary (SmallList a) where
+    arbitrary = sized $ \s -> do
+                  n <- choose (0,s`min`maxSmallListLength)
+                  xs <- vector n
+                  return (SmallList xs)
+    shrink (SmallList xs) = map SmallList (shrink xs)
+
+instance (Arbitrary a) => Arbitrary (TinyList a) where
+    arbitrary = sized $ \s -> do
+                  n <- choose (0,s`min`maxTinyListLength)
+                  xs <- vector n
+                  return (TinyList xs)
+    shrink (TinyList xs) = map TinyList (shrink xs)
