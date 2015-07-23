@@ -172,11 +172,11 @@ instance Arbitrary MultiOp where
 newtype ValidComment = ValidComment { getValidComment :: String }
     
 instance Arbitrary ValidComment where
-    arbitrary = do
-      a <- arbitrary
-      if isValidComment a
-        then return $ ValidComment a
-        else arbitrary
+    arbitrary = liftM ValidComment $ arbitrary `suchThat` isValidComment
+      --a <- arbitrary
+      --if isValidComment a
+      --  then return $ ValidComment a
+      --  else arbitrary
             where isValidComment x | '\n' `elem` x = False
                                    | "-#" `isInfixOf` x = False
                                    | otherwise = True

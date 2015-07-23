@@ -68,8 +68,13 @@ stmtAssign = StmtAssign
              <*> expr
 
 stmtComment :: Scanner SingStmt
-stmtComment = StmtComment <$> (char '#' *> manyTill' (void (char '\n') <|> void (string "-#")) anyChar)
+stmtComment = StmtComment <$> (char '#' *> manyTill' tokEndComment anyChar)
               <?> "comment"
+                  
+tokEndComment = void (char '\n') 
+                <|> void tokEOF 
+                <|> void (string "-#")
+                <?> "end of comment"
                   
 stmtStruct :: Scanner SingStmt 
 stmtStruct = liftM StmtStruct langStruct
