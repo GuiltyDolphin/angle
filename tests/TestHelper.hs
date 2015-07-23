@@ -104,9 +104,16 @@ instance Arbitrary Stmt where
 
 instance Arbitrary LangOp where
     arbitrary = frequency 
-                [ (7, liftM SpecOp (liftArby getSpecOp) >>= liftArby)
+                [ (7, liftM SpecOp (liftArby getSpecOp) >>= checkOp)
                 , (3, liftM MultiOp (liftArby getMultiOp) >>= liftArby)
                 ]
+        where checkOp f = do -- Prevent -ve on numbers
+                x <- arbitrary
+                case f x of
+                  (SpecOp OpNeg (ExprLit (LitInt _))) -> arbitrary
+                  (SpecOp OpNeg (ExprLit (LitFloat _))) -> arbitrary
+                  r -> return r
+                  
     shrink (SpecOp x y) = zipWith SpecOp (shrink x) (shrink y)
     shrink (MultiOp x ys) = zipWith MultiOp (shrink x) (shrink ys)
 
