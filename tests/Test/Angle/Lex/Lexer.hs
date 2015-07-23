@@ -98,16 +98,16 @@ tests = [ testGroup "literals"
 --          , testProperty "float" testLitFloat
           ]
         , testGroup "functions"
-          [ testProperty "no args from empty call" testEmptyCall
+          [ testProperty "no args from empty call" $ once testEmptyCall
           ]
         , testGroup "operators"
-          [ testProperty "addition operator" testOpAdd
-          , testProperty "negation operator" testOpNeg
+          [ testProperty "addition operator" $ once testOpAdd
+          , testProperty "negation operator" $ once testOpNeg
           ]
         , testGroup "show syntax"
-          [ testProperty "Stmt" testShowSynStmt
-----          , testProperty "SingStmt" testShowSynSingStmt
---          , testProperty "LangStruct" testShowSynLangStruct
---          , testProperty "Expr" testShowSynExpr
+          [ testProperty "Stmt" (verbose testShowSynStmt)
+          , testProperty "SingStmt" testShowSynSingStmt
+          , testProperty "LangStruct" testShowSynLangStruct
+          ,  testProperty "Expr" testShowSynExpr
           ]
         ]
