@@ -59,7 +59,7 @@ instance Arbitrary LangStruct where
     arbitrary = frequency 
                 [ (3, liftArby3 StructFor)
                 , (3, liftArby2 StructWhile)
-                , (3, liftArby3 StructIf)
+                , (3, liftM3 StructIf arbitrary (liftArby MultiStmt) arbitrary)
                 , (1, liftArby2 StructDefun)
                 -- , liftArby StructReturn -- Not using atm
                 ]

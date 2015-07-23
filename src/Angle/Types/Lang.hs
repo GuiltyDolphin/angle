@@ -75,7 +75,7 @@ instance ShowSyn LangStruct where
         = concat ["defun ", showSyn n, showSynSep "("
                               (case catchArg of
                                  Nothing -> ") "
-                                 Just x -> concat [", ..", showSyn x, ") "]) ", " args]
+                                 Just x -> concat [if not (null args) then ", .." else "..", showSyn x, ") "]) ", " args]
           ++ showSyn body
         where args = stdArgs $ callArgs c
               body = callBody c

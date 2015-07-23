@@ -10,14 +10,17 @@ module Angle.Lex.Lexer
     , litBool
     , litRange
     , litNull
-    , exprFunCall
     , progPos
     , langOp
+    , exprIdent
     , exprLit
+    , exprFunCall
+    , exprOp
     , langLit
     , langStruct
     , singStmt
     , expr
+    , structDefun
     ) where
 
 -- Write this!
