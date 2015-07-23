@@ -3,6 +3,7 @@ module TestHelper
     , module Test.Framework.Providers.HUnit
     , module Test.Framework.Providers.QuickCheck2
     , Scanner
+    , evalScan
     ) where
 
     
@@ -18,19 +19,17 @@ import Test.HUnit
 import Test.QuickCheck
 
 import Angle.Types.Lang
-    
-import Angle.Scanner (Scanner)
-
+import Angle.Lex.Helpers (evalScan, Scanner)
 
 instance Arbitrary LangLit where
-    arbitrary = oneof
-                [ liftArby (LitStr . getValidLitStr)
-                , liftArby LitInt
-                , liftArby LitFloat
-                , liftArby LitList
-                , liftArby LitBool
-                , liftArby2 LitRange
-                , return LitNull
+    arbitrary = frequency 
+                [ (4, liftArby (LitStr . getValidLitStr))
+                , (6, liftArby LitInt)
+                , (6, liftArby LitFloat)
+                , (1, liftM LitList (liftArby getSmallList))
+                , (6, liftArby LitBool)
+                , (1, liftArby2 LitRange)
+                , (6, return LitNull)
                 ]
     shrink (LitList xs) = map LitList (shrink xs)
     shrink (LitInt x) = map LitInt (shrink x)
@@ -42,11 +41,11 @@ instance Arbitrary LangLit where
 
                 
 instance Arbitrary SingStmt where
-    arbitrary = oneof
-                [ liftArby2 StmtAssign
-                , liftM StmtComment (liftArby getValidComment)
-                , liftArby StmtStruct
-                , liftArby StmtExpr
+    arbitrary = frequency 
+                [ (7, liftArby2 StmtAssign)
+                , (6, liftM StmtComment (liftArby getValidComment))
+                , (3, liftArby StmtStruct)
+                , (4, liftArby StmtExpr)
                 ]
     shrink (StmtAssign x y) = zipWith StmtAssign (shrink x) (shrink y)
     shrink (StmtComment x) = map StmtComment (filter validComment $ shrink x)
