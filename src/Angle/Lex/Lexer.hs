@@ -274,6 +274,7 @@ opAdd  = makeOp (char '+')    OpAdd  <?> "operator (+)"
 opSub  = makeOp (char '-')    OpSub  <?> "operator (-)"
 opNot  = makeOp (char '^')    OpNot  <?> "operator (^)"
 opEq   = makeOp (string "==") OpEq   <?> "operator (==)"
+opOr   = makeOp (char '|')    OpOr   <?> "operator (|)"
        
 -- |Operators that can be used outside parentheses
 -- >>> evalScan "^true" specOp
@@ -297,7 +298,7 @@ multiOp :: Scanner LangOp
 multiOp = parens (choice $ map multOp multiOps) <?> "operator expression"
           
 multiOps :: [Scanner Op]
-multiOps = [opMult, opDiv, opAdd, opSub, opEq]
+multiOps = [opMult, opDiv, opAdd, opSub, opEq, opOr]
            
 multOp :: Scanner Op -> Scanner LangOp
 multOp sc = MultiOp

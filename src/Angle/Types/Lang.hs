@@ -190,6 +190,7 @@ data Op = OpNeg
         | OpSub 
         | OpNot 
         | OpEq
+        | OpOr
           deriving (Show, Eq)
                    
 instance ShowSyn Op where
@@ -200,4 +201,4 @@ instance ShowSyn Op where
     showSyn OpSub = "-"
     showSyn OpNot = "^"
     showSyn OpEq = "=="
-        
+    showSyn OpOr = "|"
