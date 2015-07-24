@@ -6,6 +6,7 @@ import TestHelper
 import qualified Test.Angle.Lex.Lexer as Lexer
 import qualified Test.Angle.Lex.Helpers as Helpers
 import qualified Test.Angle.Lex.Token as Token
+import qualified Test.Angle.Parse.Operations as Operations
 
 
 main :: IO ()
@@ -17,4 +18,5 @@ toMicroSeconds n = n*10^6
 allTests = localOption (Timeout (toMicroSeconds 2) "") $ testGroup "all tests" [ testGroup "lexer tests" Lexer.tests 
            , testGroup "helpers tests" Helpers.tests
            , testGroup "token tests" Token.tests
+           , testGroup "operations tests" Operations.tests
            ]

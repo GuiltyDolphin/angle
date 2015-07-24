@@ -1,6 +1,9 @@
 module Angle.Parse.Operations
     ( addLit
     , negLit
+    , andLit
+    , andBool
+    , addList
     ) where
 
 import qualified Data.Foldable as F
@@ -37,14 +40,16 @@ notBool (LitBool x) = LitBool (not x)
 andBool :: LangLit -> LangLit -> LangLit
 andBool (LitBool x) (LitBool y) = LitBool (x && y)
                                   
-andLit :: [LangLit] -> LangLit
-andLit xs@(LitBool _:_) = foldr1 andBool xs
+andLit :: (CanError m) => [LangLit] -> m LangLit
+andLit []               = return $ LitBool True
+andLit xs@(LitBool _:_) = return $ foldr1 andBool xs
 
                           
 orBool :: LangLit -> LangLit -> LangLit
 orBool (LitBool x) (LitBool y) = LitBool (x || y)
                                  
 orLit :: [LangLit] -> LangLit
+orLit [] = LitBool False
 orLit xs@(LitBool _:_) = foldr1 orBool xs
 
                          
