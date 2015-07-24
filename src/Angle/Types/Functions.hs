@@ -21,8 +21,8 @@ import Angle.Parse.Error
 -- | Can the first type be casted to the second type?
 -- All types can be casted to themselves.
 canCast :: LangType -> LangType -> Bool
-canCast LTInt LTFloat = True
-canCast x y | x == y = True
+canCast LTInt LTFloat   = True
+canCast x y | x == y    = True
             | otherwise = False
              
 -- | Change the type of the given literal.
@@ -36,6 +36,8 @@ general :: LangType -> LangType
 general LTInt = LTFloat
 general x = x
             
+-- | @mostGeneral t@ is the least specific type that
+-- @t@ can be casted to.
 mostGeneral :: LangType -> LangType
 mostGeneral x | general x == x = x
               | otherwise = mostGeneral (general x)

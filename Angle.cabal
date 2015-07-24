@@ -26,6 +26,7 @@ library
                      , Angle.Parse.Scope
                      , Angle.Parse.Var
                      , Angle.Parse.Operations
+                     , Angle.Types.Functions
   other-modules:       Angle.Parse.REPL
   other-extensions:    GeneralizedNewtypeDeriving, MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances
   build-depends:       HUnit >= 1.2.5.2

@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module TestHelper
     ( --module Test.Framework
     -- , module Test.Framework.Providers.HUnit
@@ -7,6 +9,10 @@ module TestHelper
     , module Test.Tasty.HUnit
     , Scanner
     , evalScan
+    , monadicEither
+    , assertQC
+    , assertEqualQC
+    , run
     ) where
 
     
@@ -21,6 +27,8 @@ import Test.Tasty.HUnit
 -- import Test.Framework.Providers.HUnit
 -- import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
+import Test.QuickCheck.Monadic hiding (assert)
+import qualified Test.QuickCheck.Monadic as Monadic
 
 import Angle.Types.Lang
 import Angle.Lex.Helpers (evalScan, Scanner)
@@ -234,4 +242,28 @@ instance Arbitrary Scope where
       vars <- arbitrary
       return $ emptyScope { outerScope = outer, bindings = vars } 
 
+-- Extracts a property from monadic Either code, giving
+-- a failing property if the result is a Left. 
+monadicEither :: PropertyM (Either e) a -> Property
+monadicEither = monadic (\x -> case x of
+                                 Left _ -> property False
+                                 Right x -> x)
+
+instance Arbitrary LangType where
+    arbitrary = elements [LTStr, LTInt, LTFloat, LTList
+                         , LTBool, LTRange, LTNull ]
                 
+assertEqualQC :: (Monad m, Eq a) => a -> a -> PropertyM m ()
+assertEqualQC x = assertQC . (==x)
+
+isNumeric :: LangLit -> Bool
+isNumeric x = case typeOf x of
+                LTFloat -> True
+                LTInt   -> True
+                _       -> False
+
+maxSized :: (Testable prop) => Int -> prop -> Property
+maxSized x = mapSize (min x)
+
+assertQC :: (Monad m) => Bool -> PropertyM m ()
+assertQC = Monadic.assert
