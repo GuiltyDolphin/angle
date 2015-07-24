@@ -24,6 +24,7 @@ import Test.QuickCheck
 
 import Angle.Types.Lang
 import Angle.Lex.Helpers (evalScan, Scanner)
+import Angle.Parse.Scope
 
 instance Arbitrary LangLit where
     arbitrary = frequency 
@@ -214,3 +215,23 @@ instance (Arbitrary a) => Arbitrary (TinyList a) where
                   xs <- vector n
                   return (TinyList xs)
     shrink (TinyList xs) = map TinyList (shrink xs)
+             
+
+instance Arbitrary BindEnv where
+    arbitrary = do
+      res <- arbitrary
+      return $ M.fromList res
+    
+instance Arbitrary VarVal where
+    arbitrary = do
+      valDef <- arbitrary
+      funDef <- arbitrary
+      return $ emptyVar { varLitDef = valDef, varFunDef = funDef }
+    shrink (VarVal x y) = zipWith VarVal (shrink x) (shrink y) 
+instance Arbitrary Scope where
+    arbitrary = do
+      outer <- arbitrary
+      vars <- arbitrary
+      return $ emptyScope { outerScope = outer, bindings = vars } 
+
+                

@@ -12,28 +12,28 @@ import Test.QuickCheck
     
 import Control.Monad
 import qualified Data.Map as M
+import Data.Maybe (fromJust)
 
-instance Arbitrary LangLit where
-    arbitrary = liftM LitInt arbitrary
-                
-instance Arbitrary CallSig where
-    arbitrary = do
-      idents <- arbitrary
-      return $ CallSig idents (MultiStmt [])
-             
-instance Arbitrary BindEnv where
-    arbitrary = do
-      res <- arbitrary
-      return $ M.fromList res
-    
-instance Arbitrary VarVal where
-    arbitrary = do
-      valDef <- arbitrary
-      funDef <- arbitrary
-      return $ emptyVar { varLitDef = valDef, varFunDef = funDef }
-instance Arbitrary Scope where
-    arbitrary = do
-      outer <- arbitrary
-      vars <- arbitrary
-      return $ emptyScope { outerScope = outer, bindings = vars } 
-tests = undefined
+testOutermostScope :: Scope -> Property
+testOutermostScope s = isOutermostScope s ==> outermostScope s == s
+                       
+testOutermostScopeParent :: Scope -> Property 
+testOutermostScopeParent s = not (isOutermostScope s) ==> outermostScope s == outermostScope (fromJust $ outerScope s)
+                             
+testResolveDefinedInCurrent :: LangIdent -> VarVal -> Scope -> Bool
+testResolveDefinedInCurrent n v s = let s' = setVarInScope n v s True in resolve n s' == Just v
+                                             
+testOnBindingsId :: Scope -> Bool
+testOnBindingsId s = onBindings id s == s
+                             
+tests = [ testGroup "outermostScope"
+          [ testProperty "outer same as current" testOutermostScope
+          , testProperty "outermost of parent is outermost of current" testOutermostScopeParent
+          ]
+        , testGroup "resolve"
+          [ testProperty "defined in current" testResolveDefinedInCurrent
+          ]
+        , testGroup "onBindings"
+          [ testProperty "same with id" testOnBindingsId
+          ]
+        ]

@@ -6,6 +6,9 @@ module Angle.Parse.Scope
     , BindEnv
     , setVarInScope
     , resolve
+    , outermostScope
+    , isOutermostScope
+    , onBindings
     ) where
 
 import Control.Monad
@@ -62,7 +65,7 @@ type BindEnv = M.Map LangIdent VarVal
 data Scope = Scope 
     { outerScope :: Maybe Scope -- ^Parent scope, if any
     , bindings   :: BindEnv
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 
 -- | True if the given scope has no parent scopes.           
@@ -90,10 +93,14 @@ withOuterScope sc f = liftM f (outerScope sc)
 -- | @withOutermostScope f scope@ runs @f@ in the parent-most
 -- scope of @scope@.
 withOutermostScope :: (Scope -> a) -> Scope -> a
-withOutermostScope f scope = 
+withOutermostScope f = f . outermostScope
+         
+-- | Get the parent-most scope of the given scope.
+outermostScope :: Scope -> Scope
+outermostScope scope =
     if isOutermostScope scope
-    then f scope
-    else withOutermostScope f (fromJust $ outerScope scope)
+    then scope
+    else outermostScope (fromJust $ outerScope scope)
                       
 
 -- | Finds the local-most Scope that contains a definition
@@ -110,10 +117,10 @@ innerScopeDefining name scope =
 --
 -- Returns Nothing if there is no definition for @name@.
 resolve :: LangIdent -> Scope -> Maybe VarVal
-resolve name scope = if name `isDefinedIn` scope
-                     then fromCurrentScope name scope
-                     else outerScope scope >>= resolve name
-    where fromCurrentScope n s = M.lookup n (bindings s)
+resolve name scope = case innerScopeDefining name scope of
+                       Nothing -> Nothing
+                       Just scope' -> fromCurrentScope scope'
+    where fromCurrentScope s = M.lookup name (bindings s)
                                  
 -- | A scope with no parent or bindings
 emptyScope :: Scope

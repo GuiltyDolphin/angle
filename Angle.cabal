@@ -23,6 +23,7 @@ library
                      , Angle.Parse.Error
                      , Angle.Lex.Token
                      , Angle.Scanner
+                     , Angle.Parse.Scope
                      , Angle.Parse.Var
                      , Angle.Parse.Operations
   other-modules:       Angle.Parse.REPL
@@ -60,6 +61,7 @@ test-suite angle-testsuite
   other-modules:       Test.Angle.Lex.Lexer
                      , Test.Angle.Lex.Token
                      , TestHelper
+                     , Test.Angle.Parse.Scope
                      , Test.Angle.Parse.Var
                      , Test.Angle.Parse.Operations
   build-depends:       HUnit >= 1.2.5.2
