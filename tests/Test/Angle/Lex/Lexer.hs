@@ -99,10 +99,10 @@ tests = [ testGroup "literals"
           [ testProperty "addition operator" $ once testOpAdd
           , testProperty "negation operator" $ once testOpNeg
           ]
-        , testGroup "show syntax"
-          [ testProperty "Stmt" (verbose testShowSynStmt)
-          , testProperty "SingStmt" testShowSynSingStmt
-          , testProperty "LangStruct" testShowSynLangStruct
-          ,  testProperty "Expr" testShowSynExpr
+        , localOption (QuickCheckMaxSize 10) $ testGroup "show syntax"
+          [ testProperty "Stmt" $ testShowSynStmt
+          , testProperty "SingStmt" $ testShowSynSingStmt
+          , testProperty "LangStruct" $ testShowSynLangStruct
+          ,  testProperty "Expr" $ testShowSynExpr
           ]
         ]

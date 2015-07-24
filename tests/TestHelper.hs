@@ -13,6 +13,7 @@ module TestHelper
     , assertQC
     , assertEqualQC
     , run
+    , maxSized
     ) where
 
     
@@ -20,6 +21,7 @@ import Control.Monad (liftM, liftM2, liftM3)
 import Control.Applicative ((<*>), (<$>))
 import Data.Char (isAlpha, isAlphaNum)
 import Data.List (isInfixOf)
+import qualified Data.Map as M
 
 import Test.Tasty.QuickCheck
 import Test.Tasty
@@ -33,6 +35,7 @@ import qualified Test.QuickCheck.Monadic as Monadic
 import Angle.Types.Lang
 import Angle.Lex.Helpers (evalScan, Scanner)
 import Angle.Parse.Scope
+import Angle.Lex.Token (keywords)
 
 instance Arbitrary LangLit where
     arbitrary = frequency 
@@ -50,6 +53,7 @@ instance Arbitrary LangLit where
     shrink (LitFloat x) = map LitFloat (shrink x)
     shrink (LitBool x) = map LitBool (shrink x)
     shrink (LitRange x y) = zipWith LitRange (shrink x) (shrink y)
+    shrink LitNull = [LitNull]
                             
 
                 
@@ -166,7 +170,8 @@ instance Arbitrary LangIdent where
     shrink (LangIdent x) = map LangIdent (filter isValidIdent (shrink x))
         where 
           isValidIdent [] = False
-          isValidIdent x = isAlpha (head x) && all isAlphaNum (drop 1 x)
+          isValidIdent x | x `elem` keywords = False
+                         | otherwise = isAlpha (head x) && all isAlphaNum (drop 1 x)
                 
 chooseAlpha = oneof [choose ('a','z'), choose ('A','Z')]
 chooseDigit = choose ('0','9')

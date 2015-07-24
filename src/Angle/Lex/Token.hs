@@ -35,6 +35,7 @@ module Angle.Lex.Token
     , checkStmtEnd
     , whitespace
     , spaces
+    , keywords
     ) where
     
 

@@ -3,15 +3,14 @@ module Test.Angle.Lex.Helpers
     ( tests
     ) where
 
+import Control.Monad
+import Data.Char (isDigit, isAlpha, isAlphaNum, ord, chr)
     
-import Angle.Lex.Helpers
-
 import Test.HUnit
 import Test.QuickCheck
 import Test.QuickCheck.Function
-import Data.Char (isDigit, isAlpha, isAlphaNum, ord, chr)
     
-import Control.Monad
+import Angle.Lex.Helpers
 import TestHelper
     
 newtype CharScan = CharScan {charScanChar :: Char}
