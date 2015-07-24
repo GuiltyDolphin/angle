@@ -1,10 +1,8 @@
 module Angle.Parse.Var
-    ( VarVal
+    ( VarVal(..)
     , emptyVar
     , setVarLit
     , setVarFun
-    , varLitDef
-    , varFunDef
     ) where
 
     
@@ -43,7 +41,7 @@ import Angle.Types.Lang
 data VarVal = VarVal 
     { varLitDef :: Maybe LangLit
     , varFunDef :: Maybe CallSig
-    } deriving (Show)
+    } deriving (Show, Eq)
             
 
 -- | Variable with no definitions.
