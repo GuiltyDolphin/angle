@@ -6,15 +6,13 @@ module Test.Angle.Lex.Helpers
     
 import Angle.Lex.Helpers
 
-import Test.Framework.Providers.QuickCheck2 (testProperty)
-import Test.Framework.Providers.HUnit
-import Test.Framework
 import Test.HUnit
 import Test.QuickCheck
 import Test.QuickCheck.Function
 import Data.Char (isDigit, isAlpha, isAlphaNum, ord, chr)
     
 import Control.Monad
+import TestHelper
     
 newtype CharScan = CharScan {charScanChar :: Char}
     

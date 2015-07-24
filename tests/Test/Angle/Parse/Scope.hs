@@ -1,15 +1,13 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Angle.Parse.Scope.Tests
+module Test.Angle.Parse.Scope
     ( tests
     ) where
 
 import Angle.Parse.Scope
 import Angle.Types.Lang
+import TestHelper
 
-import Test.Framework
-import Test.Framework.Providers.HUnit
-import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
     
 import Control.Monad

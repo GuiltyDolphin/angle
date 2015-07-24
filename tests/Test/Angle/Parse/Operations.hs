@@ -1,11 +1,10 @@
-module Angle.Parse.Operations.Tests
+module Test.Angle.Parse.Operations
     ( tests
     ) where
 
-import Test.Framework
-import Test.Framework.Providers.HUnit    
-import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
+    
+import TestHelper
     
 import Angle.Parse.Operations
 import Angle.Types.Lang

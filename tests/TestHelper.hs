@@ -1,7 +1,10 @@
 module TestHelper
-    ( module Test.Framework
-    , module Test.Framework.Providers.HUnit
-    , module Test.Framework.Providers.QuickCheck2
+    ( --module Test.Framework
+    -- , module Test.Framework.Providers.HUnit
+    -- , module Test.Framework.Providers.QuickCheck2
+      module Test.Tasty
+    , module Test.Tasty.QuickCheck
+    , module Test.Tasty.HUnit
     , Scanner
     , evalScan
     ) where
@@ -12,10 +15,11 @@ import Control.Applicative ((<*>), (<$>))
 import Data.Char (isAlpha, isAlphaNum)
 import Data.List (isInfixOf)
 
-import Test.Framework
-import Test.Framework.Providers.HUnit
-import Test.Framework.Providers.QuickCheck2
-import Test.HUnit
+import Test.Tasty.QuickCheck
+import Test.Tasty
+import Test.Tasty.HUnit
+-- import Test.Framework.Providers.HUnit
+-- import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
 
 import Angle.Types.Lang

@@ -6,11 +6,6 @@ import Control.Monad (liftM)
 
     
 import Control.Applicative
-import Test.Framework
-import Test.Framework.Providers.HUnit
-import Test.Framework.Providers.QuickCheck2
-import Test.HUnit
-import Test.QuickCheck
     
 import Angle.Lex.Lexer
 import Angle.Lex.Helpers (evalScan)

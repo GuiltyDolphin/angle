@@ -4,15 +4,13 @@ module Angle.Types.Functions.Tests
 
 import Control.Monad
     
-import Test.Framework
-import Test.Framework.Providers.HUnit
-import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
 import Test.QuickCheck.Monadic
    
 import Angle.Types.Lang 
 import Angle.Types.Functions
 import Angle.Parse.Error
+import TestHelper
     
 instance Arbitrary LangType where
     arbitrary = elements [LTStr, LTInt, LTFloat, LTList
