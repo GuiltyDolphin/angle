@@ -50,6 +50,7 @@ basicEnv = Env { currentScope = emptyScope
                , envOptions = defaultOptions
                , sourceText = ""
                , envSourceRef = startRef
+               , envSynRep = ""
                }
          
 data OptionSet = OS { printName :: Bool }
@@ -60,17 +61,6 @@ defaultOptions :: OptionSet
 defaultOptions = OS { printName = True }
 
                
--- | Executes in environment `Env' with a result of @a@.
-newtype Exec a = 
-    Exec {runExec :: ErrorT LangError (State Env) a }
-    deriving (Functor, Applicative
-             , Monad, MonadState Env
-             , MonadError LangError)
-             
-runExecBasic :: Exec a -> Either LangError a
-runExecBasic e = evalState (runErrorT (runExec e)) basicEnv
-runExecBasic e = evalState (runErrorT (runExec e)) basicEnv
-    
 -- | Create a new scope with the current scope as its
 -- parent.
 newScope :: ExecIO ()
@@ -141,9 +131,6 @@ assignVar name val = modifyScope $ flip (setVarInScope name val) True
                      
 assignVarFun :: LangIdent -> CallSig -> ExecIO ()
 assignVarFun name val = modifyScope $ flip (setVarInScope name $ setVarFun emptyVar val) True
-
-runWithEnv :: Env -> Exec a -> Either LangError a
-runWithEnv env exec = evalState (runErrorT (runExec exec)) env
 
 infix 4 |=
 (|=) = assignVarLit

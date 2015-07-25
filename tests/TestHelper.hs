@@ -36,6 +36,7 @@ import Angle.Types.Lang
 import Angle.Lex.Helpers (evalScan, Scanner)
 import Angle.Parse.Scope
 import Angle.Lex.Token (keywords)
+import Angle.Scanner (SourcePos(..))
 
 instance Arbitrary LangLit where
     arbitrary = frequency 
@@ -61,8 +62,9 @@ instance Arbitrary SingStmt where
     arbitrary = frequency 
                 [ (7, liftArby2 StmtAssign)
                 , (6, liftM StmtComment (liftArby getValidComment))
-                , (3, liftArby StmtStruct)
-                , (4, liftArby StmtExpr)
+                , (4, liftArby StmtStruct)
+                , (5, liftArby StmtExpr)
+                , (8, liftArby StmtReturn)
                 ]
     shrink (StmtAssign x y) = zipWith StmtAssign (shrink x) (shrink y)
     shrink (StmtComment x) = map StmtComment (filter validComment $ shrink x)
@@ -71,6 +73,7 @@ instance Arbitrary SingStmt where
                              | otherwise = True
     shrink (StmtStruct x) = map StmtStruct (shrink x)
     shrink (StmtExpr x) = map StmtExpr (shrink x)
+    shrink (StmtReturn x) = map StmtReturn (shrink x)
 
 instance Arbitrary LangStruct where
     arbitrary = frequency 
@@ -113,10 +116,10 @@ instance Arbitrary ArgSig where
              
 instance Arbitrary Stmt where
     arbitrary = frequency
-                [ (9, liftArby SingleStmt)
+                [ (9, liftArby2 SingleStmt)
                 , (1, liftM MultiStmt (liftArby getTinyList))
                 ]
-    shrink (SingleStmt x) = map SingleStmt (shrink x)
+    shrink (SingleStmt x p) = zipWith SingleStmt (shrink x) (shrink p)
     shrink (MultiStmt xs) = map MultiStmt (shrink xs)
 
 instance Arbitrary LangOp where
@@ -257,6 +260,19 @@ monadicEither = monadic (\x -> case x of
 instance Arbitrary LangType where
     arbitrary = elements [LTStr, LTInt, LTFloat, LTList
                          , LTBool, LTRange, LTNull ]
+                
+instance Arbitrary SourceRef where
+    arbitrary = do
+      start <- arbitrary
+      end <- arbitrary
+      return $ SourceRef (start, end)
+             
+instance Arbitrary SourcePos where
+    arbitrary = do
+      f <- liftArby getPositive
+      s <- liftArby getPositive
+      t <- liftArby getPositive
+      return $ SourcePos (f, s, t)
                 
 assertEqualQC :: (Monad m, Eq a) => a -> a -> PropertyM m ()
 assertEqualQC x = assertQC . (==x)

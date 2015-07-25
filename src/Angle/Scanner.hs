@@ -88,18 +88,23 @@ data ScanError = ScanError
                           -- above two categories
     , errPos :: SourcePos  -- ^The position in source 
                            -- where the error occurred
+    , scanErrText :: String -- Reference to the source text
     } deriving (Eq)
 
 instance Error ScanError where
   noMsg = ScanError { errMsg = "", expectedMsg=""
-                    , unexpectedMsg="", errPos=beginningOfFile}
+                    , unexpectedMsg="", errPos=beginningOfFile
+                    , scanErrText=""
+                    }
   strMsg msg = noMsg { errMsg = msg }
 
 instance Show ScanError where
   show (ScanError{errPos=ep, expectedMsg=em
-                 , unexpectedMsg=um, errMsg=errm})
-    = cEp ++ cUm ++ cEm ++ errm
+                 , unexpectedMsg=um, errMsg=errm
+                 , scanErrText=et})
+    = cEp ++ cEt ++ cUm ++ cEm ++ errm
       where cEp = show ep ++ "\n"
+            cEt = "in" ++ replicate (colNo ep - 2) ' ' ++ "v\n" ++ lines et !! lineNo ep ++ "\n"
             cEm = if null em then "" 
                   else concat ["expected ", em, "\n"]
             cUm = if null um then "" 
@@ -108,12 +113,14 @@ instance Show ScanError where
 unexpectedErr :: String -> Scanner a
 unexpectedErr msg = do
   pos <- liftM sourcePos get
-  throwError (noMsg { unexpectedMsg=msg, errPos=pos })
+  txt <- liftM sourceText ask
+  throwError (noMsg { unexpectedMsg=msg, errPos=pos, scanErrText=txt })
              
 expectedErr :: String -> Scanner a
 expectedErr msg = do
   pos <- liftM sourcePos get
-  throwError (noMsg { expectedMsg=msg, errPos=pos})
+  txt <- liftM sourceText ask
+  throwError (noMsg { expectedMsg=msg, errPos=pos, scanErrText=txt})
 
 -- | Retrieves the next character from the
 -- stream whilst updating the position.

@@ -53,22 +53,24 @@ class ShowSyn a where
     showSyn :: a -> String
                
 instance ShowSyn Stmt where
-    showSyn (SingleStmt x@(StmtComment _) _) = showSyn x
-    showSyn (SingleStmt x@(StmtStruct _) _) = showSyn x
-    showSyn (SingleStmt x _) = showSyn x ++ ";"
+    -- showSyn (SingleStmt x@(StmtComment _) _) = showSyn x
+    -- showSyn (SingleStmt x@(StmtStruct _) _) = showSyn x
+    showSyn (SingleStmt x _) = showSyn x -- ++ ";"
     showSyn (MultiStmt xs) = "{" ++ concatMap showSyn xs ++ "}"
                              
 instance ShowSyn SingStmt where
-    showSyn (StmtAssign n e) = concat [showSyn n, " = ", showSyn e]
+    showSyn (StmtAssign n e) = concat [showSyn n, " = ", showSyn e, ";\n"]
     showSyn (StmtStruct x) = showSyn x
-    showSyn (StmtExpr e) = showSyn e
+    showSyn (StmtExpr e) = showSyn e ++ ";\n"
     showSyn (StmtComment x) = "#" ++ x ++ "-#"
+    showSyn (StmtReturn x) = "return " ++ showSyn x ++ ";\n"
 
 -- | A single statement;
 data SingStmt = StmtAssign LangIdent Expr
               | StmtComment String
               | StmtStruct LangStruct
               | StmtExpr Expr
+              | StmtReturn Expr
                 deriving (Show, Eq)
 
 -- |Specialised language constructs
@@ -76,8 +78,6 @@ data LangStruct = StructFor LangIdent Expr Stmt
                 | StructWhile Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)
                 | StructDefun LangIdent CallSig
-                | StructReturn Expr -- TODO: Probably don't 
-                                    -- need this
                   deriving (Show, Eq)
                            
 instance ShowSyn LangStruct where

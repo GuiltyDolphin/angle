@@ -18,7 +18,7 @@ module Angle.Parse.Error
     , SourcePos
     , LError(..)
     , throwLangError
-    , getLangError
+--    , getLangError
     ) where
 
 
@@ -38,11 +38,11 @@ import Angle.Scanner
 -- LangError API
 
 class (MonadError LError m) => CanError (m :: * -> *) where
-    getLangError :: m a -> m LError
+    --getLangError :: m a -> m LError
 
-instance CanError (Either LError) where
-    getLangError (Left e) = return e
-    getLangError (Right _) = error "getLangError: No error"
+instance CanError (Either LError)
+    --getLangError (Left e) = return e
+    --getLangError (Right _) = error "getLangError: No error"
 
 instance (Monad m) => CanError (ErrorT LError m)
    
@@ -137,12 +137,11 @@ instance Show LError where
                     = concat ["(", show ln, ",", show cn, ")"]
                          
 instance Error LError where
-    noMsg = LError {errorErr=noMsg, errorPos=SourceRef (beginningOfFile, beginningOfFile), errorSource=""}
+    noMsg = LError {errorErr=noMsg, errorPos=SourceRef (beginningOfFile, beginningOfFile), errorSource="", errorText=""}
     strMsg m = noMsg {errorErr=strMsg m}
-
                
 langError :: (CanError m) => LangError -> m a
-langError e = throwError LError { errorErr = e }
+langError e = throwError noMsg { errorErr = e }
               
 throwLangError :: (CanErrorWithPos m) => LangError -> m a
 throwLangError e = do

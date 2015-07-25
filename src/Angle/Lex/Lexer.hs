@@ -59,16 +59,17 @@ multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
 -- TODO: Last statement in a multi-statement block, or at
 -- end of file, shouldn't need to have a newline or semi-colon
 singStmt :: Scanner SingStmt
-singStmt = surrounded tokStmtBetween
-           (   tryScan (stmtAssign <* singStmtEnd)
-           <|> tryScan stmtStruct 
+singStmt = stmtComment
+           <|> stmtReturn <* singStmtEnd
+           <|> tryScan (stmtAssign <* singStmtEnd)
+           <|> stmtStruct 
            <|> stmtExpr            <* singStmtEnd
-           <|> stmtComment) <?> "statement"
+           <?> "statement"
 
-singStmtEnd = void (lookAhead tokMultiStmtEnd)
-              <|> void (char ';')
-              <|> void (char '\n')
-              <|> tokEOF
+singStmtEnd = surrounded whitespace $ void (char ';')
+              -- <|> void (char '\n')
+              -- <|> void (lookAhead tokMultiStmtEnd)
+              -- <|> lookAhead tokEOF
                
 -- |Variable assignment
 -- >>> evalScan "x=5" stmtAssign
@@ -90,6 +91,10 @@ tokEndComment = void (char '\n')
 stmtStruct :: Scanner SingStmt 
 stmtStruct = liftM StmtStruct langStruct
 
+stmtReturn :: Scanner SingStmt
+stmtReturn = liftM StmtReturn (string "return " *> expr) 
+               <?> "return construct"
+
 stmtExpr :: Scanner SingStmt
 stmtExpr = liftM StmtExpr expr
 
@@ -99,7 +104,6 @@ langStruct =     structFor
              <|> structWhile 
              <|> structIf 
              <|> structDefun 
-             <|> structReturn 
              <?> "language construct"
              
              
@@ -113,7 +117,6 @@ structFor = do
   string " in "
   iter <- expr
   string " do "
-  optional tokNewLine
   body <- stmt
   return $ StructFor name iter body
 
@@ -147,11 +150,6 @@ structDefun = StructDefun
               <*> (CallSig 
                    <$> callList' <* tokStmtBetween
                    <*> stmt)
-         
-structReturn = liftM StructReturn (string "return " *> expr) 
-               <?> "return construct"
-
-         
 
 program :: Scanner Stmt
 program = liftM MultiStmt $ followed tokEOF (many stmt)
@@ -249,7 +247,7 @@ expr = (   tryScan exprLit
 exprIdent = liftM ExprIdent langIdent <?> "identifier"
             
 langIdent :: Scanner LangIdent
-langIdent = liftM LangIdent ident <?> "identifier"
+langIdent = tryScan (liftM LangIdent ident) <?> "identifier"
 
 -- data LangFunCall = FC LangIdent [Expr]
 --                    deriving (Show)
@@ -320,3 +318,13 @@ multOp :: Scanner Op -> Scanner LangOp
 multOp sc = MultiOp
             <$> (sc <* tokSpace)
             <*> sepWith (some tokWhitespace) expr
+
+
+-- TODO:
+-- Things to add
+--  Passing functions as arguments:
+--   foo($x, y, $z) -> x and z passed as functions
+--  Lambdas
+--   ((x,y,z) (+ x y z)) -> x y z arguments, then body
+--   Can pass as arguments:
+--   foo($((x) (+ x 1))) -> lambda: $((x) (+ x 1)) passed as arg.

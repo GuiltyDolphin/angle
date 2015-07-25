@@ -1,0 +1,9 @@
+defun foo() {}
+
+defun bar(x) {
+  x;
+}
+
+defun baz(..x) {
+  x;
+}

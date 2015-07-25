@@ -240,12 +240,15 @@ someTill ti sc = (:) <$> (notScan ti *> sc) <*> manyTill ti sc
 -- If the scan fails, specify what was expected
 infix 0 <?>
 (<?>) :: Scanner a -> String -> Scanner a
-sc <?> msg = do
-  oldPos <- liftM sourcePos get
-  sc `catchError` (\e -> do
-    newPos <- liftM sourcePos get
-    if newPos == oldPos then throwError $ e {expectedMsg=msg}--expectedErr msg
-    else throwError e)
+-- sc <?> msg = do
+--   oldPos <- liftM sourcePos get
+--   sc `catchError` (\e -> do
+--     newPos <- liftM sourcePos get
+--     if newPos == oldPos then throwError $ e {expectedMsg=msg}--expectedErr msg
+--     else throwError e)
+sc <?> msg = sc `catchError` (\e -> do
+                                newPos <- liftM sourcePos get
+                                throwError $ e {expectedMsg = msg, errPos=newPos})
 
 -- Used for evaluating a single Scanner with a given string.
 -- Assumes reasonable default state.
