@@ -12,10 +12,13 @@ module Angle.Parse.Error
     , wrongNumberOfArgumentsErr
     , LangError
     , CanError
+    , CanErrorWithPos(..)
     , throwError
     , langError
     , SourcePos
     , LError(..)
+    , throwLangError
+    , getLangError
     ) where
 
 
@@ -34,10 +37,15 @@ import Angle.Scanner
  
 -- LangError API
 
-class (MonadError LError m) => CanError (m :: * -> *)
-instance CanError (Either LError)
-instance (Monad m) => CanError (ErrorT LError m)
+class (MonadError LError m) => CanError (m :: * -> *) where
+    getLangError :: m a -> m LError
 
+instance CanError (Either LError) where
+    getLangError (Left e) = return e
+    getLangError (Right _) = error "getLangError: No error"
+
+instance (Monad m) => CanError (ErrorT LError m)
+   
 data LangError = TypeError TypeError
                | SyntaxError String
                | NameError NameError
@@ -107,7 +115,8 @@ instance Show CallError where
 
 data LError = LError { errorErr    :: LangError  -- The actual error
                      , errorSource :: String
-                     , errorPos    :: (SourcePos, SourcePos) -- Position at which the error occurred
+                     , errorPos    :: SourceRef -- Position at which the error occurred
+                     , errorText :: String -- Additonal text representing the error
                      }
 
 instance Show LError where
@@ -116,24 +125,41 @@ instance Show LError where
     --       [ "error in statement: " ++ show es
     --       , "in expression: " ++ show ex
     --       , show ee ]
-    show (LError { errorErr=ee, errorPos=(start,end), errorSource=es })
+    show (LError { errorErr=ee
+                 , errorPos=SourceRef (start,end)
+                 , errorText=et
+                 })
         = cEp ++ cEt ++ cEe
-          where (_,_,pos) = getSourcePos start
-                cEp = showPos start ++ "\n"
-                cEt = takeWhile (/='\n') (drop pos es)
+          where cEp = concat ["[", showPos start, "-", showPos end, "]"] ++ "\n"
+                cEt = "in " ++ et ++ "\n"
                 cEe = show ee
-                showPos (SourcePos (ln,_,_)) =
-                  concat ["line: ", show ln]
+                showPos (SourcePos (cn,ln,_)) 
+                    = concat ["(", show ln, ",", show cn, ")"]
                          
 instance Error LError where
-    noMsg = LError {errorErr=noMsg, errorPos=(beginningOfFile, beginningOfFile), errorSource=""}
+    noMsg = LError {errorErr=noMsg, errorPos=SourceRef (beginningOfFile, beginningOfFile), errorSource=""}
     strMsg m = noMsg {errorErr=strMsg m}
 
                
 langError :: (CanError m) => LangError -> m a
 langError e = throwError LError { errorErr = e }
+              
+throwLangError :: (CanErrorWithPos m) => LangError -> m a
+throwLangError e = do
+  errPosRef <- getErrorPos
+  errText <- getErrorText
+  errSource <- getErrorSource
+  throwError LError { errorErr = e, errorPos = errPosRef
+                    , errorText = errText
+                    , errorSource = errSource
+                    }
 
 
+class (MonadError LError m) => CanErrorWithPos m where
+    getErrorPos :: m SourceRef
+    -- getErrorLError :: m LError
+    getErrorText :: m String
+    getErrorSource :: m String
 
 
 

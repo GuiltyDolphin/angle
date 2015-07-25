@@ -10,7 +10,6 @@ module Angle.Lex.Lexer
     , litBool
     , litRange
     , litNull
-    , progPos
     , langOp
     , exprIdent
     , exprLit
@@ -34,8 +33,17 @@ import Control.Applicative
 stmt :: Scanner Stmt
 stmt = (multiStmt <|> singleStmt) <?> "statement"
        
+-- singleStmt :: Scanner Stmt
+-- singleStmt = liftM SingleStmt singStmt
+             
 singleStmt :: Scanner Stmt
-singleStmt = liftM SingleStmt singStmt
+singleStmt = do
+  initPos <- liftM sourcePos get
+  res <- singStmt
+  endPos <- liftM sourcePos get
+  return SingleStmt { stmtSingStmt = res
+                    , stmtSourcePos = SourceRef (initPos, endPos)
+                    }
 
 -- |Statement consisting of zero or more statements
 -- >>> evalScan "{}" multiStmt
@@ -312,17 +320,3 @@ multOp :: Scanner Op -> Scanner LangOp
 multOp sc = MultiOp
             <$> (sc <* tokSpace)
             <*> sepWith (some tokWhitespace) expr
-                     
-  
-withPos :: Scanner a -> Scanner (a, (SourcePos, SourcePos))
-withPos sc = do
-  initPos <- liftM sourcePos get
-  res <- sc
-  endPos <- liftM sourcePos get
-  return (res, (initPos, endPos))
-         
-collecting :: Scanner a -> Scanner [(a, (SourcePos, SourcePos))]
-collecting = many . withPos
-
-stmtWithPos = withPos stmt
-progPos = followed tokEOF (collecting stmt)

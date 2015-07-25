@@ -32,6 +32,7 @@ addLit :: (CanError m) => [LangLit] -> m LangLit
 addLit xs@(LitList _:_) = return $ foldr1 addList xs 
 addLit (x@(LitInt _):xs) = foldM addNum x xs
 addLit (x@(LitFloat _):xs) = foldM addNum x xs
+addLit (x:_) = langError $ typeNotValidErr (typeOf x)
 
 notBool :: LangLit -> LangLit
 notBool (LitBool x) = LitBool (not x)

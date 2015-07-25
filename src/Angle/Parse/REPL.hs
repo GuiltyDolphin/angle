@@ -26,9 +26,12 @@ runLine :: String -> ExecIO ()
 runLine s = case evalScan s program of
               Left err -> liftIO $ print err
               Right res -> do
-                toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> return LitNull)
-                liftIO $ print toPrint
+                toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
+                liftIO $ printSyn toPrint
 
+                       
+printSyn :: (ShowSyn a) => a -> IO ()
+printSyn = putStrLn . showSyn
 
 mainProg = do
   liftIO $ putStr "> "
@@ -37,7 +40,7 @@ mainProg = do
   put st { sourceText=userInput}
   unless (userInput=="exit")
            (do 
-             runLine userInput
+             runLine userInput `catchError` (\_ -> mainProg)
              mainProg)
   
   

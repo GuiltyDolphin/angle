@@ -3,7 +3,6 @@ module Angle.Parse.Exec
     ( runExecIOBasic
     , runExecIOEnv
     , execStmt
-    , execRun
     , ExecIO
     , Env(..)
     ) where
@@ -39,12 +38,18 @@ import Angle.Types.Lang
 data Env = Env { currentScope :: Scope
                , envOptions :: OptionSet
                , sourceText :: String
+               , envSourceRef :: SourceRef
+               , envSynRep :: String
                } deriving (Show)
+         
+setEnvSynRep :: String -> ExecIO ()
+setEnvSynRep x = modify (\e -> e { envSynRep = x })
          
 basicEnv :: Env
 basicEnv = Env { currentScope = emptyScope
                , envOptions = defaultOptions
                , sourceText = ""
+               , envSourceRef = startRef
                }
          
 data OptionSet = OS { printName :: Bool }
@@ -63,6 +68,7 @@ newtype Exec a =
              , MonadError LangError)
              
 runExecBasic :: Exec a -> Either LangError a
+runExecBasic e = evalState (runErrorT (runExec e)) basicEnv
 runExecBasic e = evalState (runErrorT (runExec e)) basicEnv
     
 -- | Create a new scope with the current scope as its
@@ -92,7 +98,7 @@ lookupVarLitF :: LangIdent -> ExecIO LangLit
 lookupVarLitF name = do
   res <- lookupVarLit name
   case res of
-    Nothing -> langError $ nameNotValueErr name
+    Nothing -> throwLangError $ nameNotValueErr name
     Just x -> return x
               
 lookupVarFun :: LangIdent -> ExecIO (Maybe CallSig)
@@ -106,7 +112,7 @@ lookupVarFunF :: LangIdent -> ExecIO CallSig
 lookupVarFunF name = do
   res <- lookupVarFun name
   case res of
-    Nothing -> langError $ nameNotFunctionErr name
+    Nothing -> throwLangError $ nameNotFunctionErr name
     Just x -> return x
 
          
@@ -115,7 +121,7 @@ lookupVarF name = do
   res <- lookupVar name
   case res of
     Just x -> return x
-    Nothing -> langError $ nameNotDefinedErr name
+    Nothing -> throwLangError $ nameNotDefinedErr name
 
 -- | Modify the current scope using the given function.
 modifyScope :: (Scope -> Scope) -> ExecIO ()
@@ -205,7 +211,7 @@ evalExpr (ExprIdent x) = lookupVarLitF x
 execExpr :: Expr -> ExecIO LangLit
 execExpr (ExprLit x) = return x
 execExpr (ExprIdent x) = lookupVarLitF x
-execExpr (ExprOp x) = execOp x
+execExpr (ExprOp x) = withErrHandle (execOp x)
 execExpr (ExprFunCall name args) = execFunCall name args
                                    
 execFunCall :: LangIdent -> [Expr] -> ExecIO LangLit
@@ -258,13 +264,15 @@ callBuiltin (LangIdent "str")   xs = mapM execExpr xs >>= builtinStr
          
 builtinPrint :: [LangLit] -> ExecIO LangLit
 builtinPrint xs = liftIO $ putStrLn res >> return (LitStr res)
-                  where res = concatMap show xs
+                  where res = concatMap showSyn xs
                               
+-- | Implementation of the built-in str function.
 builtinStr :: [LangLit] -> ExecIO LangLit
 builtinStr [] = return $ LitStr ""
-builtinStr xs | length xs > 1 = langError $ wrongNumberOfArgumentsErr (length xs) 1
+builtinStr xs | length xs > 1 = throwLangError $ wrongNumberOfArgumentsErr (length xs) 1
               | otherwise = return $ toLitStr (head xs)
 
+-- | True if the identifier represents a builtin function.
 isBuiltin :: LangIdent -> Bool
 isBuiltin = ((`elem`builtins) . getIdent)
     where builtins = ["print", "str"]
@@ -277,14 +285,15 @@ callFun x args | isBuiltin x = callBuiltin x args
   execStmt (callBody callsig)
                                
 execStmt :: Stmt -> ExecIO LangLit
-execStmt (SingleStmt x) = execSingStmt x
+execStmt (SingleStmt x pos) = modify (\s -> s {envSourceRef = pos}) >> execSingStmt x
 execStmt (MultiStmt []) = return LitNull
 execStmt (MultiStmt xs) = liftM last $ mapM execStmt xs
                           
 execSingStmt :: SingStmt -> ExecIO LangLit
 execSingStmt (StmtAssign name e) = execExpr e >>= assignVarLit name
 execSingStmt (StmtStruct x) = execLangStruct x
-execSingStmt (StmtExpr x) = execExpr x
+execSingStmt (StmtExpr x) = setEnvSynRep (showSyn x) >> execExpr x
+execSingStmt (StmtComment _) = return LitNull
                             
 execLangStruct :: LangStruct -> ExecIO LangLit
 execLangStruct (StructFor name e s) = execStructFor name e s
@@ -299,10 +308,24 @@ execStructIf if' thn els = do
     (LitBool False) -> case els of 
                          Nothing -> return LitNull
                          Just s  -> execStmt s
-    x -> langError $ typeUnexpectedErr (typeOf x) LTBool
+    x -> throwLangError $ typeUnexpectedErr (typeOf x) LTBool
                     
 execStructFor = undefined
 execStructWhile = undefined
+                  
+
+instance CanErrorWithPos ExecIO where
+    getErrorPos = liftM envSourceRef get
+    getErrorText = liftM envSynRep get
+    getErrorSource = liftM sourceText get
+                     
+-- | Attempts to run the given ExecIO as usual,
+-- but if an error occurs, will update the information
+-- of the error and throw a new one.
+withErrHandle :: ExecIO a -> ExecIO a
+withErrHandle e = e `catchError` (\(LError {errorErr=lerr})
+                                    -> throwLangError lerr)
+    
                   
 
 -- Builtins...                    
@@ -322,15 +345,15 @@ execStructWhile = undefined
 --  - eval for results without side-effects?
 --  - exec for results with side-effects?
 
-execRun :: [(Stmt, (SourcePos, SourcePos))] -> ExecIO ()
-execRun [] = return ()
-execRun xs = do
-  forM_ xs 
-            (\(x,pos) -> 
-             execStmt x `catchError` (\e -> do
-                                        source <- liftM sourceText get
-                                        throwError e { errorPos=pos
-                                                     , errorSource=source
-                                                     }))
+-- execRun :: [SourceRef] -> ExecIO ()
+-- execRun [] = return ()
+-- execRun xs = do
+--   forM_ xs 
+--             (\(x,pos) -> 
+--              execStmt x `catchError` (\e -> do
+--                                        source <- liftM sourceText get
+--                                        throwError e { errorPos=pos
+--                                                     , errorSource=source
+--                                                     }))
   
   

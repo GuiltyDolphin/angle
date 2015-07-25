@@ -18,15 +18,32 @@ module Angle.Types.Lang
     , ArgSig(..)
     , hasCatchAllArg
     , ShowSyn(..)
+    , SourceRef(..)
+    , startRef
     ) where
 
 import Control.Monad.Error
 import Control.Applicative
 import Numeric (showFFloat)
     
-data Stmt = SingleStmt SingStmt 
+import Angle.Scanner (SourcePos, beginningOfFile)
+    
+data Stmt = SingleStmt { stmtSingStmt :: SingStmt 
+                       , stmtSourcePos :: SourceRef
+                       }
           | MultiStmt [Stmt]
-            deriving (Show, Eq)
+            deriving (Show)
+                     
+-- | Statements are equal if theh contents are equal,
+-- the position may differ.
+instance Eq Stmt where
+    (SingleStmt x _) == (SingleStmt y _) = x == y
+    (MultiStmt xs) == (MultiStmt ys) = xs == ys
+                     
+newtype SourceRef = SourceRef { getSourceRef :: (SourcePos, SourcePos) }
+    deriving (Show, Eq)
+             
+startRef = SourceRef (beginningOfFile, beginningOfFile)
 
 -- | Interface for types that can have a representation
 -- in the language.
@@ -36,9 +53,9 @@ class ShowSyn a where
     showSyn :: a -> String
                
 instance ShowSyn Stmt where
-    showSyn (SingleStmt x@(StmtComment _)) = showSyn x
-    showSyn (SingleStmt x@(StmtStruct _)) = showSyn x
-    showSyn (SingleStmt x) = showSyn x ++ ";"
+    showSyn (SingleStmt x@(StmtComment _) _) = showSyn x
+    showSyn (SingleStmt x@(StmtStruct _) _) = showSyn x
+    showSyn (SingleStmt x _) = showSyn x ++ ";"
     showSyn (MultiStmt xs) = "{" ++ concatMap showSyn xs ++ "}"
                              
 instance ShowSyn SingStmt where
