@@ -104,7 +104,7 @@ instance Show ScanError where
                  , scanErrText=et})
     = cEp ++ cEt ++ cUm ++ cEm ++ errm
       where cEp = show ep ++ "\n"
-            cEt = "in" ++ replicate (colNo ep - 2) ' ' ++ "v\n" ++ lines et !! lineNo ep ++ "\n"
+            cEt = replicate (colNo ep) ' ' ++ "v\n" ++ lines et !! lineNo ep ++ "\n"
             cEm = if null em then "" 
                   else concat ["expected ", em, "\n"]
             cUm = if null um then "" 

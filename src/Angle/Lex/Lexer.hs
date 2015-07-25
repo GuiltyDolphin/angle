@@ -61,9 +61,9 @@ multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
 singStmt :: Scanner SingStmt
 singStmt = stmtComment
            <|> stmtReturn <* singStmtEnd
-           <|> tryScan (stmtAssign <* singStmtEnd)
+           <|> tryScan (stmtExpr   <* singStmtEnd)
+           <|> stmtAssign <* singStmtEnd
            <|> stmtStruct 
-           <|> stmtExpr            <* singStmtEnd
            <?> "statement"
 
 singStmtEnd = surrounded whitespace $ void (char ';')
@@ -80,13 +80,13 @@ stmtAssign = StmtAssign
              <*> expr
 
 stmtComment :: Scanner SingStmt
-stmtComment = StmtComment <$> (char '#' *> manyTill' tokEndComment anyChar)
-              <?> "comment"
-                  
-tokEndComment = void (char '\n') 
-                <|> void tokEOF 
-                <|> void (string "-#")
-                <?> "end of comment"
+stmtComment = StmtComment 
+              <$> (char '#' *> manyTill' tokEndComment anyChar)
+    where 
+      tokEndComment = void (char '\n') 
+                      <|> void tokEOF 
+                -- <|> void (string "-#")
+                -- <?> "end of comment"
                   
 stmtStruct :: Scanner SingStmt 
 stmtStruct = liftM StmtStruct langStruct
@@ -238,6 +238,7 @@ litRange = parens (LitRange
 -- | Non-valued literal
 litNull = string "()" <|> string "null" >> return LitNull
 
+expr :: Scanner Expr
 expr = (   tryScan exprLit
        <|> exprOp
        <|> tryScan exprFunCall 

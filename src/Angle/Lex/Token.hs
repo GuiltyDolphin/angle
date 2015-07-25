@@ -113,12 +113,13 @@ tokList = within tokListStart tokListEnd
 -- >>> evalScan "return" ident
 -- Left ...
 -- ...
-ident = noneFrom (\x -> string x <* exprEnd) keywords *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar)
-
+ident = noneFrom (\x -> string x <* specEnd) keywords *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar)
+    where specEnd = notScan tokIdentBodyChar
+        
 opChars = "*/+->=<|&^"
 sepChar = "{()};, =" ++ opChars
 
-exprEnd = lookAhead $ (charFrom "});,")
+exprEnd = lookAhead (void tokRangeSep <|> void tokStmtEnd <|> void tokEltSep <|> void tokParenR)
           
 exprSep = lookAhead (charFrom sepChar) <?> "expression boundary"
                 

@@ -62,7 +62,7 @@ instance ShowSyn SingStmt where
     showSyn (StmtAssign n e) = concat [showSyn n, " = ", showSyn e, ";\n"]
     showSyn (StmtStruct x) = showSyn x
     showSyn (StmtExpr e) = showSyn e ++ ";\n"
-    showSyn (StmtComment x) = "#" ++ x ++ "-#"
+    showSyn (StmtComment x) = "#" ++ x ++ "\n"
     showSyn (StmtReturn x) = "return " ++ showSyn x ++ ";\n"
 
 -- | A single statement;
