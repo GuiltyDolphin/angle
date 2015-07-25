@@ -61,8 +61,8 @@ multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
 singStmt :: Scanner SingStmt
 singStmt = stmtComment
            <|> stmtReturn <* singStmtEnd
-           <|> tryScan (stmtExpr   <* singStmtEnd)
            <|> stmtAssign <* singStmtEnd
+           <|> stmtExpr   <* singStmtEnd
            <|> stmtStruct 
            <?> "statement"
 
@@ -76,7 +76,7 @@ singStmtEnd = surrounded whitespace $ void (char ';')
 -- Right (..."x"...5...)
 stmtAssign :: Scanner SingStmt
 stmtAssign = StmtAssign 
-             <$> (langIdent <* tokAssign) 
+             <$> tryScan (langIdent <* tokAssign) 
              <*> expr
 
 stmtComment :: Scanner SingStmt
@@ -146,13 +146,15 @@ structIf = StructIf
 -- Right (..."foo"..."x"...)
 structDefun :: Scanner LangStruct
 structDefun = StructDefun
-              <$> (string "defun " *> langIdent)
+              <$> (string "defun " *> identName)
               <*> (CallSig 
                    <$> callList' <* tokStmtBetween
                    <*> stmt)
 
 program :: Scanner Stmt
 program = liftM MultiStmt $ followed tokEOF (many stmt)
+          
+program' = liftM MultiStmt $ followed tokEOF (some stmt)
   
   -- sepWith (some tokNewLine) stmt
 
@@ -241,14 +243,38 @@ litNull = string "()" <|> string "null" >> return LitNull
 expr :: Scanner Expr
 expr = (   tryScan exprLit
        <|> exprOp
-       <|> tryScan exprFunCall 
+       <|> exprFunCall 
+       <|> exprFunIdent 
+       <|> exprLambda
        <|> exprIdent)
        <?> "expression"
        
 exprIdent = liftM ExprIdent langIdent <?> "identifier"
+           
+
+identName :: Scanner LangIdent
+identName = liftM LangIdent (tryScan ident) <?> "identifier"
             
-langIdent :: Scanner LangIdent
-langIdent = tryScan (liftM LangIdent ident) <?> "identifier"
+langIdent = identName
+            
+funIdent :: Scanner LangIdent
+funIdent = char '$' *> identName
+           
+exprFunIdent :: Scanner Expr
+exprFunIdent = liftM ExprFunIdent funIdent
+         
+exprLambda = liftM ExprLambda $ do
+  char '('
+  args <- callList'
+  tokSpace
+  body <- stmt
+  char ')'
+  return $ CallSig args body
+  
+
+
+-- langIdent :: Scanner LangIdent
+-- langIdent = tryScan (liftM LangIdent ident) <?> "identifier"
 
 -- data LangFunCall = FC LangIdent [Expr]
 --                    deriving (Show)
@@ -259,15 +285,15 @@ arglist = within tokTupleStart tokTupleEnd (sepWith tokEltSep expr)
 
 callList' = do
   tokTupleStart
-  params <- liftM (map LangIdent) $ sepWith tokEltSep ident
-  catcher <- optional $ liftM LangIdent (string ".." *> ident)
+  params <- sepWith tokEltSep identName
+  catcher <- optional (string ".." *> identName)
   tokTupleEnd
   return $ ArgSig params catcher
   
   
 
 -- exprFunCall = liftM ExprFunCall langFunCall
-exprFunCall = ExprFunCall <$> langIdent <*> arglist <?> "function call"
+exprFunCall = ExprFunCall <$> tryScan (langIdent <* lookAhead (char '(')) <*> arglist <?> "function call"
               
 exprOp = liftM ExprOp langOp -- <?> "operation"
                        

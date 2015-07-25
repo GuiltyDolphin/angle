@@ -62,7 +62,7 @@ instance Arbitrary SingStmt where
     arbitrary = frequency 
                 [ (7, liftArby2 StmtAssign)
                 , (6, liftM StmtComment (liftArby getValidComment))
-                , (4, liftArby StmtStruct)
+                , (2, liftArby StmtStruct)
                 , (5, liftArby StmtExpr)
                 , (8, liftArby StmtReturn)
                 ]
@@ -101,11 +101,15 @@ instance Arbitrary Expr where
                 , (6, liftArby  ExprLit)
                 , (1, liftM2 ExprFunCall arbitrary (liftArby getTinyList))
                 , (4, liftArby  ExprOp)
+                , (4, liftArby ExprLambda)
+                , (4, liftArby ExprFunIdent)
                 ]
     shrink (ExprIdent x) = map ExprIdent (shrink x)
     shrink (ExprLit x) = map ExprLit (shrink x)
     shrink (ExprFunCall x y) = zipWith ExprFunCall (shrink x) (shrink y)
     shrink (ExprOp x) = map ExprOp (shrink x)
+    shrink (ExprLambda x) = map ExprLambda (shrink x)
+    shrink (ExprFunIdent x) = map ExprFunIdent (shrink x)
 
 instance Arbitrary ArgSig where
     arbitrary = do
@@ -166,16 +170,15 @@ instance Arbitrary ValidLitStr where
     arbitrary = liftArby (ValidLitStr . filter (/='"')) 
 
 instance Arbitrary LangIdent where
-    arbitrary = (liftM LangIdent) $ 
-                (:) 
-                <$> chooseAlpha 
-                <*> listOf chooseAlphaNum
+    arbitrary = liftM LangIdent validIdent
     shrink (LangIdent x) = map LangIdent (filter isValidIdent (shrink x))
         where 
           isValidIdent [] = False
+          isValidIdent ('$':xs) = isValidIdent xs
           isValidIdent x | x `elem` keywords = False
                          | otherwise = isAlpha (head x) && all isAlphaNum (drop 1 x)
                 
+validIdent = (:) <$> chooseAlpha <*> listOf chooseAlphaNum                       
 chooseAlpha = oneof [choose ('a','z'), choose ('A','Z')]
 chooseDigit = choose ('0','9')
 chooseAlphaNum = oneof [chooseAlpha, chooseDigit]

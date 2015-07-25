@@ -1,6 +1,6 @@
 defun quickSort(xs) {
   if (== xs []) then return xs;
-  first = index 0 xs;
+  first = index(0, xs);
   smallers = quickSort(filter($((x) (< x first)), xs));
   biggers = quickSort(filter($((x) (>= x first)), xs));
   (++ smallers first biggers);

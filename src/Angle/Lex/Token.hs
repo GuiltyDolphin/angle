@@ -36,6 +36,7 @@ module Angle.Lex.Token
     , whitespace
     , spaces
     , keywords
+    , tokFunRefStart
     ) where
     
 
@@ -79,6 +80,7 @@ tokPeriod         = char '.'        <?> "period"
 tokNewLine        = char '\n'       <?> "newline"
 tokEOF            = notScan anyChar -- <?> "eof"
 tokStmtBetween    = whitespace      <?> "ignored characters"
+tokFunRefStart = char '$' <?> "function reference"
          
 tokInt :: (Integral a, Read a) => Scanner a
 tokInt = do

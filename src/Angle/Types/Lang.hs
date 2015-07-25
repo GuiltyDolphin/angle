@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 module Angle.Types.Lang
     ( Stmt(..)
     , SingStmt(..)
@@ -173,6 +174,8 @@ instance Show LangType where
                    
 
 data Expr = ExprIdent LangIdent
+          | ExprFunIdent LangIdent
+          | ExprLambda CallSig
           | ExprLit LangLit
           | ExprFunCall LangIdent [Expr]
           | ExprOp LangOp
@@ -183,12 +186,30 @@ instance ShowSyn Expr where
     showSyn (ExprLit x) = showSyn x
     showSyn (ExprFunCall n es) = showSyn n ++ showSynArgs es
     showSyn (ExprOp x) = showSyn x
+    showSyn (ExprLambda x) = "$(" ++ showSyn x ++ ")"
+    showSyn (ExprFunIdent x) = "$" ++ showSyn x
+                         
                          
 newtype LangIdent = LangIdent { getIdent :: String }
     deriving (Show, Eq, Ord)
-    
+                          
 instance ShowSyn LangIdent where
     showSyn = getIdent
+    
+                         
+instance ShowSyn CallSig where
+    showSyn (CallSig args body) = showSyn args ++ " " ++ showSyn body
+                                  
+instance ShowSyn ArgSig where
+    showSyn (ArgSig args catchArg) = 
+        showSynSep "("
+          (case catchArg of
+             Nothing -> ") "
+             Just x -> concat 
+                       [if not (null args) then ", .." else ".."
+                       , showSyn x
+                       , ") "]) ", " args
+                                  
 
 type Ident = String
     
