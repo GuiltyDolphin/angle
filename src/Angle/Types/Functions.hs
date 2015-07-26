@@ -6,6 +6,11 @@ module Angle.Types.Functions
     , shareCast
     , canCast
     , allType
+    , allNumeric
+    , castAll
+    , withCast
+    , withCast'
+    , (.<)
     ) where
 
 import Control.Monad.Error
@@ -52,6 +57,9 @@ reqType :: (CanError m) => LangType -> LangType -> m LangType
 reqType x y | x `canCast` y = return y
             | y `canCast` x = return x
             | otherwise = langError $ typeCastErr x y
+                          
+reqTypeList :: (CanError m) => [LangType] -> m LangType
+reqTypeList (x:xs) = foldM reqType x xs
             
 -- Need a more efficient version of this?
 -- | True if all the values in the list have a common cast.
@@ -61,12 +69,74 @@ allCast (x:xs) = all (shareCast (typeOf x) . typeOf) xs
              
 -- | Cast all the values in a list to the same type.
 castAll :: (CanError m) => [LangLit] -> m [LangLit]
-castAll xs = mapM (`cast` reqType) xs
-             where reqType = head $ nub $ map (general . typeOf) xs
+castAll xs = do
+  t <- reqTypeList (map typeOf xs)
+  mapM (`cast` t) xs
+                             
+withCast :: (CanError m) => (LangLit -> LangLit -> LangLit) -> LangLit -> LangLit -> m LangLit
+withCast f x y = do
+  t <- reqType (typeOf x) (typeOf y)
+  x' <- cast x t
+  y' <- cast y t
+  return $ f x' y'
+         
+withCast' :: (CanError m) => (LangLit -> LangLit -> m LangLit) -> LangLit -> LangLit -> m LangLit
+withCast' f x y = do
+  t <- reqType (typeOf x) (typeOf y)
+  x' <- cast x t
+  y' <- cast y t
+  f x' y'
+
 
 ltNumeric :: LangType -> Bool
 ltNumeric LTInt = True
 ltNumeric LTFloat = True
                     
+-- | True if every element of the list has numeric properties.
+allNumeric :: [LangLit] -> Bool
+allNumeric = allTypeP ltNumeric
+                    
+-- | True if every element of the list satisfies the
+-- type predicate.
+-- 
+-- See `allNumeric` for an example.
+allTypeP :: (LangType -> Bool) -> [LangLit] -> Bool
+allTypeP f = all (f . typeOf)
+                    
 allType :: LangType -> [LangLit] -> Bool
 allType t = all ((==t) . typeOf)
+
+-- | True if all of the elements are the same type.
+allSameType :: [LangLit] -> Bool
+allSameType xs = allType (typeOf $ head xs) xs
+                 
+
+-- | True if the type supports basic comparisons.
+comparable :: LangType -> Bool
+comparable LTList = True
+comparable LTInt = True
+comparable LTBool = True
+comparable LTFloat = True
+comparable _ = False
+               
+infix 4 .<
+(.<) :: LangLit -> LangLit -> LangLit
+(LitInt x) .< (LitInt y) = LitBool (x < y)
+(LitFloat x) .< (LitFloat y) = LitBool (x < y)
+(LitStr x) .< (LitStr y) = LitBool (x < y)
+                           
+infix 4 .>=
+(.>=) :: LangLit -> LangLit -> LangLit
+(LitInt x) .>= (LitInt y) = LitBool (x >= y)
+(LitFloat x) .>= (LitFloat y) = LitBool (x >= y)
+(LitStr x) .>= (LitStr y) = LitBool (x >= y)
+ 
+infix 4 .<=
+(.<=) :: LangLit -> LangLit -> LangLit
+(LitInt x) .<= (LitInt y) = LitBool (x <= y)
+(LitFloat x) .<= (LitFloat y) = LitBool (x <= y)
+(LitStr x) .<= (LitStr y) = LitBool (x <= y)
+                            
+not' :: LangLit -> LangLit
+not' (LitBool x) = LitBool (not x)
+

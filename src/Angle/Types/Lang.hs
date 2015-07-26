@@ -3,6 +3,9 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE OverlappingInstances #-}
 module Angle.Types.Lang
     ( Stmt(..)
     , SingStmt(..)
@@ -26,6 +29,7 @@ module Angle.Types.Lang
 import Control.Monad.Error
 import Control.Applicative
 import Numeric (showFFloat)
+import Data.Function (on)
     
 import Angle.Scanner (SourcePos, beginningOfFile)
     
@@ -82,22 +86,29 @@ data LangStruct = StructFor LangIdent Expr Stmt
                   deriving (Show, Eq)
                            
 instance ShowSyn LangStruct where
-    showSyn (StructFor n e s) = concat ["for ", showSyn n, " in ", showSyn e, " do ", showSyn s]
-    showSyn (StructWhile e s) = concat ["while ", showSyn e, " do ", showSyn s]
+    showSyn (StructFor n e s) = 
+        concat [ "for ", showSyn n
+               , " in ", showSyn e
+               , " do ", showSyn s]
+    showSyn (StructWhile e s) = 
+        concat ["while ", showSyn e, " do ", showSyn s]
     showSyn (StructIf e s els) 
-        = concat ["if ", showSyn e, " then ", showSyn s] ++ 
+        = concat [ "if "   , showSyn e
+                 , " then ", showSyn s] ++ 
           case els of
             Nothing -> ""
             Just x -> " else " ++ showSyn x
-    showSyn (StructDefun n c) 
-        = concat ["defun ", showSyn n, showSynSep "("
-                              (case catchArg of
-                                 Nothing -> ") "
-                                 Just x -> concat [if not (null args) then ", .." else "..", showSyn x, ") "]) ", " args]
-          ++ showSyn body
-        where args = stdArgs $ callArgs c
-              body = callBody c
-              catchArg = catchAllArg $ callArgs c
+    showSyn (StructDefun n c)
+        = concat ["defun ", showSyn n, showSyn c]
+    -- showSyn (StructDefun n c) 
+    --     = concat ["defun ", showSyn n, showSynSep "("
+    --                           (case catchArg of
+    --                              Nothing -> ") "
+    --                              Just x -> concat [if not (null args) then ", .." else "..", showSyn x, ") "]) ", " args]
+    --       ++ showSyn body
+    --     where args = stdArgs $ callArgs c
+    --           body = callBody c
+    --           catchArg = catchAllArg $ callArgs c
                     
     
 showSynSep :: ShowSyn a => String -> String -> String -> [a] -> String
@@ -127,11 +138,11 @@ hasCatchAllArg x = case catchAllArg x of
                      Nothing -> False
                      Just _ -> True
 
-data LangLit = LitStr String
-             | LitInt Int
-             | LitFloat Float
-             | LitList [LangLit]     -- See below
-             | LitBool Bool
+data LangLit = LitStr { getLitStr :: String }
+             | LitInt { getLitInt :: Int }
+             | LitFloat { getLitFloat :: Float }
+             | LitList { getLitList :: [LangLit] }     -- See below
+             | LitBool { getLitBool :: Bool }
              | LitRange Expr Expr -- Might want Expr version of
                                   -- this, then have
                                   -- LitRange LangLit LangLit
@@ -222,34 +233,34 @@ instance ShowSyn LangOp where
     showSyn (SpecOp o e) = showSyn o ++ showSyn e
     showSyn (MultiOp o es) = concat ["(", showSyn o, showSynOpList es]
 
-data Op = OpNeg
-        | OpMult 
-        | OpDiv 
-        | OpAdd 
-        | OpSub 
-        | OpNot 
-        | OpEq
-        | OpOr
+data Op = OpAdd 
         | OpAnd
+        | OpDiv 
+        | OpEq
         | OpGreater
-        | OpLess
         | OpGreaterEq
+        | OpLess
         | OpLessEq
+        | OpMult 
+        | OpNeg
+        | OpNot 
+        | OpOr
+        | OpSub 
         | UserOp LangIdent
           deriving (Show, Eq)
                    
 instance ShowSyn Op where
-    showSyn OpNeg = "-"
-    showSyn OpMult = "*"
-    showSyn OpDiv = "/"
     showSyn OpAdd = "+"
-    showSyn OpSub = "-"
-    showSyn OpNot = "^"
-    showSyn OpEq = "=="
-    showSyn OpOr = "|"
     showSyn OpAnd = "&"
+    showSyn OpDiv = "/"
+    showSyn OpEq = "=="
     showSyn OpGreater = ">"
-    showSyn OpLess = "<"
     showSyn OpGreaterEq = ">="
+    showSyn OpLess = "<"
     showSyn OpLessEq = "<="
+    showSyn OpMult = "*"
+    showSyn OpNeg = "-"
+    showSyn OpNot = "^"
+    showSyn OpOr = "|"
+    showSyn OpSub = "-"
     showSyn (UserOp x) = showSyn x

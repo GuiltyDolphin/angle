@@ -17,7 +17,9 @@ main = defaultMain allTests -- defaultMainWithArgs allTests ["--timeout=3", "--m
 -- | Convert n seconds into microseconds
 toMicroSeconds :: Integer -> Integer
 toMicroSeconds n = n*10^6
-allTests = localOption (Timeout (toMicroSeconds 2) "") $ testGroup "all tests" [ testGroup "lexer tests" Lexer.tests 
+allTests = localOption (Timeout (toMicroSeconds 3) "") $ 
+           testGroup "all tests" 
+           [ testGroup "lexer tests" Lexer.tests 
            , testGroup "helpers tests" Helpers.tests
            , testGroup "token tests" Token.tests
            , localOption (QuickCheckMaxSize 10) $ testGroup "scope tests" Scope.tests

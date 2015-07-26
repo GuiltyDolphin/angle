@@ -225,25 +225,23 @@ execOp (SpecOp op expr) = execSpecOp op expr
 execOp (MultiOp op exprs) = execMultiOp op exprs
 
 execSpecOp :: Op -> Expr -> ExecIO LangLit
-execSpecOp OpNeg x = do 
-  res <- execExpr x
-  negLit res
+execSpecOp OpNeg x = execExpr x >>= notLit
 
 execMultiOp :: Op -> [Expr] -> ExecIO LangLit
+execMultiOp OpAdd xs       = withMultiOp xs addLit
+execMultiOp OpAnd xs       = withMultiOp xs andLit
+execMultiOp OpDiv xs       = withMultiOp xs divLit
+execMultiOp OpEq  xs       = withMultiOp xs eqLit
+execMultiOp OpGreater xs   = withMultiOp xs greaterLit
+execMultiOp OpGreaterEq xs = withMultiOp xs greaterEqLit
+execMultiOp OpLess xs      = withMultiOp xs lessLit
+execMultiOp OpLessEq xs    = withMultiOp xs lessEqLit
+execMultiOp OpMult xs      = withMultiOp xs multLit
+execMultiOp OpOr xs        = withMultiOp xs orLit
+execMultiOp OpSub xs       = withMultiOp xs subLit
 execMultiOp (UserOp x) xs = do
   sig <- lookupOpF x
   callFunCallSig sig xs
-execMultiOp OpMult xs = withMultiOp xs multiLit
-execMultiOp OpDiv xs = withMultiOp xs divLit
-execMultiOp OpAdd xs = withMultiOp xs addLit
-execMultiOp OpSub xs = withMultiOp xs subLit
-execMultiOp OpEq  xs = withMultiOp xs eqLit
-execMultiOp OpOr xs = withMultiOp xs orLit
-execMultiOp OpAnd xs = withMultiOp xs andLit
-execMultiOp OpGreater xs = withMultiOp xs greaterLit
-execMultiOp OpLess xs = withMultiOp xs lessLit
-execMultiOp OpGreaterEq xs = withMultiOp xs greaterEqLit
-execMultiOp OpLessEq xs = withMultiOp xs lessEqLit
   
          
 withMultiOp :: [Expr] -> ([LangLit] -> ExecIO LangLit) -> ExecIO LangLit

@@ -11,21 +11,18 @@ import Angle.Types.Lang
 import Control.Monad.Error
     
     
-testAddList :: [LangLit] -> [LangLit] -> Bool
-testAddList xs ys = (LitList (xs++ys)) == addList (LitList xs) (LitList ys)
+testAddList :: [LangLit] -> [LangLit] -> Property
+testAddList xs ys = monadicEither $ do
+                      res <- run $ addLit (LitList xs:ys)
+                      assertEqualQC (LitList (xs++ys)) res
 
-testAndBool :: Bool -> Bool -> Bool
-testAndBool x y = andBool (LitBool x) (LitBool y) == (LitBool $ x&&y)
-                  
 testAndLitBool :: [Bool] -> Property
 testAndLitBool xs = monadicEither $ do
                       res <- run $ andLit (map LitBool xs)
                       assertEqualQC (LitBool $ and xs) res
-
-
+                      
 tests = [ testGroup "and"
-          [ testProperty "andBool" testAndBool
-          , testProperty "andLit (with bools)" testAndLitBool
+          [ testProperty "andLit (with bools)" testAndLitBool
           ]
         ]
 

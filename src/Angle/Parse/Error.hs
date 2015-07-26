@@ -5,7 +5,10 @@ module Angle.Parse.Error
     ( typeMismatchErr
     , typeUnexpectedErr
     , typeNotValidErr
+    , typeNotValidErrT
     , typeCastErr
+    , typeMismatchOpErr
+    , typeMismatchOpErrT
     , nameNotDefinedErr
     , nameNotFunctionErr
     , nameNotValueErr
@@ -20,11 +23,13 @@ module Angle.Parse.Error
     , LError(..)
     , throwLangError
     , indexOutOfBoundsErr
+    , defaultErr
 --    , getLangError
     ) where
 
 
 import Control.Monad.Error
+import Data.Function (on)
    
 import Angle.Types.Lang
 import Angle.Scanner
@@ -81,17 +86,23 @@ data TypeError = TypeMismatch   LangType LangType
                | TypeUnexpected LangType LangType
                | TypeNotValid   LangType
                | TypeCast LangType LangType
+               | TypeMismatchOp LangType LangType
                  
 typeMismatchErr   t1 = typeErr . TypeMismatch   t1
 typeUnexpectedErr t1 = typeErr . TypeUnexpected t1
 typeNotValidErr      = typeErr . TypeNotValid
+typeNotValidErrT     = typeNotValidErr . typeOf
 typeCastErr       t1 = typeErr . TypeCast       t1
+typeMismatchOpErr t1 = typeErr . TypeMismatchOp t1
+typeMismatchOpErrT = typeMismatchOpErr `on` typeOf
                
 instance Show TypeError where
     show (TypeMismatch l r)   = "type mismatch: got (" ++ show l ++ ", " ++ show r ++ ") but both types should be the same"
     show (TypeUnexpected l r) = "unexpected type: " ++ show l ++ ", expecting: " ++ show r
     show (TypeNotValid l)     = "type not valid for scenario: " ++ show l
     show (TypeCast l r) = "cannot convert " ++ show l ++ " to " ++ show r
+    show (TypeMismatchOp l r) = "cannot perform operation on types " ++ show l ++ " and " ++ show r
+    -- show (TypeMismatchOp op l r) = "cannot perform operation (" ++ showSyn op ++ ") on types " ++ show l ++ " and " ++ show r
                             
 data NameError = NameNotDefined LangIdent 
                | NameNotFunction LangIdent
