@@ -19,6 +19,7 @@ module Angle.Parse.Error
     , SourcePos
     , LError(..)
     , throwLangError
+    , indexOutOfBoundsErr
 --    , getLangError
     ) where
 
@@ -52,6 +53,7 @@ data LangError = TypeError TypeError
                | NameError NameError
                | CallError CallError
                | DefaultError String
+               | LitError LitError
                | UserError String -- TODO: Add keyword and
                                   -- structures for allowing
                                   -- the user to throw errors
@@ -61,6 +63,7 @@ syntaxErr  = SyntaxError
 nameErr    = NameError
 callErr    = CallError
 defaultErr = DefaultError
+litErr     = LitError
 
 instance Show LangError where
     show (TypeError e)    = "wrong type in expression: " ++ show e
@@ -68,6 +71,7 @@ instance Show LangError where
     show (NameError v)    = "name error: " ++ show v
     show (CallError x)    = "call error: " ++ show x
     show (DefaultError s) = "defaultError: " ++ s
+    show (LitError x) = "literal error: " ++ show x
 
 instance Error LangError where
     noMsg = DefaultError ""
@@ -170,6 +174,13 @@ class (MonadError LError m) => CanErrorWithPos m where
     getErrorSource :: m String
 
 
+data LitError = IndexOutOfBoundsError Int
+              deriving (Eq)
+                       
+indexOutOfBoundsErr = litErr . IndexOutOfBoundsError
+
+instance Show LitError where
+    show (IndexOutOfBoundsError x) = "index out of bounds: " ++ show x
 
 
 

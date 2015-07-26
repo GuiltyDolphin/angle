@@ -5,6 +5,7 @@ module Angle.Types.Functions
     , mostGeneral
     , shareCast
     , canCast
+    , allType
     ) where
 
 import Control.Monad.Error
@@ -62,3 +63,10 @@ allCast (x:xs) = all (shareCast (typeOf x) . typeOf) xs
 castAll :: (CanError m) => [LangLit] -> m [LangLit]
 castAll xs = mapM (`cast` reqType) xs
              where reqType = head $ nub $ map (general . typeOf) xs
+
+ltNumeric :: LangType -> Bool
+ltNumeric LTInt = True
+ltNumeric LTFloat = True
+                    
+allType :: LangType -> [LangLit] -> Bool
+allType t = all ((==t) . typeOf)

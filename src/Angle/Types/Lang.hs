@@ -130,7 +130,7 @@ hasCatchAllArg x = case catchAllArg x of
 data LangLit = LitStr String
              | LitInt Int
              | LitFloat Float
-             | LitList [Expr]     -- See below
+             | LitList [LangLit]     -- See below
              | LitBool Bool
              | LitRange Expr Expr -- Might want Expr version of
                                   -- this, then have
@@ -179,6 +179,7 @@ data Expr = ExprIdent LangIdent
           | ExprLit LangLit
           | ExprFunCall LangIdent [Expr]
           | ExprOp LangOp
+          | ExprList [Expr]
             deriving (Show, Eq)
                      
 instance ShowSyn Expr where
@@ -229,6 +230,7 @@ data Op = OpNeg
         | OpNot 
         | OpEq
         | OpOr
+        | OpAnd
         | OpGreater
         | OpLess
         | OpGreaterEq
@@ -245,6 +247,7 @@ instance ShowSyn Op where
     showSyn OpNot = "^"
     showSyn OpEq = "=="
     showSyn OpOr = "|"
+    showSyn OpAnd = "&"
     showSyn OpGreater = ">"
     showSyn OpLess = "<"
     showSyn OpGreaterEq = ">="

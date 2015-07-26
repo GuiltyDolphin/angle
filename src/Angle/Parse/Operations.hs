@@ -4,6 +4,15 @@ module Angle.Parse.Operations
     , andLit
     , andBool
     , addList
+    , lessLit
+    , greaterLit
+    , lessEqLit
+    , greaterEqLit
+    , orLit
+    , eqLit
+    , subLit
+    , multiLit
+    , divLit
     ) where
 
 import qualified Data.Foldable as F
@@ -48,10 +57,11 @@ andLit xs@(LitBool _:_) = return $ foldr1 andBool xs
                           
 orBool :: LangLit -> LangLit -> LangLit
 orBool (LitBool x) (LitBool y) = LitBool (x || y)
-                                 
-orLit :: [LangLit] -> LangLit
-orLit [] = LitBool False
-orLit xs@(LitBool _:_) = foldr1 orBool xs
+
+orLit = undefined                                 
+-- orLit :: [LangLit] -> LangLit
+-- orLit [] = LitBool False
+-- orLit xs@(LitBool _:_) = foldr1 orBool xs
 
                          
 negNum :: LangLit -> LangLit
@@ -64,3 +74,38 @@ negLit x | isNumeric x = return $ negNum x
          where isNumeric (LitInt _) = True
                isNumeric (LitFloat _) = True
                isNumeric _ = False
+                             
+-- subLit (LitList xs:ys) = mapM 
+-- divLit = 
+subLit = undefined
+-- subLit (LitList xs:ys) | allType LTInt ys = forM ys' dropIndexWithElem xs
+--                        where ys' = map (\(LitInt x) -> x) ys
+
+langListDrop :: (CanError m) => Int -> LangLit -> m (LangLit, LangLit)
+langListDrop n (LitList xs) | n >= length xs = langError $ indexOutOfBoundsErr n
+                            | otherwise = return res
+    where res = (LitList $ f++s, r)
+          (f,r:s) = splitAt n xs
+
+dropIndexWithElem :: Int -> [a] -> ([a], a)
+dropIndexWithElem n xs = res 
+    where res = (f++s, r)
+          (f,r:s) = splitAt n xs
+
+lessEqLit = undefined
+lessLit = undefined
+greaterLit = undefined
+greaterEqLit = undefined
+eqLit = undefined
+multiLit = undefined
+divLit = undefined
+
+
+
+
+
+
+
+
+
+

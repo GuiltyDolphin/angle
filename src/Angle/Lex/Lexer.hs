@@ -211,8 +211,11 @@ litFloat = liftM LitFloat tokFloat
 -- Left ...
 -- ...
 litList :: Scanner LangLit
-litList = liftM LitList (tokList $ sepWith tokEltSep expr) 
+litList = liftM LitList (tokList $ sepWith tokEltSep langLit) 
           <?> "list literal"
+              
+exprList :: Scanner Expr
+exprList = liftM ExprList (tokList $ sepWith tokEltSep expr)
 
 
 -- |Boolean literal
@@ -242,6 +245,7 @@ litNull = string "()" <|> string "null" >> return LitNull
 
 expr :: Scanner Expr
 expr = (   tryScan exprLit
+       <|> exprList
        <|> exprFunIdent 
        <|> tryScan exprOp
        <|> exprLambda
@@ -314,12 +318,13 @@ opDiv  = makeOp (char '/')    OpDiv  <?> "operator (/)"
 opAdd  = makeOp (char '+')    OpAdd  <?> "operator (+)"
 opSub  = makeOp (char '-')    OpSub  <?> "operator (-)"
 opNot  = makeOp (char '^')    OpNot  <?> "operator (^)"
-opGreater = makeOp (char '>') OpGreater <?> "operator (^)"
-opLess = makeOp (char '<')    OpLess <?> "operator (^)"
-opGreaterEq = makeOp (string ">=") OpGreaterEq <?> "operator (^)"
-opLessEq = makeOp (string "<=") OpLessEq <?> "operator (^)"
+opGreater = makeOp (char '>') OpGreater <?> "operator (>)"
+opLess = makeOp (char '<')    OpLess <?> "operator (<)"
+opGreaterEq = makeOp (string ">=") OpGreaterEq <?> "operator (>=)"
+opLessEq = makeOp (string "<=") OpLessEq <?> "operator (<=)"
 opEq   = makeOp (string "==") OpEq   <?> "operator (==)"
 opOr   = makeOp (char '|')    OpOr   <?> "operator (|)"
+opAnd  = makeOp (char '&')    OpAnd <?> "operator (&)"
 
 userOp = liftM (UserOp . LangIdent) (some tokOpChar) <?> "operator"
        

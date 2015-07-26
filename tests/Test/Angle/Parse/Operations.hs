@@ -11,7 +11,7 @@ import Angle.Types.Lang
 import Control.Monad.Error
     
     
-testAddList :: [Expr] -> [Expr] -> Bool
+testAddList :: [LangLit] -> [LangLit] -> Bool
 testAddList xs ys = (LitList (xs++ys)) == addList (LitList xs) (LitList ys)
 
 testAndBool :: Bool -> Bool -> Bool

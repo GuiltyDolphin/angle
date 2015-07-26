@@ -189,7 +189,7 @@ argListBind args cs = do
   let toBind = zip (stdArgs params) vals
       fullBind = toBind ++
                  if length toBind /= la
-                 then [(fromJust $ catchAllArg params, LitList $ map ExprLit (drop (length toBind) vals))]
+                 then [(fromJust $ catchAllArg params, LitList $ drop (length toBind) vals)]
                  else [(fromJust $ catchAllArg params, LitList []) | hasCatchAllArg params] 
   newScope
   forM_ fullBind (uncurry assignVarLit)
@@ -233,9 +233,21 @@ execMultiOp :: Op -> [Expr] -> ExecIO LangLit
 execMultiOp (UserOp x) xs = do
   sig <- lookupOpF x
   callFunCallSig sig xs
-execMultiOp OpAdd xs = do
-  lits <- mapM execExpr xs
-  addLit lits
+execMultiOp OpMult xs = withMultiOp xs multiLit
+execMultiOp OpDiv xs = withMultiOp xs divLit
+execMultiOp OpAdd xs = withMultiOp xs addLit
+execMultiOp OpSub xs = withMultiOp xs subLit
+execMultiOp OpEq  xs = withMultiOp xs eqLit
+execMultiOp OpOr xs = withMultiOp xs orLit
+execMultiOp OpAnd xs = withMultiOp xs andLit
+execMultiOp OpGreater xs = withMultiOp xs greaterLit
+execMultiOp OpLess xs = withMultiOp xs lessLit
+execMultiOp OpGreaterEq xs = withMultiOp xs greaterEqLit
+execMultiOp OpLessEq xs = withMultiOp xs lessEqLit
+  
+         
+withMultiOp :: [Expr] -> ([LangLit] -> ExecIO LangLit) -> ExecIO LangLit
+withMultiOp xs f = mapM execExpr xs >>= f 
   -- liftIO $ addLit (map execExpr xs)
          
 basicExpr = ExprOp (MultiOp OpAdd [ExprLit (LitInt 1), ExprLit (LitFloat 8)])
