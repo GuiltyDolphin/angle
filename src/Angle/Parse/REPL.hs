@@ -23,7 +23,7 @@ processLine s = case evalScan s program of
 --                  Right res -> runExecIOEnv (execStmt e) res >>= print
                               
 runLine :: String -> ExecIO ()
-runLine s = case evalScan s program of
+runLine s = case evalScan s stmt of
               Left err -> liftIO $ print err
               Right res -> do
                 toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)

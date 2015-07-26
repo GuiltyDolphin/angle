@@ -37,6 +37,7 @@ module Angle.Lex.Token
     , spaces
     , keywords
     , tokFunRefStart
+    , tokOpChar
     ) where
     
 
@@ -119,6 +120,9 @@ ident = noneFrom (\x -> string x <* specEnd) keywords *> ((:) <$> tokIdentStartC
     where specEnd = notScan tokIdentBodyChar
         
 opChars = "*/+->=<|&^"
+          
+tokOpChar = charFrom "*/+->=<|&^"
+
 sepChar = "{()};, =" ++ opChars
 
 exprEnd = lookAhead (void tokRangeSep <|> void tokStmtEnd <|> void tokEltSep <|> void tokParenR)

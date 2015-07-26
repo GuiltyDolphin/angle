@@ -1,17 +1,20 @@
 defun quickSort(xs) {
   if (== xs []) then return xs;
   first = index(0, xs);
-  smallers = quickSort(filter($((x) (< x first)), xs));
-  biggers = quickSort(filter($((x) (>= x first)), xs));
+  smallers = quickSort(filter(((x) (< x first);), xs));
+  biggers = quickSort(filter(((x) (>= x first);), xs));
+  # smallers = quickSort(filter($((x) (< x first)), xs));
+  # biggers = quickSort(filter($((x) (>= x first)), xs));
   (++ smallers first biggers);
 }
 
 defun filter(f, xs) {
   res = [];
-  for elt in xs {
+  for elt in xs do {
     if f(elt) then res = (+ res elt);
   }
   res;
 }
 # Expected: [1, 2, 3, 7]
-quickSort([2, 3, 1, 7])
+quickSort([2, 3, 1, 7]);
+print(quickSort([2, 3, 1, 7]))

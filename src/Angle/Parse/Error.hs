@@ -9,6 +9,7 @@ module Angle.Parse.Error
     , nameNotDefinedErr
     , nameNotFunctionErr
     , nameNotValueErr
+    , nameNotOpErr
     , wrongNumberOfArgumentsErr
     , LangError
     , CanError
@@ -65,6 +66,7 @@ instance Show LangError where
     show (TypeError e)    = "wrong type in expression: " ++ show e
     show (SyntaxError s)  = "syntax error: " ++ s
     show (NameError v)    = "name error: " ++ show v
+    show (CallError x)    = "call error: " ++ show x
     show (DefaultError s) = "defaultError: " ++ s
 
 instance Error LangError where
@@ -90,22 +92,25 @@ instance Show TypeError where
 data NameError = NameNotDefined LangIdent 
                | NameNotFunction LangIdent
                | NameNotValue LangIdent
+               | NameNotOp LangIdent
 
 nameNotDefinedErr, nameNotFunctionErr, nameNotValueErr :: LangIdent -> LangError
 nameNotDefinedErr  = nameErr . NameNotDefined
 nameNotFunctionErr = nameErr . NameNotFunction
 nameNotValueErr    = nameErr . NameNotValue
+nameNotOpErr       = nameErr . NameNotOp
 
 instance Show NameError where
     show (NameNotDefined  (LangIdent name)) = "not in scope: "         ++ name
     show (NameNotFunction (LangIdent name)) = "not a valid function: " ++ name
     show (NameNotValue    (LangIdent name)) = "no value assigned: "    ++ name
+    show (NameNotOp       (LangIdent name)) = "non-existant operator: " ++ name
                                   
 data CallError = 
     WrongNumberOfArguments Int Int
     deriving (Eq)
              
-wrongNumberOfArgumentsErr x = callErr . WrongNumberOfArguments x
+wrongNumberOfArgumentsErr expect = callErr . WrongNumberOfArguments expect 
              
              
 instance Show CallError where
@@ -128,6 +133,7 @@ instance Show LError where
     show (LError { errorErr=ee
                  , errorPos=SourceRef (start,end)
                  , errorText=et
+                 , errorSource=es
                  })
         = cEp ++ cEt ++ cEe
           where cEp = concat ["[", showPos start, "-", showPos end, "]"] ++ "\n"
@@ -135,6 +141,9 @@ instance Show LError where
                 cEe = show ee
                 showPos (SourcePos (cn,ln,_)) 
                     = concat ["(", show ln, ",", show cn, ")"]
+                      
+getSourceLine :: String -> SourcePos -> String
+getSourceLine s pos = lines s !! lineNo pos
                          
 instance Error LError where
     noMsg = LError {errorErr=noMsg, errorPos=SourceRef (beginningOfFile, beginningOfFile), errorSource="", errorText=""}

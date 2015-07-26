@@ -229,6 +229,11 @@ data Op = OpNeg
         | OpNot 
         | OpEq
         | OpOr
+        | OpGreater
+        | OpLess
+        | OpGreaterEq
+        | OpLessEq
+        | UserOp LangIdent
           deriving (Show, Eq)
                    
 instance ShowSyn Op where
@@ -240,3 +245,8 @@ instance ShowSyn Op where
     showSyn OpNot = "^"
     showSyn OpEq = "=="
     showSyn OpOr = "|"
+    showSyn OpGreater = ">"
+    showSyn OpLess = "<"
+    showSyn OpGreaterEq = ">="
+    showSyn OpLessEq = "<="
+    showSyn (UserOp x) = showSyn x

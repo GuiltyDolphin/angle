@@ -112,6 +112,21 @@ lookupVarF name = do
   case res of
     Just x -> return x
     Nothing -> throwLangError $ nameNotDefinedErr name
+               
+lookupOp :: LangIdent -> ExecIO (Maybe CallSig)
+lookupOp opName = do
+  res <- lookupVar opName
+  case res of
+    Nothing -> return Nothing
+    Just x -> return $ varFunDef x
+              
+lookupOpF :: LangIdent -> ExecIO CallSig
+lookupOpF opName = do
+  res <- lookupOp opName
+  case res of
+    Nothing -> langError $ nameNotOpErr opName
+    Just x -> return x
+  
 
 -- | Modify the current scope using the given function.
 modifyScope :: (Scope -> Scope) -> ExecIO ()
@@ -169,7 +184,7 @@ argListBind args cs = do
       la = length args
       lp = length (stdArgs params)
   when (la > lp && not (hasCatchAllArg params) || la < lp)
-           (langError $ wrongNumberOfArgumentsErr la lp)
+           (langError $ wrongNumberOfArgumentsErr lp la)
   vals <- mapM execExpr args
   let toBind = zip (stdArgs params) vals
       fullBind = toBind ++
@@ -213,8 +228,11 @@ execSpecOp :: Op -> Expr -> ExecIO LangLit
 execSpecOp OpNeg x = do 
   res <- execExpr x
   negLit res
-                       
+
 execMultiOp :: Op -> [Expr] -> ExecIO LangLit
+execMultiOp (UserOp x) xs = do
+  sig <- lookupOpF x
+  callFunCallSig sig xs
 execMultiOp OpAdd xs = do
   lits <- mapM execExpr xs
   addLit lits
@@ -256,7 +274,7 @@ builtinPrint xs = liftIO $ putStrLn res >> return (LitStr res)
 -- | Implementation of the built-in str function.
 builtinStr :: [LangLit] -> ExecIO LangLit
 builtinStr [] = return $ LitStr ""
-builtinStr xs | length xs > 1 = throwLangError $ wrongNumberOfArgumentsErr (length xs) 1
+builtinStr xs | length xs > 1 = throwLangError $ wrongNumberOfArgumentsErr 1 (length xs)
               | otherwise = return $ toLitStr (head xs)
 
 -- | True if the identifier represents a builtin function.
@@ -268,6 +286,14 @@ callFun :: LangIdent -> [Expr] -> ExecIO LangLit
 callFun x args | isBuiltin x = callBuiltin x args
                | otherwise = do
   callsig <- lookupVarFunF x
+  callFunCallSig callsig args
+-- do
+  --callsig <- lookupVarFunF x
+  --argListBind args callsig
+  --execStmt (callBody callsig)
+           
+callFunCallSig :: CallSig -> [Expr] -> ExecIO LangLit
+callFunCallSig callsig args = do
   argListBind args callsig
   execStmt (callBody callsig)
                                

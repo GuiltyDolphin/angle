@@ -8,6 +8,7 @@ module Angle.Scanner
   , expectedErr
   , Scanner
   , SourcePos(..)
+  , lineNo
   , ScanEnv(..)
   , ScanState(..)
   , ScanError(..)

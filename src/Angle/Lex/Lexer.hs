@@ -60,13 +60,13 @@ multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
 -- end of file, shouldn't need to have a newline or semi-colon
 singStmt :: Scanner SingStmt
 singStmt = stmtComment
+           <|> stmtStruct 
            <|> stmtReturn <* singStmtEnd
            <|> stmtAssign <* singStmtEnd
            <|> stmtExpr   <* singStmtEnd
-           <|> stmtStruct 
            <?> "statement"
 
-singStmtEnd = surrounded whitespace $ void (char ';')
+singStmtEnd = surrounded whitespace (void (char ';')) <?> "end of statement"
               -- <|> void (char '\n')
               -- <|> void (lookAhead tokMultiStmtEnd)
               -- <|> lookAhead tokEOF
@@ -242,10 +242,10 @@ litNull = string "()" <|> string "null" >> return LitNull
 
 expr :: Scanner Expr
 expr = (   tryScan exprLit
-       <|> exprOp
-       <|> exprFunCall 
        <|> exprFunIdent 
+       <|> tryScan exprOp
        <|> exprLambda
+       <|> exprFunCall 
        <|> exprIdent)
        <?> "expression"
        
@@ -314,8 +314,14 @@ opDiv  = makeOp (char '/')    OpDiv  <?> "operator (/)"
 opAdd  = makeOp (char '+')    OpAdd  <?> "operator (+)"
 opSub  = makeOp (char '-')    OpSub  <?> "operator (-)"
 opNot  = makeOp (char '^')    OpNot  <?> "operator (^)"
+opGreater = makeOp (char '>') OpGreater <?> "operator (^)"
+opLess = makeOp (char '<')    OpLess <?> "operator (^)"
+opGreaterEq = makeOp (string ">=") OpGreaterEq <?> "operator (^)"
+opLessEq = makeOp (string "<=") OpLessEq <?> "operator (^)"
 opEq   = makeOp (string "==") OpEq   <?> "operator (==)"
 opOr   = makeOp (char '|')    OpOr   <?> "operator (|)"
+
+userOp = liftM (UserOp . LangIdent) (some tokOpChar) <?> "operator"
        
 -- |Operators that can be used outside parentheses
 -- >>> evalScan "^true" specOp
@@ -336,7 +342,8 @@ preOp sc = do
 -- >>> evalScan "(+ 1 3)" multiOp
 -- Right (...Add...1...3...)
 multiOp :: Scanner LangOp
-multiOp = parens (choice $ map multOp multiOps) <?> "operator expression"
+multiOp = parens (choice (map multOp multiOps) 
+                  <|> multOp userOp) <?> "operator expression"
           
 multiOps :: [Scanner Op]
 multiOps = [opMult, opDiv, opAdd, opSub, opEq, opOr]
