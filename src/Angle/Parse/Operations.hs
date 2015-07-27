@@ -140,12 +140,14 @@ orLit (x:_)              = langError $ typeNotValidErrT x
 --
 -- On numerics: subtracts all tailing numerics from the first numeric.
 subLit :: MultiOperator
-subLit (xs@(LitList _):ys) 
+subLit (x@(LitList _):ys) 
     | allType LTInt ys 
-    = foldM (flip $ langListDrop . getLitInt) xs ys
+    = foldM (flip $ langListDrop . getLitInt) x ys
       where langListDrop n (LitList zs) 
-                | n >= length ys = langError $ indexOutOfBoundsErr n
-                | otherwise = return . head . snd . splitAt n $ zs
+                | n >= length zs = langError $ indexOutOfBoundsErr n
+                | otherwise = return (LitList res)
+              where res = f++s
+                    (f,_:s) = splitAt n zs
 subLit xs = onlyNumOp subLitNum xs
     where subLitNum = onNum (-) (-)
                       
@@ -176,7 +178,7 @@ numOp :: Binary Int LangLit -> Binary Float LangLit -> BinaryOperator
 numOp i _ (LitInt x) (LitInt y)       = return $ i x y
 numOp _ f (LitFloat x) (LitFloat y)   = return $ f x y
 numOp _ f (LitInt x) (LitFloat y)     = return $ f (fromIntegral x) y
-numOp i f x@(LitFloat _) y@(LitInt _) = numOp i f y x
+numOp _ f (LitFloat x) (LitInt y) =     return $ f x (fromIntegral y)
 numOp _ _ x y                         = langError $ typeMismatchOpErrT x y
                                         
 
