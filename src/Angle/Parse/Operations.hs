@@ -20,22 +20,31 @@ import Control.Monad
 import Angle.Types.Lang
 import Angle.Types.Functions
 import Angle.Parse.Error
-                                    
--- If using foldr1, cannot support errors properly,
--- might need recursion?
--- ^ Maybe fixed
+
+
+-- | Addition operator.
+--
+-- On list followed by arbitrary types: appends the tail arguments to the list.
+--
+-- On numeric types: performs arithmetic addition.
 addLit :: MultiOperator
 addLit (LitList x:xs) = return $ LitList (x++xs)
 addLit xs             = onlyNumOp addLitNum xs
     where addLitNum = onNum (+) (+)
 
 
+-- | Logical and operator.
+--
+-- On booleans: performs logical and of the values.
 andLit :: MultiOperator
 andLit []               = return $ LitBool True
 andLit (x@(LitBool _):xs) = foldM andLitBool x xs
     where andLitBool = onLitBool (&&)
 
 
+-- | Division operator.
+-- 
+-- On numerics: performs arithmetic division.
 divLit :: MultiOperator
 divLit = onlyNumOp divLitNum 
     where divLitNum = onNum div (/)
@@ -45,40 +54,61 @@ divLit = onlyNumOp divLitNum
 --  want to change this?
 
 -- | Equality operator
+--
 -- On any types: true if all of the values are equal
 eqLit :: MultiOperator
 eqLit (x:xs) = return . LitBool . all (==x) $ xs
 
 
+-- | Greater than or equal to operator.
+--
+-- On strings: compares the strings lexiographically.
+--
+-- On numerics: compares the values numerically.
 greaterEqLit :: MultiOperator
 greaterEqLit = compOp (>=)
 
 
+-- | Greater than operator.
+--
+-- On strings: compares the strings lexiographically.
+--
+-- On numerics: compares the values numerically.
 greaterLit :: MultiOperator
 greaterLit = compOp (>)
 
 
+-- | Less than or equal to operator.
+--
+-- On strings: compares the strings lexiographically.
+--
+-- On numerics: compares the values numerically.
 lessEqLit :: MultiOperator
 lessEqLit = compOp (<=)
 
 
--- | Less comparison operator
--- On numerics: true if each numeric is smaller than the preceding numeric.
--- On booleans: treating true as 1 and false as 0, the same as for numerics.
--- On strings: compares each element lexiographically.
+-- | Less than comparison operator.
+--
+-- On strings: compares the strings lexiographically.
+--
+-- On numerics: compares the values numerically.
 lessLit :: MultiOperator
 lessLit = compOp (<)
 
 
+-- | Multiplication operator.
+--
+-- On numerics: performs arithmetical multiplication on the values.
 multLit :: MultiOperator
 multLit = onlyNumOp multLitNum
     where multLitNum = onNum (*) (*)
 
 
--- | Negation operator:
+-- | Negation operator.
+--
 -- On lists: returns the reversed list.
--- On numeric values: returns the negative value.
--- Other types: not valid.
+--
+-- On numerics: returns the negative value.
 negLit :: UnaryOperator
 negLit (LitList xs) = return $ LitList (reverse xs)
 negLit (LitInt x)   = return $ LitInt (-x)
@@ -86,11 +116,17 @@ negLit (LitFloat x) = return $ LitFloat (-x)
 negLit x            = langError $ typeNotValidErrT x
 
 
+-- | Logical not operator.
+--
+-- On boolean: performs logical negation.
 notLit :: UnaryOperator
 notLit (LitBool x) = return . LitBool $ not x
 notLit x = langError $ typeNotValidErrT x 
 
 
+-- | Logical or operator.
+-- 
+-- On booleans: performs logical OR.
 orLit :: MultiOperator
 orLit []                 = return $ LitBool False
 orLit (x@(LitBool _):xs) = foldM orLitBool x xs
@@ -98,10 +134,11 @@ orLit (x@(LitBool _):xs) = foldM orLitBool x xs
 orLit (x:_)              = langError $ typeNotValidErrT x
 
 
--- | Subtraction operator:
--- On List followed by Integers: treats the integers as indices to remove from the list.
--- On Numerics: subtracts all tailing numerics from the first numeric.
--- Other types: not valid. 
+-- | Subtraction operator.
+--
+-- On list followed by integers: treats the integers as indices to remove from the list.
+--
+-- On numerics: subtracts all tailing numerics from the first numeric.
 subLit :: MultiOperator
 subLit (xs@(LitList _):ys) 
     | allType LTInt ys 
@@ -111,6 +148,11 @@ subLit (xs@(LitList _):ys)
                 | otherwise = return . head . snd . splitAt n $ zs
 subLit xs = onlyNumOp subLitNum xs
     where subLitNum = onNum (-) (-)
+                      
+
+----------------------
+-- END OF OPERATORS --
+----------------------
 
 
 -- | Lift a binary operator across boolean values to 
@@ -138,17 +180,23 @@ numOp i f x@(LitFloat _) y@(LitInt _) = numOp i f y x
 numOp _ _ x y                         = langError $ typeMismatchOpErrT x y
                                         
 
+-- | Synonym for a function that performs a comparison
+-- between its arguments.
 type CompFunc       = forall a. (Ord a) => a -> a -> Bool          
 
+-- | Synonym for standard operators that act on a list of values.
 type MultiOperator  = (CanError m) => [LangLit] -> m LangLit
 
 
+-- | Synonym for an operator that acts upon only two values.
 type BinaryOperator = (CanError m) => LangLit -> LangLit -> m LangLit
 
 
+-- | Synonym for an operator that acts upon one value.
 type UnaryOperator  = (CanError m) => LangLit -> m LangLit
 
 
+-- | Synonym for a binary function.
 type Binary a b = a -> a -> b
 
 
@@ -174,19 +222,15 @@ numOpLit i f t1 t2 = numOp i' f'
                 
 -- | Like `onNum', but given functions must result in boolean
 -- values.
+--
 -- Used for implementing comparison operators.
 onNumBool :: Binary Int Bool -> Binary Float Bool -> BinaryOperator
 onNumBool i f = numOpLit i f LitBool LitBool
 
 
-
-
-
-
-                  
-               
 -- | Operator (or remaining cases of a) that can only
 -- act upon numeric types.
+-- 
 -- Throws a `TypeNotValidError' if invalid literals are passed.
 onlyNumOp :: (CanError m) => (LangLit -> LangLit -> m LangLit) -> [LangLit] -> m LangLit
 onlyNumOp f (x@(LitInt _):xs) = foldM f x xs
