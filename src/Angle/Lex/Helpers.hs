@@ -27,30 +27,24 @@ module Angle.Lex.Helpers
     , sourcePos
     ) where
 
+import Control.Applicative
+import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Error
-import Control.Applicative
-import Control.Monad.Writer
     
 import Angle.Scanner
 
+
 -- | Succeeds if the predicate function returns
---   true when passed the next character.
--- >>> evalScan "test" (cond (/='t'))
--- Left ...
--- ...
---
--- >>> evalScan "test" (cond (/='h'))
--- Right 't'
---
+-- true when passed the next character.
 cond :: (Char -> Bool) -> Scanner Char
 cond f = tryScan $ do
   ch <- scanChar
   if f ch then return ch
-  else unexpectedErr ("character: " ++ show ch)  -- failScan . concat $ ["unexpected character: ", show ch]
+  else unexpectedErr ("character: " ++ show ch)
 
--- Attempt to satisfy the provided scanner, but revert
+
+-- | Attempt to satisfy the provided scanner, but revert
 -- the state upon failure.
 tryScan :: Scanner a -> Scanner a
 tryScan sc = do
@@ -59,99 +53,56 @@ tryScan sc = do
     put st
     throwError e)
 
--- | Match the specified character
--- >>> evalScan "test" (char 't')
--- Right 't'
---
--- >> evalScan "test" (char 'h')
--- Left (...)
+
+-- | Match the specified character.
 char :: Char -> Scanner Char
 char ch = cond (==ch) <?> show ch
 
--- >>> evalScan "test" (charFrom "some")
--- Right 'e'
---
--- >>> evalScan "test" (charFrom "test")
--- Right 't'
---
--- >>> evalScan "test" (charFrom "no")
--- Left (...)
+
 charFrom :: String -> Scanner Char
 charFrom str = cond (`elem` str)
 
--- |Match `str' in its entirety
--- >>> evalScan "test" (string "test")
--- Right "test"
---
--- >>> evalScan "test" (string "testing")
--- Left ...
--- ...
+
+-- | Match `str' in its entirety.
 string :: String -> Scanner String
 string str = tryScan (mapM char str) <?> str
 
--- |Match scanner `sc' between `start' and `end'
--- >>> evalScan "(1)" (within (char '(') (char ')') (char '1'))
--- Right '1'
-within :: Scanner a -> Scanner b -> Scanner c -> Scanner c
-within start end sc = do
-  start
-  res <- sc
-  end
-  return res
 
--- |Like `within', but where `start' and `end' are the same
--- >>> evalScan "'one'" (surrounded (char '\'') (string "one"))
--- Right "one"
---
+-- | Match scanner `sc' between `start' and `end'.
+within :: Scanner a -> Scanner b -> Scanner c -> Scanner c
+within start end sc = start *> sc <* end
+
+
+-- | Like `within', but where `start' and `end' are the same.
 surrounded :: Scanner a -> Scanner b -> Scanner b
 surrounded surr = within surr surr
 
--- |`f' succeeds after `sc'
--- >>> evalScan "test" (followed (char 'e') (char 't'))
--- Right 't'
---
--- >>> evalScan "test" (followed (char 's') (char 't'))
--- Left ...
--- ...
+
+-- | @f@ succeeds after @sc@.
 followed :: Scanner a -> Scanner b -> Scanner b
 followed f sc = sc <* f
 
--- |Use first Scanner that succeeds
--- evalScan "test" (choice [char 'e', char 't'])
--- Right 't'
---
--- evalScan "test" (choice [char 'e', char 's'])
--- Left ...
--- ...
+
+-- | Use first Scanner that succeeds.
 choice :: [Scanner a] -> Scanner a
 choice = msum
 
+
 -- | Attempt each of xs as an input to `sc' and return first
 -- successful result.
--- >>> evalScan "test" (oneFrom char "et")
--- Right 't'
 oneFrom :: (a -> Scanner a) -> [a] -> Scanner a
 oneFrom scf xs = choice $ map scf xs
 
+
 -- | Succeeds if it does not parse the specified character.
--- >>> evalScan "test" (notChar 'e')
--- Right 't'
---
--- >>> evalScan "test" (notChar 't')
--- Left ...
--- ...
 notChar :: Char -> Scanner Char
 notChar ch = cond (/=ch)
              
+
 -- | Matches any character, only fails when there is no more input.
+anyChar :: Scanner Char
 anyChar = scanChar <?> "any character"
 
-parseNonGreedy :: Scanner a -> Scanner a
-parseNonGreedy sc = do
-  st <- get
-  res <- sc
-  put st
-  return res
 
 lookAhead :: Scanner a -> Scanner a
 lookAhead sc = do
@@ -160,20 +111,14 @@ lookAhead sc = do
   put pos
   return res
 
--- | Succeeds only if `sc' does not match
--- >>> evalScan "hello" (notScan (char 'h') *> char 'h')
--- Left ...
--- ...
---
--- >>> evalScan "hello" (notScan (char 't') *> char 'h')
--- Right 'h'
---
+
 -- TODO: Might want to have (Show a) =>
 --  to allow a reasonable error message where
 --  the character is printed
 -- TODO: Try to find a way of setting the
 --  unexpected error message to the originally
 --  expected error message
+-- | Succeeds only if `sc' does not succeed.
 notScan :: (Show a) => Scanner a -> Scanner ()
 notScan sc = tryScan (do
   res <- optional (tryScan (lookAhead sc))
@@ -181,28 +126,20 @@ notScan sc = tryScan (do
               Just x -> unexpectedErr (show x))
 
 
--- |Fail if any scanners built from `scf' succeed
--- >>> evalScan "test" (noneFrom char "abc")
--- Right ()
---
--- >>> evalScan "test" (noneFrom char "tea")
--- Left ...
--- ...
+-- | Fail if any scanners built from `scf' succeed.
 noneFrom :: (Show a) => (a -> Scanner a) -> [a] -> Scanner ()
 noneFrom scf = notScan . oneFrom scf
                
 
--- [[[
 chain :: [Scanner a] -> Scanner [a]
 chain = sequence
+
         
 chainFlat :: [Scanner [a]] -> Scanner [a]
 chainFlat = liftM concat . chain
--- ]]]
 
--- |List of `sc' separated with `sep'
--- >>> evalScan "1,2,3" (sepWith (char ',') (charFrom ['1'..'9']))
--- Right "123"
+
+-- | List of `sc' separated with `sep'.
 sepWith :: Scanner a -> Scanner b -> Scanner [b]
 sepWith sep sc = tryScan (do
   fsm <- optional sc
@@ -214,30 +151,23 @@ sepWith sep sc = tryScan (do
           Nothing -> return [fs]
           Just _ -> liftM (fs:) (sepWith sep sc))
 
--- |Collect sc until `ti' succeeds
--- >>> evalScan "abc.def" (manyTill (char '.') anyChar)
--- Right "abc"
---
--- >>> evalScan ".abc" (manyTill (char '.') anyChar)
--- Right ""
+
+-- | Collect sc until `ti' succeeds.
 manyTill :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
 manyTill ti sc = many (notScan ti *> sc)
                  
+
 -- | Like `manyTill', but also consume @ti@.
 manyTill' :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
 manyTill' ti sc = manyTill ti sc <* ti
                  
--- |Like `manyTill', but `sc' must succeed before `ti'
--- >>> evalScan "123.456" (someTill (char '.') anyChar)
--- Right "123"
---
--- >>> evalScan ".123" (someTill (char '.') anyChar)
--- Left ...
--- ...
+
+-- | Like `manyTill', but `sc' must succeed before `ti'.
 someTill :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
 someTill ti sc = (:) <$> (notScan ti *> sc) <*> manyTill ti sc
 
--- If the scan fails, specify what was expected
+
+-- | If the scan fails, specify what was expected.
 infix 0 <?>
 (<?>) :: Scanner a -> String -> Scanner a
 sc <?> msg = do
@@ -250,28 +180,11 @@ sc <?> msg = do
 --                                 newPos <- liftM sourcePos get
 --                                 throwError $ e {expectedMsg = msg, errPos=newPos})
 
--- Used for evaluating a single Scanner with a given string.
+
+-- | Used for evaluating a single Scanner with a given string.
+--
 -- Assumes reasonable default state.
 evalScan :: String -> Scanner a -> Either ScanError a
 evalScan str sc = runReader (evalStateT (runErrorT (runScanner sc)) defaultState) env
   where defaultState = ScanState { sourcePos = beginningOfFile }
         env = ScanEnv { sourceText = str }
-
-              
-newtype Lexer a = Lexer 
-    { runLexer :: WriterT SourcePos Scanner a }
-    
--- withPos :: Scanner a -> Lexer a
--- withPos sc = do
---   initPos <- liftM sourcePos get
---   tell initPos
---   res <- Lexer $ do 
---                res <- sc
---                return res
---   return res
-                        
---toLexer :: Scanner a -> Lexer a
---toLexer sc = sc >>= Lexer
---             
---lexChar :: Char -> Lexer Char
---lexChar c = do

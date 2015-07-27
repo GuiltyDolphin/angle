@@ -26,29 +26,33 @@ module Angle.Types.Lang
     , startRef
     ) where
 
-import Control.Monad.Error
-import Control.Applicative
 import Numeric (showFFloat)
-import Data.Function (on)
     
 import Angle.Scanner (SourcePos, beginningOfFile)
     
+
 data Stmt = SingleStmt { stmtSingStmt :: SingStmt 
                        , stmtSourcePos :: SourceRef
                        }
           | MultiStmt [Stmt]
             deriving (Show)
                      
--- | Statements are equal if theh contents are equal,
+
+-- | Statements are equal if their contents are equal,
 -- the position may differ.
 instance Eq Stmt where
     (SingleStmt x _) == (SingleStmt y _) = x == y
     (MultiStmt xs) == (MultiStmt ys) = xs == ys
+    _ == _ = False
                      
+
 newtype SourceRef = SourceRef { getSourceRef :: (SourcePos, SourcePos) }
     deriving (Show, Eq)
              
+
+startRef :: SourceRef
 startRef = SourceRef (beginningOfFile, beginningOfFile)
+
 
 -- | Interface for types that can have a representation
 -- in the language.
@@ -57,12 +61,14 @@ class ShowSyn a where
     -- would produce the exact same result if lexed.
     showSyn :: a -> String
                
+
 instance ShowSyn Stmt where
     -- showSyn (SingleStmt x@(StmtComment _) _) = showSyn x
     -- showSyn (SingleStmt x@(StmtStruct _) _) = showSyn x
     showSyn (SingleStmt x _) = showSyn x -- ++ ";"
     showSyn (MultiStmt xs) = "{" ++ concatMap showSyn xs ++ "}"
                              
+
 instance ShowSyn SingStmt where
     showSyn (StmtAssign n e) = concat [showSyn n, " = ", showSyn e, ";\n"]
     showSyn (StmtStruct x) = showSyn x
@@ -70,7 +76,8 @@ instance ShowSyn SingStmt where
     showSyn (StmtComment x) = "#" ++ x ++ "\n"
     showSyn (StmtReturn x) = "return " ++ showSyn x ++ ";\n"
 
--- | A single statement;
+
+-- | A single statement.
 data SingStmt = StmtAssign LangIdent Expr
               | StmtComment String
               | StmtStruct LangStruct
@@ -78,13 +85,15 @@ data SingStmt = StmtAssign LangIdent Expr
               | StmtReturn Expr
                 deriving (Show, Eq)
 
--- |Specialised language constructs
+
+-- | Specialised language constructs.
 data LangStruct = StructFor LangIdent Expr Stmt
                 | StructWhile Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)
                 | StructDefun LangIdent CallSig
                   deriving (Show, Eq)
                            
+
 instance ShowSyn LangStruct where
     showSyn (StructFor n e s) = 
         concat [ "for ", showSyn n
@@ -115,28 +124,35 @@ showSynSep :: ShowSyn a => String -> String -> String -> [a] -> String
 showSynSep start end _ [] = start ++ end
 showSynSep start end sep xs = start ++ concatMap ((++sep) . showSyn) (init xs) ++ showSyn (last xs) ++ end
 
+
 showSynArgs :: (ShowSyn a) => [a] -> String
 showSynArgs = showSynSep "(" ")" ", "
+
 
 showSynList :: (ShowSyn a) => [a] -> String
 showSynList = showSynSep "[" "]" ", "
               
+
 showSynOpList :: (ShowSyn a) => [a] -> String
 showSynOpList = showSynSep " " ")" " "
+
 
 data CallSig = CallSig 
     { callArgs :: ArgSig
     , callBody :: Stmt
     } deriving (Show, Eq)
              
+
 data ArgSig = ArgSig { stdArgs :: [LangIdent]
                      , catchAllArg :: Maybe LangIdent
                      } deriving (Show, Eq)
+
 
 hasCatchAllArg :: ArgSig -> Bool
 hasCatchAllArg x = case catchAllArg x of
                      Nothing -> False
                      Just _ -> True
+
 
 data LangLit = LitStr { getLitStr :: String }
              | LitInt { getLitInt :: Int }
@@ -149,6 +165,7 @@ data LangLit = LitStr { getLitStr :: String }
              | LitNull
                deriving (Show, Eq)
                    
+
 instance ShowSyn LangLit where
     showSyn (LitStr x) = '\"' : x ++ "\""
     showSyn (LitInt x) = show x
@@ -158,6 +175,7 @@ instance ShowSyn LangLit where
     showSyn (LitRange x y) = "(" ++ showSyn x ++ ".." ++ showSyn y ++ ")"
     showSyn LitNull = "null"
                    
+
 data LangType = LTStr
               | LTInt
               | LTFloat
@@ -176,12 +194,15 @@ typeOf (LitBool  _)   = LTBool
 typeOf (LitRange _ _) = LTRange
 typeOf LitNull        = LTNull
               
+
 instance Show LangType where
     show LTList = "list"
     show LTBool = "boolean"
     show LTStr = "string"
     show LTInt = "integer"
     show LTFloat = "float"
+    show LTNull = "null"
+    show LTRange = "range"
                    
 
 data Expr = ExprIdent LangIdent
@@ -200,6 +221,7 @@ instance ShowSyn Expr where
     showSyn (ExprOp x) = showSyn x
     showSyn (ExprLambda x) = "$(" ++ showSyn x ++ ")"
     showSyn (ExprFunIdent x) = "$" ++ showSyn x
+    showSyn (ExprList _) = error "showSyn - cannot show unevaluated list"
                          
                          
 newtype LangIdent = LangIdent { getIdent :: String }

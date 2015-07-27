@@ -24,34 +24,26 @@ module Angle.Parse.Error
     , throwLangError
     , indexOutOfBoundsErr
     , defaultErr
---    , getLangError
+    , syntaxErr
+    , userErr
     ) where
 
 
 import Control.Monad.Error
 import Data.Function (on)
    
-import Angle.Types.Lang
 import Angle.Scanner
--- Errors
--- Need to be able to throw errors from `pure' code,
--- like in Operations.
--- Adding a List and Int don't make sense, so need to
--- throw an error when this occurs.
--- Might make the code less pretty? Will need maybe more
--- boilerplate and adding monads to this `pure' code.
+import Angle.Types.Lang
 
- 
--- LangError API
 
-class (MonadError LError m) => CanError (m :: * -> *) where
-    --getLangError :: m a -> m LError
+class (MonadError LError m) => CanError (m :: * -> *)
+
 
 instance CanError (Either LError)
-    --getLangError (Left e) = return e
-    --getLangError (Right _) = error "getLangError: No error"
+
 
 instance (Monad m) => CanError (ErrorT LError m)
+
    
 data LangError = TypeError TypeError
                | SyntaxError String
@@ -63,12 +55,34 @@ data LangError = TypeError TypeError
                                   -- structures for allowing
                                   -- the user to throw errors
                  
+
+typeErr :: TypeError -> LangError
 typeErr    = TypeError
+
+
+syntaxErr :: String -> LangError
 syntaxErr  = SyntaxError
+
+
+nameErr :: NameError -> LangError
 nameErr    = NameError
+
+
+callErr :: CallError -> LangError
 callErr    = CallError
+
+
+defaultErr :: String -> LangError
 defaultErr = DefaultError
+
+
+litErr :: LitError -> LangError
 litErr     = LitError
+             
+
+userErr :: String -> LangError
+userErr = UserError
+
 
 instance Show LangError where
     show (TypeError e)    = "wrong type in expression: " ++ show e
@@ -77,24 +91,48 @@ instance Show LangError where
     show (CallError x)    = "call error: " ++ show x
     show (DefaultError s) = "defaultError: " ++ s
     show (LitError x) = "literal error: " ++ show x
+    show (UserError x) = "user error: " ++ x
+
 
 instance Error LangError where
     noMsg = DefaultError ""
     strMsg = DefaultError
+
 
 data TypeError = TypeMismatch   LangType LangType
                | TypeUnexpected LangType LangType
                | TypeNotValid   LangType
                | TypeCast LangType LangType
                | TypeMismatchOp LangType LangType
+
                  
+typeMismatchErr :: LangType -> LangType -> LangError
 typeMismatchErr   t1 = typeErr . TypeMismatch   t1
+
+
+typeUnexpectedErr :: LangType -> LangType -> LangError
 typeUnexpectedErr t1 = typeErr . TypeUnexpected t1
+
+
+typeNotValidErr :: LangType -> LangError
 typeNotValidErr      = typeErr . TypeNotValid
+
+
+typeNotValidErrT :: LangLit -> LangError
 typeNotValidErrT     = typeNotValidErr . typeOf
+
+
+typeCastErr :: LangType -> LangType -> LangError
 typeCastErr       t1 = typeErr . TypeCast       t1
+
+
+typeMismatchOpErr :: LangType -> LangType -> LangError
 typeMismatchOpErr t1 = typeErr . TypeMismatchOp t1
+
+
+typeMismatchOpErrT :: LangLit -> LangLit -> LangError
 typeMismatchOpErrT = typeMismatchOpErr `on` typeOf
+
                
 instance Show TypeError where
     show (TypeMismatch l r)   = "type mismatch: got (" ++ show l ++ ", " ++ show r ++ ") but both types should be the same"
@@ -104,16 +142,28 @@ instance Show TypeError where
     show (TypeMismatchOp l r) = "cannot perform operation on types " ++ show l ++ " and " ++ show r
     -- show (TypeMismatchOp op l r) = "cannot perform operation (" ++ showSyn op ++ ") on types " ++ show l ++ " and " ++ show r
                             
+
 data NameError = NameNotDefined LangIdent 
                | NameNotFunction LangIdent
                | NameNotValue LangIdent
                | NameNotOp LangIdent
 
-nameNotDefinedErr, nameNotFunctionErr, nameNotValueErr :: LangIdent -> LangError
+
+nameNotDefinedErr :: LangIdent -> LangError
 nameNotDefinedErr  = nameErr . NameNotDefined
+
+
+nameNotFunctionErr :: LangIdent -> LangError
 nameNotFunctionErr = nameErr . NameNotFunction
+
+
+nameNotValueErr :: LangIdent -> LangError
 nameNotValueErr    = nameErr . NameNotValue
+
+
+nameNotOpErr :: LangIdent -> LangError
 nameNotOpErr       = nameErr . NameNotOp
+
 
 instance Show NameError where
     show (NameNotDefined  (LangIdent name)) = "not in scope: "         ++ name
@@ -121,16 +171,18 @@ instance Show NameError where
     show (NameNotValue    (LangIdent name)) = "no value assigned: "    ++ name
     show (NameNotOp       (LangIdent name)) = "non-existant operator: " ++ name
                                   
+
 data CallError = 
     WrongNumberOfArguments Int Int
     deriving (Eq)
              
+
+wrongNumberOfArgumentsErr :: Int -> Int -> LangError
 wrongNumberOfArgumentsErr expect = callErr . WrongNumberOfArguments expect 
              
              
 instance Show CallError where
     show (WrongNumberOfArguments x y) = "wrong number of arguments: expected " ++ show x ++ " but got " ++ show y
-                               
 
 
 data LError = LError { errorErr    :: LangError  -- The actual error
@@ -139,16 +191,11 @@ data LError = LError { errorErr    :: LangError  -- The actual error
                      , errorText :: String -- Additonal text representing the error
                      }
 
+
 instance Show LError where
-    -- show (LError { errorExpr=ex, errorStmt=es, errorErr=ee })
-    --     = unlines
-    --       [ "error in statement: " ++ show es
-    --       , "in expression: " ++ show ex
-    --       , show ee ]
     show (LError { errorErr=ee
                  , errorPos=SourceRef (start,end)
                  , errorText=et
-                 , errorSource=es
                  })
         = cEp ++ cEt ++ cEe
           where cEp = concat ["[", showPos start, "-", showPos end, "]"] ++ "\n"
@@ -157,16 +204,16 @@ instance Show LError where
                 showPos (SourcePos (cn,ln,_)) 
                     = concat ["(", show ln, ",", show cn, ")"]
                       
-getSourceLine :: String -> SourcePos -> String
-getSourceLine s pos = lines s !! lineNo pos
-                         
+
 instance Error LError where
     noMsg = LError {errorErr=noMsg, errorPos=SourceRef (beginningOfFile, beginningOfFile), errorSource="", errorText=""}
     strMsg m = noMsg {errorErr=strMsg m}
                
+
 langError :: (CanError m) => LangError -> m a
 langError e = throwError noMsg { errorErr = e }
               
+
 throwLangError :: (CanErrorWithPos m) => LangError -> m a
 throwLangError e = do
   errPosRef <- getErrorPos
@@ -188,7 +235,10 @@ class (MonadError LError m) => CanErrorWithPos m where
 data LitError = IndexOutOfBoundsError Int
               deriving (Eq)
                        
+
+indexOutOfBoundsErr :: Int -> LangError
 indexOutOfBoundsErr = litErr . IndexOutOfBoundsError
+
 
 instance Show LitError where
     show (IndexOutOfBoundsError x) = "index out of bounds: " ++ show x

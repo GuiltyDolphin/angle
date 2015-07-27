@@ -110,12 +110,9 @@ langStruct =     structFor
 -- | For loop.
 structFor :: Scanner LangStruct
 structFor = do
-  string "for "
-  name <- langIdent
-  string " in "
-  iter <- expr
-  string " do "
-  body <- stmt
+  name <- string "for " *> langIdent
+  iter <- string " in " *> expr
+  body <- string " do " *> stmt
   return $ StructFor name iter body
 
 
@@ -193,12 +190,13 @@ exprList = liftM ExprList (tokList $ sepWith tokEltSep expr)
 litBool :: Scanner LangLit
 litBool = liftM LitBool (litTrue <|> litFalse) 
           <?> "boolean literal"
-    where litTrue  = tokTrue  >> return True
-          litFalse = tokFalse >> return False
+    where litTrue  = string "true" >> return True
+          litFalse = string "false" >> return False
                    
 
 -- TODO: Add additional `step' to ranges (1..7..3)
 -- | Dotted range of values.
+litRange :: Scanner LangLit
 litRange = parens (LitRange 
                    <$> (expr <* tokRangeSep) 
                    <*> expr)
@@ -242,13 +240,10 @@ exprFunIdent = liftM ExprFunIdent funIdent
          
 
 exprLambda :: Scanner Expr
-exprLambda = liftM ExprLambda $ do
-  char '('
-  args <- callList
-  tokSpace
-  body <- stmt
-  char ')'
-  return $ CallSig args body
+exprLambda = liftM ExprLambda . parens $ do
+    args <- callList <* tokSpace
+    body <- stmt
+    return $ CallSig args body
 
 
 -- | Set of arguments for a function 
@@ -257,12 +252,10 @@ arglist = within tokTupleStart tokTupleEnd (sepWith tokEltSep expr)
 
 
 callList :: Scanner ArgSig
-callList = do
-  tokTupleStart
-  params <- sepWith tokEltSep identName
-  catcher <- optional (string ".." *> identName)
-  tokTupleEnd
-  return $ ArgSig params catcher
+callList = parens $ do
+    params  <- sepWith tokEltSep identName
+    catcher <- optional (string ".." *> identName)
+    return $ ArgSig params catcher
   
 
 exprFunCall :: Scanner Expr

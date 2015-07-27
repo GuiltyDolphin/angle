@@ -5,8 +5,8 @@ module Angle.Parse.Var
     , setVarFun
     ) where
 
-    
 import Angle.Types.Lang
+
 
 -- VarVal API
 -- - retrieving values
@@ -35,8 +35,6 @@ import Angle.Types.Lang
 --   cannot assign to constants
 
 
-
-
 -- | Represents a variable definition.
 data VarVal = VarVal 
     { varLitDef :: Maybe LangLit
@@ -45,6 +43,7 @@ data VarVal = VarVal
             
 
 -- | Variable with no definitions.
+emptyVar :: VarVal
 emptyVar = VarVal { varLitDef = Nothing, varFunDef = Nothing }
            
  
