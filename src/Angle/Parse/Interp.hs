@@ -16,8 +16,8 @@ import Angle.Parse.Error
 stringToStmt :: String -> Either ScanError Stmt
 stringToStmt s = evalScan s program
                  
-runStmt :: Stmt -> IO (Either LError LangLit)
-runStmt s = runExecIOBasic (execStmt s)
+runStmt :: String -> Stmt -> IO (Either LError LangLit)
+runStmt source s = runExecIOEnv (basicEnv {sourceText=source}) (execStmt s)
             
 runFile :: FilePath -> IO ()
 runFile f = do
@@ -25,7 +25,7 @@ runFile f = do
   case stringToStmt s of
     Left err -> putStrLn "Syntax error" >> print err >> exitWith (ExitFailure 100)
     Right r -> do
-              res <- runStmt r
+              res <- runStmt s r
               case res of
                 Left err -> putStrLn "Runtime error" >> print err >> exitWith (ExitFailure 101)
                 Right _ -> return ()

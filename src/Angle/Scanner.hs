@@ -9,6 +9,7 @@ module Angle.Scanner
   , Scanner
   , SourcePos(..)
   , lineNo
+  , colNo
   , ScanEnv(..)
   , ScanState(..)
   , ScanError(..)
@@ -109,7 +110,10 @@ instance Show ScanError where
                  , scanErrText=et})
     = cEp ++ cEt ++ cUm ++ cEm ++ errm
       where cEp = show ep ++ "\n"
-            cEt = replicate (colNo ep) ' ' ++ "v\n" ++ lines et !! lineNo ep ++ "\n"
+            cEt = let lns = lines et in
+                  if null lns
+                  then "no source\n"
+                  else replicate (colNo ep) ' ' ++ "v\n" ++ lns !! lineNo ep ++ "\n"
             cEm = if null em then "" 
                   else concat ["expected ", em, "\n"]
             cUm = if null um then "" 

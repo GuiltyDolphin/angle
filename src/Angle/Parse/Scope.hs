@@ -9,6 +9,7 @@ module Angle.Parse.Scope
     , outermostScope
     , isOutermostScope
     , onBindings
+    , isDefinedIn
     ) where
 
 import Control.Monad
@@ -17,7 +18,6 @@ import Data.Maybe (fromJust)
 
 import Angle.Parse.Var
 import Angle.Types.Lang
-
 
 
 type BindEnv = M.Map LangIdent VarVal
@@ -50,16 +50,6 @@ type BindEnv = M.Map LangIdent VarVal
 -- TODO/NOTES
 -- - Resolving literals & functions rather than just name
 
--- Scope API when in Exec
--- - changing scope
---   - make new scope
---     (newScope :: Exec ())
---   - go to parent
---     (upScope :: Exec ())
-
--- *****************
--- ***** SCOPE *****
--- *****************
 
 -- | Represents the current scope.
 data Scope = Scope 
@@ -95,6 +85,7 @@ withOuterScope sc f = liftM f (outerScope sc)
 withOutermostScope :: (Scope -> a) -> Scope -> a
 withOutermostScope f = f . outermostScope
          
+
 -- | Get the parent-most scope of the given scope.
 outermostScope :: Scope -> Scope
 outermostScope scope =
@@ -122,6 +113,7 @@ resolve name scope = case innerScopeDefining name scope of
                        Just scope' -> fromCurrentScope scope'
     where fromCurrentScope s = M.lookup name (bindings s)
                                  
+
 -- | A scope with no parent or bindings
 emptyScope :: Scope
 emptyScope = Scope { 
@@ -129,13 +121,18 @@ emptyScope = Scope {
              , bindings = M.empty
              }
 
+
 -- | Run a function over the bindings of a scope.
 onBindings :: (BindEnv -> BindEnv) -> Scope -> Scope
 onBindings f scope = scope { bindings = f $ bindings scope }
 
--- | Boolean determines whether to overwrite ident if it
--- exists.
-setVarInScope :: LangIdent -> VarVal -> Scope -> Bool -> Scope
+
+setVarInScope 
+    :: LangIdent 
+    -> VarVal 
+    -> Scope 
+    -> Bool  -- ^ Overwrite Var if it already exists.
+    -> Scope
 setVarInScope name val scope@(Scope{bindings=binds}) overwrite
     = if name `isDefinedIn` scope 
       then if overwrite

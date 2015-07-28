@@ -17,7 +17,6 @@ module Angle.Types.Lang
     , LangIdent(..)
     , LangType(..)
     , typeOf
-    , Ident
     , CallSig(..)
     , ArgSig(..)
     , hasCatchAllArg
@@ -163,6 +162,7 @@ data LangLit = LitStr { getLitStr :: String }
                                   -- this, then have
                                   -- LitRange LangLit LangLit
              | LitNull
+             | LitLambda { getLitLambda :: CallSig }
                deriving (Show, Eq)
                    
 
@@ -174,6 +174,7 @@ instance ShowSyn LangLit where
     showSyn (LitBool x) = if x then "true" else "false"
     showSyn (LitRange x y) = "(" ++ showSyn x ++ ".." ++ showSyn y ++ ")"
     showSyn LitNull = "null"
+    showSyn (LitLambda x) = showSyn x
                    
 
 data LangType = LTStr
@@ -183,6 +184,7 @@ data LangType = LTStr
               | LTBool
               | LTRange
               | LTNull
+              | LTLambda
                 deriving (Eq)
 
 typeOf :: LangLit -> LangType
@@ -193,6 +195,7 @@ typeOf (LitList  _)   = LTList
 typeOf (LitBool  _)   = LTBool
 typeOf (LitRange _ _) = LTRange
 typeOf LitNull        = LTNull
+typeOf (LitLambda _) = LTLambda
               
 
 instance Show LangType where
@@ -203,6 +206,7 @@ instance Show LangType where
     show LTFloat = "float"
     show LTNull = "null"
     show LTRange = "range"
+    show LTLambda = "lambda"
                    
 
 data Expr = ExprIdent LangIdent
@@ -234,6 +238,7 @@ instance ShowSyn LangIdent where
 instance ShowSyn CallSig where
     showSyn (CallSig args body) = showSyn args ++ " " ++ showSyn body
                                   
+
 instance ShowSyn ArgSig where
     showSyn (ArgSig args catchArg) = 
         showSynSep "("
@@ -245,12 +250,11 @@ instance ShowSyn ArgSig where
                        , ") "]) ", " args
                                   
 
-type Ident = String
-    
 data LangOp = SpecOp Op Expr 
             | MultiOp Op [Expr]
               deriving (Show, Eq)
                        
+
 instance ShowSyn LangOp where
     showSyn (SpecOp o e) = showSyn o ++ showSyn e
     showSyn (MultiOp o es) = concat ["(", showSyn o, showSynOpList es]
@@ -271,6 +275,7 @@ data Op = OpAdd
         | UserOp LangIdent
           deriving (Show, Eq)
                    
+
 instance ShowSyn Op where
     showSyn OpAdd = "+"
     showSyn OpAnd = "&"

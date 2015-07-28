@@ -40,6 +40,7 @@ andLit :: MultiOperator
 andLit []               = return $ LitBool True
 andLit (x@(LitBool _):xs) = foldM andLitBool x xs
     where andLitBool = onLitBool (&&)
+andLit (x:_) = langError $ typeNotValidErrT x
 
 
 -- | Division operator.
@@ -57,6 +58,7 @@ divLit = onlyNumOp divLitNum
 --
 -- On any types: true if all of the values are equal
 eqLit :: MultiOperator
+eqLit [] = return $ LitBool True
 eqLit (x:xs) = return . LitBool . all (==x) $ xs
 
 
@@ -148,6 +150,7 @@ subLit (x@(LitList _):ys)
                 | otherwise = return (LitList res)
               where res = f++s
                     (f,_:s) = splitAt n zs
+            langListDrop _ _ = undefined
 subLit xs = onlyNumOp subLitNum xs
     where subLitNum = onNum (-) (-)
                       
@@ -238,11 +241,4 @@ onlyNumOp :: (CanError m) => (LangLit -> LangLit -> m LangLit) -> [LangLit] -> m
 onlyNumOp f (x@(LitInt _):xs) = foldM f x xs
 onlyNumOp f (x@(LitFloat _):xs) = foldM f x xs
 onlyNumOp _ (x:_)              = langError $ typeNotValidErrT x
-
-
-
-
-                 
-
-       
-
+onlyNumOp _ [] = error "onlyNumOp - got empty list"

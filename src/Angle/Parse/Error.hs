@@ -26,6 +26,7 @@ module Angle.Parse.Error
     , defaultErr
     , syntaxErr
     , userErr
+    , returnFromGlobalErr
     ) where
 
 
@@ -51,6 +52,7 @@ data LangError = TypeError TypeError
                | CallError CallError
                | DefaultError String
                | LitError LitError
+               | KeywordError KeywordError
                | UserError String -- TODO: Add keyword and
                                   -- structures for allowing
                                   -- the user to throw errors
@@ -82,6 +84,10 @@ litErr     = LitError
 
 userErr :: String -> LangError
 userErr = UserError
+          
+
+keywordErr :: KeywordError -> LangError
+keywordErr = KeywordError
 
 
 instance Show LangError where
@@ -92,6 +98,7 @@ instance Show LangError where
     show (DefaultError s) = "defaultError: " ++ s
     show (LitError x) = "literal error: " ++ show x
     show (UserError x) = "user error: " ++ x
+    show (KeywordError x) = "keyword error: " ++ show x
 
 
 instance Error LangError where
@@ -172,8 +179,7 @@ instance Show NameError where
     show (NameNotOp       (LangIdent name)) = "non-existant operator: " ++ name
                                   
 
-data CallError = 
-    WrongNumberOfArguments Int Int
+data CallError = WrongNumberOfArguments Int Int
     deriving (Eq)
              
 
@@ -190,16 +196,33 @@ data LError = LError { errorErr    :: LangError  -- The actual error
                      , errorPos    :: SourceRef -- Position at which the error occurred
                      , errorText :: String -- Additonal text representing the error
                      }
+            
+
+data KeywordError = ReturnFromGlobal
+                    deriving (Eq)
+        
+
+returnFromGlobalErr :: LangError
+returnFromGlobalErr = keywordErr ReturnFromGlobal
+                      
+
+instance Show KeywordError where
+    show ReturnFromGlobal = "return from outermost scope"
+
 
 
 instance Show LError where
     show (LError { errorErr=ee
                  , errorPos=SourceRef (start,end)
                  , errorText=et
+                 , errorSource=es
                  })
         = cEp ++ cEt ++ cEe
           where cEp = concat ["[", showPos start, "-", showPos end, "]"] ++ "\n"
-                cEt = "in " ++ et ++ "\n"
+                cEt = let lns = lines es in
+                      if null lns
+                      then "no source\n"
+                      else replicate (colNo start) ' ' ++ "v\n" ++ lns !! lineNo start ++ "\n"
                 cEe = show ee
                 showPos (SourcePos (cn,ln,_)) 
                     = concat ["(", show ln, ",", show cn, ")"]

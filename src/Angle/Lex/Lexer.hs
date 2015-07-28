@@ -29,6 +29,12 @@ import Angle.Lex.Helpers
 import Angle.Lex.Token
 import Angle.Types.Lang
 
+    
+
+-- TODO:
+--
+-- * Fix missing semi-colon at end of multi-stmt
+--   - e.g. {1;2} -> 1, but should error.
 
 stmt :: Scanner Stmt
 stmt = (multiStmt <|> singleStmt) <?> "statement"

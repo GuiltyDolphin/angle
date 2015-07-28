@@ -2,6 +2,7 @@
 module Angle.Parse.Exec
     ( runExecIOBasic
     , runExecIOEnv
+    , basicEnv
     , execStmt
     , ExecIO
     , Env(..)
@@ -20,6 +21,25 @@ import Angle.Parse.Operations
 import Angle.Parse.Scope
 import Angle.Parse.Var
 import Angle.Types.Lang
+    
+-- TODO:
+-- - errors:
+--    add stack trace?
+--    so, calling functions add to stack, maybe as
+--    well as operators.
+
+
+-- BUGS:
+-- - variable not defined in function
+--   e.g
+--   defun foo(x) {
+--     if (== [] x) then return x;
+--     bar = print(x);
+--   }
+--   will result in error: x is not defined (in print)
+--   * Appears to be due to leaving scope early.
+--     e.g. defun foo(x) {print(x);print(x);}
+--     prints inner x, then outer x.
 
 
 -- Exec API
@@ -75,8 +95,8 @@ newScope = do
   env <- get
   modifyScope (\s -> emptyScope {outerScope=Just s})
   let oldScope = currentScope env
-      newScope = emptyScope { outerScope = Just oldScope }
-  put env { currentScope = newScope }
+      newScope' = emptyScope { outerScope = Just oldScope }
+  put env { currentScope = newScope' }
 
 
 lookupVar :: LangIdent -> ExecIO (Maybe VarVal)
@@ -102,17 +122,17 @@ lookupVarLitF name = do
     Just x -> return x
               
 
-lookupVarFun :: LangIdent -> ExecIO (Maybe CallSig)
-lookupVarFun name = do
+lookupVarLambda :: LangIdent -> ExecIO (Maybe CallSig)
+lookupVarLambda name = do
   res <- lookupVar name
   case res of 
     Nothing -> return Nothing
     Just x -> return $ varFunDef x
 
 
-lookupVarFunF :: LangIdent -> ExecIO CallSig
-lookupVarFunF name = do
-  res <- lookupVarFun name
+lookupVarLambdaF :: LangIdent -> ExecIO CallSig
+lookupVarLambdaF name = do
+  res <- lookupVarLambda name
   case res of
     Nothing -> throwLangError $ nameNotFunctionErr name
     Just x -> return x
@@ -138,7 +158,7 @@ lookupOpF :: LangIdent -> ExecIO CallSig
 lookupOpF opName = do
   res <- lookupOp opName
   case res of
-    Nothing -> langError $ nameNotOpErr opName
+    Nothing -> throwLangError $ nameNotOpErr opName
     Just x -> return x
   
 
@@ -147,22 +167,38 @@ modifyScope :: (Scope -> Scope) -> ExecIO ()
 modifyScope f = do
   env <- get
   let oldScope = currentScope env
-      newScope = f oldScope
-  put env {currentScope=newScope}
+      newScope' = f oldScope
+  put env {currentScope=newScope'}
 
 
 assignVarLit :: LangIdent -> LangLit -> ExecIO LangLit
+assignVarLit name (LitLambda x) = assignVarLambda name x >> return LitNull
 assignVarLit name val = do
-  modifyScope $ flip (setVarInScope name $ setVarLit emptyVar val) True
+  current <- lookupVarCurrentScope name
+  modifyScope $ flip (setVarInScope name $ setVarLit
+                      (fromMaybe emptyVar current)
+                      val) True
   return val
+         
+
+lookupVarCurrentScope :: LangIdent -> ExecIO (Maybe VarVal)
+lookupVarCurrentScope name = do
+  currScope <- liftM currentScope get
+  if name `isDefinedIn` currScope
+    then return $ resolve name currScope
+    else return Nothing
          
 
 assignVar :: LangIdent -> VarVal -> ExecIO ()
 assignVar name val = modifyScope $ flip (setVarInScope name val) True
                      
 
-assignVarFun :: LangIdent -> CallSig -> ExecIO ()
-assignVarFun name val = modifyScope $ flip (setVarInScope name $ setVarFun emptyVar val) True
+
+assignVarLambda :: LangIdent -> CallSig -> ExecIO ()
+assignVarLambda name val = do
+  current <- lookupVarCurrentScope name
+  modifyScope $ flip (setVarInScope name $ setVarFun 
+                      (fromMaybe emptyVar current) val) True
 
 
 infix 4 |=
@@ -170,32 +206,15 @@ infix 4 |=
 (|=) = assignVarLit
 
 
--- Little test program until tests are instantiated
--- basicProg :: IO ()
--- basicProg = do
---   let prog1 = "x" |= LitInt 5          
---       prog2 = newScope >> "x" |= LitInt 6
---       prog3 = do
---               "y" |= LitStr "hello"
---               let cs = CallSig (ArgSig ["a","b"] Nothing) (MultiStmt [])
---               argListBind [ExprIdent "x", ExprIdent "y"] cs
---               liftM currentScope get
---   r1 <- runExecIOBasic $ prog1 *> prog2 *> lookupVar "x"
---   liftIO $ print r1
---   mapM_ (\x -> runExecIOBasic x >>= liftIO . print)
---            [ prog1 *> lookupVar "x"
---            , prog1 *> prog2 *> lookupVar "x"
---            , prog1 *> prog2 *> upScope *> lookupVar "x"
---            ]
-  -- liftIO $ print $ runExecIOBasic $ prog1 *> prog2 *> upScope *> prog3
-  
-              
-        
 -- TODO: Should this just stay in the current scope if there
 -- is no parent scope?
 -- | Changes the current scope to the parent scope.
 upScope :: ExecIO ()
-upScope = modifyScope (fromJust . outerScope)
+upScope = do
+  currScope <- liftM currentScope get
+  case outerScope currScope of
+    Nothing -> return ()
+    Just x -> modifyScope (const x)
   
           
 argListBind :: [Expr] -> CallSig -> ExecIO ()
@@ -204,7 +223,7 @@ argListBind args cs = do
       la = length args
       lp = length (stdArgs params)
   when (la > lp && not (hasCatchAllArg params) || la < lp)
-           (langError $ wrongNumberOfArgumentsErr lp la)
+           (throwLangError $ wrongNumberOfArgumentsErr lp la)
   vals <- mapM execExpr args
   let toBind = zip (stdArgs params) vals
       fullBind = toBind ++ [(fromJust $ catchAllArg params, LitList $ drop (length toBind) vals) | hasCatchAllArg params]
@@ -218,9 +237,11 @@ argListBind args cs = do
 execExpr :: Expr -> ExecIO LangLit
 execExpr (ExprLit x) = return x
 execExpr (ExprIdent x) = lookupVarLitF x
+execExpr (ExprFunIdent x) = liftM LitLambda $ lookupVarLambdaF x
 execExpr (ExprOp x) = withErrHandle (execOp x)
 execExpr (ExprFunCall name args) = execFunCall name args
 execExpr (ExprList xs) = liftM LitList $ mapM execExpr xs
+execExpr (ExprLambda x) = return (LitLambda x)
                                    
 
 execFunCall :: LangIdent -> [Expr] -> ExecIO LangLit
@@ -288,6 +309,7 @@ toLitStr LitNull = LitStr ""
 callBuiltin :: LangIdent -> [Expr] -> ExecIO LangLit 
 callBuiltin (LangIdent "print") xs = mapM execExpr xs >>= builtinPrint
 callBuiltin (LangIdent "str")   xs = mapM execExpr xs >>= builtinStr
+callBuiltin (LangIdent "index") xs = mapM execExpr xs >>= builtinIndex
 callBuiltin (LangIdent x) _ = error $ "callBuiltin - not a builtin function: " ++ x
          
 
@@ -301,21 +323,52 @@ builtinStr :: [LangLit] -> ExecIO LangLit
 builtinStr [] = return $ LitStr ""
 builtinStr xs | length xs > 1 = throwLangError $ wrongNumberOfArgumentsErr 1 (length xs)
               | otherwise = return $ toLitStr (head xs)
+                            
+                       
+-- TODO:
+-- - Currently wraps back round with negatives
+--   e.g. index(-5,-1,[1,2,3]); -> [2, 3]     
+-- - should probably work more like Pyhon's indexing system.
+
+-- | Builtin index function.
+--
+-- index(int:x, list:xs): retrieve element at index @x@ from @xs@
+--
+-- index(int:x, int:y, list:xs): return a list of elements that lie between index @x@ and index@y@ of @xs@.
+builtinIndex :: [LangLit] -> ExecIO LangLit
+builtinIndex [LitInt x,LitList xs]
+    | x >= length xs = throwLangError $ indexOutOfBoundsErr x
+    | x < 0 = return $ xs !! (length xs + x)
+    | otherwise = return $ xs !! x
+builtinIndex [LitInt x,LitInt y,LitList xs] 
+    | x >= length xs || y > length xs 
+        = throwLangError $ indexOutOfBoundsErr x
+    | x < 0 = builtinIndex 
+              [LitInt (length xs + x), LitInt y, LitList xs]
+    | y < 0 = builtinIndex 
+              [LitInt x, LitInt (length xs + y), LitList xs]
+    | otherwise 
+        = return . LitList $ splice x y xs
+builtinIndex _ = throwLangError $ callBuiltinErr "index: invalid call signature"
+
+
+splice :: Int -> Int -> [a] -> [a]
+splice x y xs = take (1+y-x) $ drop x xs
 
 
 -- | True if the identifier represents a builtin function.
 isBuiltin :: LangIdent -> Bool
 isBuiltin = (`elem`builtins) . getIdent
-    where builtins = ["print", "str"]
+    where builtins = ["print", "str", "index"]
 
 
 callFun :: LangIdent -> [Expr] -> ExecIO LangLit
 callFun x args | isBuiltin x = callBuiltin x args
                | otherwise = do
-  callsig <- lookupVarFunF x
+  callsig <- lookupVarLambdaF x
   callFunCallSig callsig args
 -- do
-  --callsig <- lookupVarFunF x
+  --callsig <- lookupVarLambdaF x
   --argListBind args callsig
   --execStmt (callBody callsig)
            
@@ -339,11 +392,19 @@ withScope ex = do
                                
 
 execStmt :: Stmt -> ExecIO LangLit
-execStmt (SingleStmt x pos) = modify (\s -> s {envSourceRef = pos}) >> execSingStmt x
-execStmt (MultiStmt []) = return LitNull
+-- execStmt (SingleStmt x@(StmtReturn _) pos)
+--     = modify (\s -> s { envSourceRef = pos })
+--       >> execSingStmt x
+execStmt (SingleStmt x pos) 
+    = modify (\s -> s {envSourceRef = pos}) 
+      >> execSingStmt x
+execStmt (MultiStmt []) = return LitNull <* upScope
 execStmt (MultiStmt (x@(SingleStmt (StmtReturn _) _):_)) = execStmt x
-execStmt (MultiStmt [x]) = execStmt x
-execStmt (MultiStmt (x:ys@(y:_))) = execStmt x >> execStmt (MultiStmt ys)
+-- execStmt (MultiStmt [x]) = execStmt x
+execStmt (MultiStmt (x:xs)) = execStmt x >> execStmt (MultiStmt xs)
+                              
+-- (MultiStmt (x:xs)) -> execStmt x >> execStmt (MultiStmt xs)
+--                       (a -> m b)    (a -> m b)
                           
 
 -- { foo(x);
@@ -360,9 +421,8 @@ execSingStmt (StmtComment _) = return LitNull
 execSingStmt (StmtReturn x) = do
   isGlob <- liftM (isOutermostScope . currentScope) get
   if isGlob
-      then langError returnFromGlobalErr
-      else do
-        execExpr x <* upScope
+      then throwLangError returnFromGlobalErr
+      else execExpr x <* upScope
 
 
 traceShowMsg :: (Show a) => String -> a -> a
@@ -390,7 +450,7 @@ execLangStruct :: LangStruct -> ExecIO LangLit
 execLangStruct (StructFor name e s) = execStructFor name e s
 execLangStruct (StructWhile e s) = execStructWhile e s
 execLangStruct (StructIf if' thn els) = execStructIf if' thn els
-execLangStruct (StructDefun name cs) = assignVarFun name cs *> return LitNull
+execLangStruct (StructDefun name cs) = assignVarLambda name cs *> return LitNull
                                         
 
 execStructIf :: Expr -> Stmt -> Maybe Stmt -> ExecIO LangLit
