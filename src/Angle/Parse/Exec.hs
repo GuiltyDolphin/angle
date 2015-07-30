@@ -40,6 +40,12 @@ import Angle.Types.Lang
 --   * Appears to be due to leaving scope early.
 --     e.g. defun foo(x) {print(x);print(x);}
 --     prints inner x, then outer x.
+-- * Will not return properly from last statement in function.
+--   - Forcing an upScope doesn't work - as multi-statements
+--     aren't restricted to functions.
+--   - Maybe keep track of whether it has returned?
+--     - Would mean more state to keep track of...
+
 
 
 -- Exec API
@@ -657,6 +663,10 @@ execStructFor name e s = do
   -- forM iterable (\v -> assignVarLit name v $ do
   --                        execStmt s)
 
+    
+-- SCOPE TODO:
+-- * Protected variable?
+-- * Copying scope, with ability to merge.
  
 
 deleteVar :: LangIdent -> ExecIO () 
