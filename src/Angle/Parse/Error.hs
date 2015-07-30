@@ -231,8 +231,10 @@ instance Show LError where
                       then "no source\n"
                       else replicate (colNo start) ' ' ++ "v\n" ++ lns !! lineNo start ++ "\n"
                 cEe = show ee
-                showPos (SourcePos (cn,ln,_)) 
-                    = concat ["(", show ln, ",", show cn, ")"]
+                showPos sp 
+                    = let ln = show $ lineNo sp
+                          cn = show $ colNo sp
+                      in concat ["(", ln, ",", cn, ")"]
                       
 
 instance Error LError where

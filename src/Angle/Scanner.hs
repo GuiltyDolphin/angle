@@ -29,8 +29,10 @@ newtype SourcePos = SourcePos
 
 
 instance Show SourcePos where
-    show (SourcePos (ln,cn,_)) =
-        concat ["line: ", show ln, ", column: ", show cn]
+    show sp =
+        let ln = lineNo sp
+            cn = colNo sp
+        in concat ["line: ", show ln, ", column: ", show cn]
 
 
 -- | Start position in a file.
