@@ -30,10 +30,18 @@ import Numeric (showFFloat)
 import Angle.Scanner (SourcePos, beginningOfFile)
     
 
-data Stmt = SingleStmt { stmtSingStmt :: SingStmt 
-                       , stmtSourcePos :: SourceRef
-                       }
-          | MultiStmt [Stmt]
+-- | Most general construct in the language.
+data Stmt = 
+    SingleStmt 
+    { stmtSingStmt :: SingStmt 
+    , stmtSourcePos :: SourceRef
+    } -- ^ Any language construct that
+      --   performs some action or evaluation.
+          | MultiStmt [Stmt] -- ^ Many statements, allowing
+                             --   a series of statements to be
+                             --   executed one after another,
+                             --   discarding intermediate
+                             --   results.
             deriving (Show)
                      
 
@@ -45,15 +53,18 @@ instance Eq Stmt where
     _ == _ = False
                      
 
+-- | Positional reference to some section of source code.
 newtype SourceRef = SourceRef { getSourceRef :: (SourcePos, SourcePos) }
     deriving (Show, Eq)
              
 
+-- | The initial `SourceRef' - starting and ending at
+-- the beginning of the file.
 startRef :: SourceRef
 startRef = SourceRef (beginningOfFile, beginningOfFile)
 
 
--- | Interface for types that can have a representation
+-- | Interface for types that can have a string representation
 -- in the language.
 class ShowSyn a where
     -- | Convert the value to a string representation that
@@ -79,7 +90,7 @@ instance ShowSyn SingStmt where
 data SingStmt = StmtAssign LangIdent Expr
               | StmtComment String -- ^ Comment which is - for all intents and purposes - ignored by the parser.
               | StmtStruct LangStruct
-              | StmtExpr Expr
+              | StmtExpr Expr -- ^ Expression. Evaluates to a literal.
               | StmtReturn Expr
                 deriving (Show, Eq)
 
@@ -135,33 +146,40 @@ showSynOpList :: (ShowSyn a) => [a] -> String
 showSynOpList = showSynSep " " ")" " "
 
 
+-- | A function.
 data CallSig = CallSig 
-    { callArgs :: ArgSig
-    , callBody :: Stmt
+    { callArgs :: ArgSig -- ^ The argument list that is accepted by the function.
+    , callBody :: Stmt -- ^ The function body.
     } deriving (Show, Eq)
              
 
-data ArgSig = ArgSig { stdArgs :: [LangIdent]
-                     , catchAllArg :: Maybe LangIdent
+-- | An argument signature.
+data ArgSig = ArgSig { stdArgs :: [LangIdent] -- ^ Standard positional arguments.
+                     , catchAllArg :: Maybe LangIdent -- ^ Argument that catches any remaining arguments after the positional arguments have been filled.
                      } deriving (Show, Eq)
 
 
+-- | @True@ if `catchAllArg` is @Just@ something.
 hasCatchAllArg :: ArgSig -> Bool
 hasCatchAllArg x = case catchAllArg x of
                      Nothing -> False
                      Just _ -> True
 
 
-data LangLit = LitStr { getLitStr :: String }
-             | LitInt { getLitInt :: Int }
-             | LitList { getLitList :: [LangLit] }     -- See below
-             | LitBool { getLitBool :: Bool }
+-- | Language literal values.
+data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
+             | LitInt { getLitInt :: Int } -- ^ Integers, support at least the range -2^29 to 2^29-1.
              | LitFloat { getLitFloat :: Double } -- ^ Double-precision floating point value.
+             | LitList { getLitList :: [LangLit] } -- ^ List of literal values. Values may be of different types.    
+             | LitBool { getLitBool :: Bool } -- ^ Boolean value.
              | LitRange Expr Expr -- Might want Expr version of
                                   -- this, then have
                                   -- LitRange LangLit LangLit
-             | LitNull
-             | LitLambda { getLitLambda :: CallSig }
+             | LitNull -- ^ Null value. Implicit value 
+                       -- returned from any expression 
+                       -- that fails to return a value 
+                       -- explicitly.
+             | LitLambda { getLitLambda :: CallSig } -- ^ A function without a name.
                deriving (Show, Eq)
                    
 
