@@ -62,7 +62,6 @@ class ShowSyn a where
                
 
 instance ShowSyn Stmt where
-    -- showSyn (SingleStmt x@(StmtComment _) _) = showSyn x
     -- showSyn (SingleStmt x@(StmtStruct _) _) = showSyn x
     showSyn (SingleStmt x _) = showSyn x -- ++ ";"
     showSyn (MultiStmt xs) = "{" ++ concatMap showSyn xs ++ "}"
@@ -78,7 +77,7 @@ instance ShowSyn SingStmt where
 
 -- | A single statement.
 data SingStmt = StmtAssign LangIdent Expr
-              | StmtComment String
+              | StmtComment String -- ^ Comment which is - for all intents and purposes - ignored by the parser.
               | StmtStruct LangStruct
               | StmtExpr Expr
               | StmtReturn Expr

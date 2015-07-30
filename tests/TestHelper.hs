@@ -61,16 +61,11 @@ instance Arbitrary LangLit where
 instance Arbitrary SingStmt where
     arbitrary = frequency 
                 [ (7, liftArby2 StmtAssign)
-                , (6, liftM StmtComment (liftArby getValidComment))
                 , (2, liftArby StmtStruct)
                 , (5, liftArby StmtExpr)
                 , (8, liftArby StmtReturn)
                 ]
     shrink (StmtAssign x y) = zipWith StmtAssign (shrink x) (shrink y)
-    shrink (StmtComment x) = map StmtComment (filter validComment $ shrink x)
-        where validComment x | '\n' `elem` x = False
-                             | "-#" `isInfixOf` x = False
-                             | otherwise = True
     shrink (StmtStruct x) = map StmtStruct (shrink x)
     shrink (StmtExpr x) = map StmtExpr (shrink x)
     shrink (StmtReturn x) = map StmtReturn (shrink x)
@@ -203,12 +198,7 @@ newtype ValidComment = ValidComment { getValidComment :: String }
     
 instance Arbitrary ValidComment where
     arbitrary = liftM ValidComment $ arbitrary `suchThat` isValidComment
-      --a <- arbitrary
-      --if isValidComment a
-      --  then return $ ValidComment a
-      --  else arbitrary
             where isValidComment x | '\n' `elem` x = False
-                                   | "-#" `isInfixOf` x = False
                                    | otherwise = True
 
 maxSmallListLength = 50         

@@ -60,8 +60,8 @@ multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
 -- TODO: Last statement in a multi-statement block, or at
 -- end of file, shouldn't need to have a newline or semi-colon
 singStmt :: Scanner SingStmt
-singStmt = stmtComment
-           <|> stmtStruct 
+singStmt = optional stmtComment >>
+           stmtStruct 
            <|> stmtReturn <* singStmtEnd
            <|> stmtAssign <* singStmtEnd
            <|> stmtExpr   <* singStmtEnd
