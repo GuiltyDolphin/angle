@@ -174,7 +174,7 @@ tokDigits = some tokDenaryDigit
 
 
 -- TODO: Might be able to use a standard read?
-tokFloat :: Scanner Float
+tokFloat :: Scanner Double
 tokFloat = do
   negve <- optional (char '-')
   f <- tokDigits

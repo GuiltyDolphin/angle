@@ -154,9 +154,9 @@ hasCatchAllArg x = case catchAllArg x of
 
 data LangLit = LitStr { getLitStr :: String }
              | LitInt { getLitInt :: Int }
-             | LitFloat { getLitFloat :: Float }
              | LitList { getLitList :: [LangLit] }     -- See below
              | LitBool { getLitBool :: Bool }
+             | LitFloat { getLitFloat :: Double } -- ^ Double-precision floating point value.
              | LitRange Expr Expr -- Might want Expr version of
                                   -- this, then have
                                   -- LitRange LangLit LangLit

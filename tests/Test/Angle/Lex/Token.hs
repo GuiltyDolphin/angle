@@ -14,7 +14,8 @@ import TestHelper
 testTokInt :: Int -> Bool
 testTokInt x = evalScan (show x) tokInt == Right x
                
-testTokFloat :: Float -> Bool
+
+testTokFloat :: Double -> Bool
 testTokFloat x = evalScan (showFFloat Nothing x "") tokFloat == Right x
                  
 testTokString :: NoQuoteString -> Bool

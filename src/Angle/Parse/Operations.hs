@@ -169,7 +169,7 @@ onLitBool _ x y = langError $ typeMismatchOpErrT x y
 
 -- | Takes binary functions that act on Ints and Floats and
 -- converts them to functions that act on `LangLit's.
-onNum :: Binary Int Int -> Binary Float Float -> BinaryOperator
+onNum :: Binary Int Int -> Binary Double Double -> BinaryOperator
 onNum i f = numOpLit i f LitInt LitFloat
 
          
@@ -177,7 +177,7 @@ onNum i f = numOpLit i f LitInt LitFloat
 -- literal numerical values, using @i@ for integers, and
 -- @f@ for floats. Integers will be casted to floats
 -- if required.
-numOp :: Binary Int LangLit -> Binary Float LangLit -> BinaryOperator
+numOp :: Binary Int LangLit -> Binary Double LangLit -> BinaryOperator
 numOp i _ (LitInt x) (LitInt y)       = return $ i x y
 numOp _ f (LitFloat x) (LitFloat y)   = return $ f x y
 numOp _ f (LitInt x) (LitFloat y)     = return $ f (fromIntegral x) y
@@ -219,7 +219,7 @@ compOp f xs = onlyNumOp (onNumBool f f) xs
 
 -- | Convenience function for producing `LangLit' values from
 -- functions to be supplied to `numOp'.
-numOpLit :: Binary Int a -> Binary Float b -> (a -> LangLit) -> (b -> LangLit) -> BinaryOperator
+numOpLit :: Binary Int a -> Binary Double b -> (a -> LangLit) -> (b -> LangLit) -> BinaryOperator
 numOpLit i f t1 t2 = numOp i' f'
     where i' x y = t1 $ i x y
           f' x y = t2 $ f x y
@@ -229,7 +229,7 @@ numOpLit i f t1 t2 = numOp i' f'
 -- values.
 --
 -- Used for implementing comparison operators.
-onNumBool :: Binary Int Bool -> Binary Float Bool -> BinaryOperator
+onNumBool :: Binary Int Bool -> Binary Double Bool -> BinaryOperator
 onNumBool i f = numOpLit i f LitBool LitBool
 
 

@@ -34,7 +34,7 @@ showSynTest x sc = evalScan (showSyn x) sc == Right x
 exampleAssign = "x = 1"
                 
                 
-checkFloatStr :: Float -> Bool
+checkFloatStr :: Double -> Bool
 checkFloatStr x = not $ 'e' `elem` (show x) 
 
 testEndOfStmt = evalScan exampleAssign stmt @?= evalScan (exampleAssign ++ ";") stmt
