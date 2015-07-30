@@ -22,6 +22,7 @@ import Angle.Parse.Var
 import Angle.Types.Lang
 
 
+-- | Mapping from variables to values.
 type BindEnv = M.Map LangIdent VarVal
 
     
@@ -53,9 +54,10 @@ type BindEnv = M.Map LangIdent VarVal
 -- - Resolving literals & functions rather than just name
 
 
--- | Represents the current scope.
+-- | Contains variable-value bindings, along with a reference
+-- to a parent scope.
 data Scope = Scope 
-    { outerScope :: Maybe Scope -- ^Parent scope, if any
+    { outerScope :: Maybe Scope -- ^ Parent scope, if any.
     , bindings   :: BindEnv
     } deriving (Show, Eq)
 
@@ -67,8 +69,8 @@ isOutermostScope s = case outerScope s of
                     Just _ -> False
 
 
--- | @name `isDefinedIn` scope@ is True if @scope@
--- contains a definition for @name@.
+-- | True if the scope contains a defition for the given
+-- identifier.
 isDefinedIn :: LangIdent -> Scope -> Bool
 isDefinedIn name scope = case M.lookup name (bindings scope) of
                          Nothing -> False
@@ -82,8 +84,8 @@ withOuterScope :: Scope -> (Scope -> a) -> Maybe a
 withOuterScope sc f = liftM f (outerScope sc)
                       
 
--- | @withOutermostScope f scope@ runs @f@ in the parent-most
--- scope of @scope@.
+-- | @withOutermostScope f scope@ runs @f@ with the parent-most
+-- scope of @scope@ as it's argument.
 withOutermostScope :: (Scope -> a) -> Scope -> a
 withOutermostScope f = f . outermostScope
          
@@ -105,10 +107,10 @@ innerScopeDefining name scope =
     else join $ withOuterScope scope (innerScopeDefining name)
     
 
--- | @resolve name scope@ Retrieves the @name@'s value
--- from the local-most scope in which it is defined.
---
--- Returns Nothing if there is no definition for @name@.
+-- | Retrieves the variable's value from the local-most
+-- scope in which it is defined.
+-- 
+-- Returns Nothing if no definition is found.
 resolve :: LangIdent -> Scope -> Maybe VarVal
 resolve name scope = case innerScopeDefining name scope of
                        Nothing -> Nothing
@@ -116,7 +118,7 @@ resolve name scope = case innerScopeDefining name scope of
     where fromCurrentScope s = M.lookup name (bindings s)
                                  
 
--- | A scope with no parent or bindings
+-- | A scope with no parent or bindings.
 emptyScope :: Scope
 emptyScope = Scope { 
                outerScope = Nothing
@@ -133,7 +135,7 @@ setVarInScope
     :: LangIdent 
     -> VarVal 
     -> Scope 
-    -> Bool  -- ^ Overwrite Var if it already exists.
+    -> Bool  -- ^ Overwrite var if it already exists.
     -> Scope
 setVarInScope name val scope@(Scope{bindings=binds}) overwrite
     = if name `isDefinedIn` scope 
