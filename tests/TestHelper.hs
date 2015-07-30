@@ -161,18 +161,21 @@ instance Arbitrary ValidLitStr where
     arbitrary = liftArby (ValidLitStr . filter (/='"')) 
 
 instance Arbitrary LangIdent where
-    arbitrary = liftM LangIdent validIdent
+    arbitrary = liftM LangIdent $ validIdent `suchThat` isValidIdent
     shrink (LangIdent x) = map LangIdent (filter isValidIdent (shrink x))
-        where 
-          isValidIdent [] = False
-          isValidIdent ('$':xs) = isValidIdent xs
-          isValidIdent x | x `elem` keywords = False
-                         | otherwise = isAlpha (head x) && all isAlphaNum (drop 1 x)
-                
-validIdent = (:) <$> chooseAlpha <*> listOf chooseAlphaNum                       
-chooseAlpha = oneof [choose ('a','z'), choose ('A','Z')]
-chooseDigit = choose ('0','9')
-chooseAlphaNum = oneof [chooseAlpha, chooseDigit]
+
+
+validIdent :: Gen String                
+validIdent = (:) <$> chooseAlpha <*> listOf chooseAlphaNum
+    where chooseAlpha = oneof [choose ('a','z'), choose ('A','Z')]
+          chooseDigit = choose ('0','9')
+          chooseAlphaNum = oneof [chooseAlpha, chooseDigit]
+
+
+isValidIdent :: String -> Bool
+isValidIdent [] = False
+isValidIdent x | x `elem` keywords = False
+               | otherwise = isAlpha (head x) && all isAlphaNum (drop 1 x)
 
                  
 newtype SpecOp = ArbySpecOp { getSpecOp :: Op }
