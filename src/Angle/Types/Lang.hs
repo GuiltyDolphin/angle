@@ -73,9 +73,11 @@ class ShowSyn a where
                
 
 instance ShowSyn Stmt where
-    -- showSyn (SingleStmt x@(StmtStruct _) _) = showSyn x
-    showSyn (SingleStmt x _) = showSyn x -- ++ ";"
-    showSyn (MultiStmt xs) = "{" ++ concatMap showSyn xs ++ "}"
+    showSyn (SingleStmt x _) = showSyn x
+    showSyn (MultiStmt xs) = "{\n" ++ showRest ++ "}\n" 
+        where showRest = unlines 
+                         $ map (" "++) $ lines 
+                         $ concatMap showSyn xs
                              
 
 instance ShowSyn SingStmt where
@@ -191,6 +193,7 @@ instance ShowSyn LangLit where
     showSyn (LitBool x) = if x then "true" else "false"
     showSyn (LitRange x y) = "(" ++ showSyn x ++ ".." ++ showSyn y ++ ")"
     showSyn LitNull = "null"
+    showSyn (LitLambda x@(CallSig _ (SingleStmt _ _))) = init $ showSyn x
     showSyn (LitLambda x) = showSyn x
                    
 
@@ -203,6 +206,7 @@ data LangType = LTStr
               | LTNull
               | LTLambda
                 deriving (Eq)
+
 
 typeOf :: LangLit -> LangType
 typeOf (LitStr   _)   = LTStr
@@ -240,7 +244,7 @@ instance ShowSyn Expr where
     showSyn (ExprLit x) = showSyn x
     showSyn (ExprFunCall n es) = showSyn n ++ showSynArgs es
     showSyn (ExprOp x) = showSyn x
-    showSyn (ExprLambda x) = "$(" ++ showSyn x ++ ")"
+    showSyn (ExprLambda x) = "(" ++ showSyn (LitLambda x) ++ ")"
     showSyn (ExprFunIdent x) = "$" ++ showSyn x
     showSyn (ExprList _) = error "showSyn - cannot show unevaluated list"
                          
@@ -256,15 +260,18 @@ instance ShowSyn CallSig where
     showSyn (CallSig args body) = showSyn args ++ " " ++ showSyn body
                                   
 
+-- | TODO: Check this out... It looks a bit weird.
 instance ShowSyn ArgSig where
     showSyn (ArgSig args catchArg) = 
         showSynSep "("
           (case catchArg of
-             Nothing -> ") "
+             Nothing -> ")"
              Just x -> concat 
-                       [if not (null args) then ", .." else ".."
+                       [ if not (null args) 
+                         then ", .." 
+                         else ".."
                        , showSyn x
-                       , ") "]) ", " args
+                       , ")"]) ", " args
                                   
 
 data LangOp = SpecOp Op Expr 
