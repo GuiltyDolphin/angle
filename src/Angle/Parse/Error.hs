@@ -27,6 +27,7 @@ module Angle.Parse.Error
     , syntaxErr
     , userErr
     , returnFromGlobalErr
+    , callBuiltinErr
     ) where
 
 
@@ -180,15 +181,21 @@ instance Show NameError where
                                   
 
 data CallError = WrongNumberOfArguments Int Int
+               | BuiltIn String
     deriving (Eq)
              
 
 wrongNumberOfArgumentsErr :: Int -> Int -> LangError
 wrongNumberOfArgumentsErr expect = callErr . WrongNumberOfArguments expect 
+                                   
+
+callBuiltinErr :: String -> LangError
+callBuiltinErr = callErr . BuiltIn
              
              
 instance Show CallError where
     show (WrongNumberOfArguments x y) = "wrong number of arguments: expected " ++ show x ++ " but got " ++ show y
+    show (BuiltIn x) = "builtin: " ++ x
 
 
 data LError = LError { errorErr    :: LangError  -- The actual error
