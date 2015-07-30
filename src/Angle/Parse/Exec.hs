@@ -464,9 +464,30 @@ execStructIf if' thn els = do
     x -> throwLangError $ typeUnexpectedErr (typeOf x) LTBool
                     
 
-execStructFor :: LangIdent -> Expr -> Stmt -> ExecIO LangLit
-execStructFor = undefined
 
+toIter :: LangLit -> ExecIO [LangLit]                        
+toIter (LitList xs) = return xs
+toIter _ = throwLangError $ defaultErr "toIter: TODO: define this!"
+
+
+execStructFor :: LangIdent -> Expr -> Stmt -> ExecIO LangLit
+execStructFor name e s = do
+  iterable <- execExpr e >>= toIter
+  outScope <- liftM currentScope get
+  res <- forM iterable (\v -> do
+                   assignVarLit name v
+                   execStmt s)
+  newS <- liftM currentScope get
+  let newS' = deleteFromScope name newS
+  modifyScope (const $ mergeScope newS' outScope)
+  return (LitList res)
+  -- forM iterable (\v -> assignVarLit name v $ do
+  --                        execStmt s)
+
+ 
+
+deleteVar :: LangIdent -> ExecIO () 
+deleteVar name = modifyScope (deleteFromScope name)
 
 execStructWhile :: Expr -> Stmt -> ExecIO LangLit
 execStructWhile = undefined
