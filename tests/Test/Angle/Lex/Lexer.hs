@@ -37,7 +37,9 @@ quoted :: String -> String
 quoted xs = '"':xs ++ "\""
 
 testLitStrEmpty :: Assertion
-testLitStrEmpty = evalScan "" litStr @?= Right (LitStr "") 
+testLitStrEmpty = evalScan "\"\"" litStr @?= Right (LitStr "") 
+
+
 testLitStr :: String -> Property
 testLitStr x = '"' `notElem` x ==> evalScan (quoted x) litStr == Right (LitStr x)
 
