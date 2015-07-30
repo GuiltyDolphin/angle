@@ -5,11 +5,9 @@ module Test.Angle.Lex.Token
 import Control.Monad (liftM)
 import Numeric (showFFloat)
 
-import Test.QuickCheck
-import Test.HUnit
-    
 import Angle.Lex.Token
 import TestHelper
+
 
 testTokInt :: Int -> Bool
 testTokInt x = evalScan (show x) tokInt == Right x
@@ -28,6 +26,7 @@ newtype NoQuoteString = NoQuoteString
 instance Arbitrary NoQuoteString where
     arbitrary = liftM (NoQuoteString . filter (/='"')) arbitrary 
 
+tests :: [TestTree]
 tests = [ testGroup "numbers"
           [ testProperty "integer" testTokInt
           , testProperty "float" testTokFloat

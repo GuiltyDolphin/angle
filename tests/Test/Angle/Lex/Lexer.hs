@@ -2,15 +2,8 @@ module Test.Angle.Lex.Lexer
     ( tests
     ) where
 
-import Control.Monad (liftM)
-
-    
-import Control.Applicative
-    
 import Angle.Lex.Lexer
-import Angle.Lex.Helpers (evalScan)
 import Angle.Types.Lang
-    
 import TestHelper
     
 
@@ -85,11 +78,13 @@ testOpNeg :: Bool
 testOpNeg = evalScan "-x" langOp ==  Right (SpecOp OpNeg (ExprIdent (LangIdent "x")))
 
 
+tests :: [TestTree]
 tests = [ testGroup "literals"
           [ testProperty "boolean" testLitBool
---          , testProperty "range" testRange
- --         , testProperty "integer" testLitInt
-  --        , testProperty "string" testLitStr
+          , testProperty "range" testRange
+          , testProperty "integer" testLitInt
+          , testProperty "string" testLitStr
+          , testCase "empty string" testLitStrEmpty
 --          , testProperty "float" testLitFloat
           ]
         , testGroup "functions"
@@ -99,10 +94,13 @@ tests = [ testGroup "literals"
           [ testProperty "addition operator" $ once testOpAdd
           , testProperty "negation operator" $ once testOpNeg
           ]
-        , localOption (QuickCheckMaxSize 10) $ testGroup "show syntax"
-          [ localOption (QuickCheckMaxSize 9) $ testProperty "Stmt" $ testShowSynStmt
+        , localOption (QuickCheckMaxSize 10) $ 
+          testGroup "show syntax"
+          [ localOption (QuickCheckMaxSize 9) $ 
+            testProperty "Stmt" $ testShowSynStmt
           , testProperty "SingStmt" $ testShowSynSingStmt
-          , localOption (QuickCheckMaxSize 9) $ testProperty "LangStruct" $ testShowSynLangStruct
-          ,  testProperty "Expr" $ testShowSynExpr
+          , localOption (QuickCheckMaxSize 9) $ 
+            testProperty "LangStruct" $ testShowSynLangStruct
+          , testProperty "Expr" $ testShowSynExpr
           ]
         ]

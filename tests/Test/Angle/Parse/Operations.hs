@@ -4,11 +4,9 @@ module Test.Angle.Parse.Operations
 
 import Test.QuickCheck
     
-import TestHelper
-    
 import Angle.Parse.Operations
 import Angle.Types.Lang
-import Control.Monad.Error
+import TestHelper
     
     
 testAddList :: [LangLit] -> [LangLit] -> Property
@@ -20,8 +18,13 @@ testAndLitBool :: [Bool] -> Property
 testAndLitBool xs = monadicEither $ do
                       res <- run $ andLit (map LitBool xs)
                       assertEqualQC (LitBool $ and xs) res
-                      
-tests = [ testGroup "and"
+
+
+tests :: [TestTree]                      
+tests = [ testGroup "add"
+          [ testProperty "add list" testAddList
+          ] 
+        , testGroup "and"
           [ testProperty "andLit (with bools)" testAndLitBool
           ]
         ]

@@ -4,15 +4,12 @@ module Test.Angle.Parse.Scope
     ( tests
     ) where
 
+import Data.Maybe (fromJust)
+
 import Angle.Parse.Scope
 import Angle.Types.Lang
 import TestHelper
 
-import Test.QuickCheck
-    
-import Control.Monad
-import qualified Data.Map as M
-import Data.Maybe (fromJust)
 
 testOutermostScope :: Scope -> Property
 testOutermostScope s = isOutermostScope s ==> outermostScope s == s
@@ -26,6 +23,8 @@ testResolveDefinedInCurrent n v s = let s' = setVarInScope n v s True in resolve
 testOnBindingsId :: Scope -> Bool
 testOnBindingsId s = onBindings id s == s
                              
+                     
+tests :: [TestTree]
 tests = [ testGroup "outermostScope"
           [ testProperty "outer same as current" testOutermostScope
           , testProperty "outermost of parent is outermost of current" testOutermostScopeParent

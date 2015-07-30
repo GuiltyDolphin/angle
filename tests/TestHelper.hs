@@ -1,10 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 module TestHelper
-    ( --module Test.Framework
-    -- , module Test.Framework.Providers.HUnit
-    -- , module Test.Framework.Providers.QuickCheck2
-      module Test.Tasty
+    ( module Test.Tasty
     , module Test.Tasty.QuickCheck
     , module Test.Tasty.HUnit
     , Scanner
@@ -17,26 +14,25 @@ module TestHelper
     ) where
 
     
-import Control.Monad (liftM, liftM2, liftM3)
 import Control.Applicative ((<*>), (<$>))
+import Control.Monad (liftM, liftM2, liftM3)
 import Data.Char (isAlpha, isAlphaNum)
 import Data.List (isInfixOf)
 import qualified Data.Map as M
 
-import Test.Tasty.QuickCheck
-import Test.Tasty
-import Test.Tasty.HUnit
--- import Test.Framework.Providers.HUnit
--- import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
 import Test.QuickCheck.Monadic hiding (assert)
 import qualified Test.QuickCheck.Monadic as Monadic
+import Test.Tasty
+import Test.Tasty.HUnit
+import Test.Tasty.QuickCheck
 
-import Angle.Types.Lang
 import Angle.Lex.Helpers (evalScan, Scanner)
-import Angle.Parse.Scope
 import Angle.Lex.Token (keywords)
+import Angle.Parse.Scope
 import Angle.Scanner (SourcePos(..))
+import Angle.Types.Lang
+
 
 instance Arbitrary LangLit where
     arbitrary = frequency 

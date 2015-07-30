@@ -3,11 +3,6 @@ module Test.Angle.Lex.Helpers
     ( tests
     ) where
 
-import Control.Monad
-import Data.Char (isDigit, isAlpha, isAlphaNum, ord, chr)
-    
-import Test.HUnit
-import Test.QuickCheck
 import Test.QuickCheck.Function
     
 import Angle.Lex.Helpers
@@ -77,16 +72,17 @@ testCond f c = apply f c ==> evalScan [c] (cond (apply f)) == Right c
                 
 
             
-tests = [ testGroup "basics" [
-                         testProperty "someTill (char)" testSomeTillChar
-                        , testProperty "cond" testCond
-                        ] 
-        , testGroup "characters and strings" [
-                         testProperty "char" testChar
-                        , testProperty "string" testString
-                        , testProperty "anyChar" testAnyChar
-                        , testProperty "anyCharEmpty" testAnyCharEmpty
-                        ] 
+tests :: [TestTree]
+tests = [ testGroup "basics" 
+          [ testProperty "someTill (char)" testSomeTillChar
+          , testProperty "cond" testCond
+          ] 
+        , testGroup "characters and strings" 
+          [ testProperty "char" testChar
+          , testProperty "string" testString
+          , testProperty "anyChar" testAnyChar
+          , testProperty "anyCharEmpty" testAnyCharEmpty
+          ] 
         ]
 
 
