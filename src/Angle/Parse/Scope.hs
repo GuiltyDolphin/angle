@@ -10,6 +10,8 @@ module Angle.Parse.Scope
     , isOutermostScope
     , onBindings
     , isDefinedIn
+    , mergeScope
+    , deleteFromScope
     ) where
 
 import Control.Monad
@@ -139,3 +141,27 @@ setVarInScope name val scope@(Scope{bindings=binds}) overwrite
            then scope {bindings=M.alter (\_ -> Just val) name binds}
            else scope
       else scope {bindings=M.alter (\_ -> Just val) name binds}
+
+
+-- | Merge the binding values of the scopes,
+-- favouring the first when a definition exists
+-- in both, but always favouring a definition
+-- over no definition.
+mergeScope :: Scope -> Scope -> Scope
+mergeScope x@(Scope {bindings=xs}) (Scope {bindings=ys})
+    = x { bindings=M.union xs ys }
+      
+
+-- | Remove the identifier's definition from the given scope.
+deleteFromScope :: LangIdent -> Scope -> Scope
+deleteFromScope name scope@(Scope {bindings=binds})
+    = scope { bindings = M.delete name binds } 
+
+
+
+
+
+
+
+
+
