@@ -14,12 +14,15 @@ import TestHelper
 testOutermostScope :: Scope -> Property
 testOutermostScope s = isOutermostScope s ==> outermostScope s == s
                        
+
 testOutermostScopeParent :: Scope -> Property 
 testOutermostScopeParent s = not (isOutermostScope s) ==> outermostScope s == outermostScope (fromJust $ outerScope s)
                              
+
 testResolveDefinedInCurrent :: LangIdent -> VarVal -> Scope -> Bool
 testResolveDefinedInCurrent n v s = let s' = setVarInScope n v s True in resolve n s' == Just v
                                              
+
 testOnBindingsId :: Scope -> Bool
 testOnBindingsId s = onBindings id s == s
                              

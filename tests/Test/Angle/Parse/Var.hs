@@ -10,6 +10,7 @@ import TestHelper
 testVarLitDefSet :: VarVal -> LangLit -> Bool
 testVarLitDefSet var val = varLitDef (setVarLit var val) == Just val
                            
+
 testVarFunDefSet :: VarVal -> CallSig -> Bool
 testVarFunDefSet var fd = varFunDef (setVarFun var fd) == Just fd
 

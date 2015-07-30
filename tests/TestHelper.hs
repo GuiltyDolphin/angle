@@ -52,7 +52,6 @@ instance Arbitrary LangLit where
     shrink (LitRange x y) = zipWith LitRange (shrink x) (shrink y)
     shrink LitNull = [LitNull]
                             
-
                 
 instance Arbitrary SingStmt where
     arbitrary = frequency 
@@ -61,11 +60,13 @@ instance Arbitrary SingStmt where
                 , (5, liftArby StmtExpr)
                 , (8, liftArby StmtReturn)
                 ]
-    shrink (StmtAssign x y) = zipWith StmtAssign (shrink x) (shrink y)
+    shrink (StmtAssign x y) = 
+        zipWith StmtAssign (shrink x) (shrink y)
     shrink (StmtStruct x) = map StmtStruct (shrink x)
     shrink (StmtExpr x) = map StmtExpr (shrink x)
     shrink (StmtReturn x) = map StmtReturn (shrink x)
 
+    
 instance Arbitrary LangStruct where
     arbitrary = frequency 
                 [ (3, liftArby3 StructFor)
@@ -79,6 +80,7 @@ instance Arbitrary LangStruct where
     shrink (StructIf x y z) = zipWith3 StructIf (shrink x) (shrink y) (shrink z)
     shrink (StructDefun x y) = zipWith StructDefun (shrink x) (shrink y)
 
+
 instance Arbitrary CallSig where
     arbitrary = do
       args <- arbitrary
@@ -86,6 +88,7 @@ instance Arbitrary CallSig where
       return CallSig { callArgs=args, callBody=body }
     shrink (CallSig x y) = zipWith CallSig (shrink x) (shrink y)
              
+    
 instance Arbitrary Expr where
     arbitrary = frequency 
                 [ (9, liftArby ExprIdent)
@@ -101,6 +104,8 @@ instance Arbitrary Expr where
     shrink (ExprOp x) = map ExprOp (shrink x)
     shrink (ExprLambda x) = map ExprLambda (shrink x)
     shrink (ExprFunIdent x) = map ExprFunIdent (shrink x)
+    shrink (ExprList x) = map ExprList $ shrink x
+
 
 instance Arbitrary ArgSig where
     arbitrary = do
@@ -109,6 +114,7 @@ instance Arbitrary ArgSig where
       return ArgSig { Angle.Types.Lang.stdArgs = args, catchAllArg = catchArg }
     shrink (ArgSig x y) = zipWith ArgSig (shrink x) (shrink y)
              
+    
 instance Arbitrary Stmt where
     arbitrary = frequency
                 [ (9, liftArby2 SingleStmt)
@@ -116,6 +122,7 @@ instance Arbitrary Stmt where
                 ]
     shrink (SingleStmt x p) = zipWith SingleStmt (shrink x) (shrink p)
     shrink (MultiStmt xs) = map MultiStmt (shrink xs)
+
 
 instance Arbitrary LangOp where
     arbitrary = frequency 
@@ -131,6 +138,7 @@ instance Arbitrary LangOp where
                   
     shrink (SpecOp x y) = zipWith SpecOp (shrink x) (shrink y)
     shrink (MultiOp x ys) = zipWith MultiOp (shrink x) (shrink ys)
+
 
 instance Arbitrary Op where
     arbitrary = elements
@@ -148,17 +156,22 @@ instance Arbitrary Op where
 liftArby :: (Arbitrary a) => (a -> b) -> Gen b
 liftArby f = liftM f arbitrary
 
+
 liftArby2 :: (Arbitrary a, Arbitrary b) => (a -> b -> c) -> Gen c
 liftArby2 f = liftM2 f arbitrary arbitrary
+
 
 liftArby3 :: (Arbitrary a, Arbitrary b, Arbitrary c) => (a -> b -> c -> d) -> Gen d
 liftArby3 f = liftM3 f arbitrary arbitrary arbitrary
              
+
 newtype ValidLitStr =
     ValidLitStr { getValidLitStr :: String }
 
+
 instance Arbitrary ValidLitStr where
     arbitrary = liftArby (ValidLitStr . filter (/='"')) 
+
 
 instance Arbitrary LangIdent where
     arbitrary = liftM LangIdent $ validIdent `suchThat` isValidIdent
@@ -179,11 +192,15 @@ isValidIdent x | x `elem` keywords = False
 
                  
 newtype SpecOp = ArbySpecOp { getSpecOp :: Op }
+
+
 newtype MultiOp = ArbyMultiOp { getMultiOp :: Op }
     
+
 instance Arbitrary SpecOp where
     arbitrary = elements $ map ArbySpecOp [OpNeg, OpNot]
                 
+
 instance Arbitrary MultiOp where
     arbitrary = elements $ map ArbyMultiOp
                 [ OpMult
@@ -193,19 +210,28 @@ instance Arbitrary MultiOp where
                 , OpEq
                 ]
 
+    
 newtype ValidComment = ValidComment { getValidComment :: String }
     
+
 instance Arbitrary ValidComment where
     arbitrary = liftM ValidComment $ arbitrary `suchThat` isValidComment
             where isValidComment x | '\n' `elem` x = False
                                    | otherwise = True
 
+
+maxSmallListLength :: Int
 maxSmallListLength = 50         
+
+
+maxTinyListLength :: Int
 maxTinyListLength = 10
+
 
 newtype SmallList a = SmallList { getSmallList :: [a] }
     deriving (Show)
              
+
 newtype TinyList a = TinyList { getTinyList :: [a] }
     deriving (Show)
 
@@ -216,6 +242,7 @@ instance (Arbitrary a) => Arbitrary (SmallList a) where
                   xs <- vector n
                   return (SmallList xs)
     shrink (SmallList xs) = map SmallList (shrink xs)
+
 
 instance (Arbitrary a) => Arbitrary (TinyList a) where
     arbitrary = sized $ \s -> do
@@ -230,35 +257,42 @@ instance Arbitrary BindEnv where
       res <- arbitrary
       return $ M.fromList res
     
+
 instance Arbitrary VarVal where
     arbitrary = do
       valDef <- arbitrary
       funDef <- arbitrary
       return $ emptyVar { varLitDef = valDef, varFunDef = funDef }
     shrink (VarVal x y) = zipWith VarVal (shrink x) (shrink y) 
+
+
 instance Arbitrary Scope where
     arbitrary = do
       outer <- arbitrary
       vars <- arbitrary
       return $ emptyScope { outerScope = outer, bindings = vars } 
 
+
 -- Extracts a property from monadic Either code, giving
 -- a failing property if the result is a Left. 
 monadicEither :: PropertyM (Either e) a -> Property
-monadicEither = monadic (\x -> case x of
+monadicEither = monadic (\e -> case e of
                                  Left _ -> property False
-                                 Right x -> x)
+                                 Right r -> r)
+
 
 instance Arbitrary LangType where
     arbitrary = elements [LTStr, LTInt, LTFloat, LTList
                          , LTBool, LTRange, LTNull ]
                 
+
 instance Arbitrary SourceRef where
     arbitrary = do
       start <- arbitrary
       end <- arbitrary
       return $ SourceRef (start, end)
              
+
 instance Arbitrary SourcePos where
     arbitrary = do
       f <- liftArby getPositive
@@ -266,8 +300,10 @@ instance Arbitrary SourcePos where
       t <- liftArby getPositive
       return $ SourcePos (f, s, t)
                 
+
 assertEqualQC :: (Monad m, Eq a) => a -> a -> PropertyM m ()
 assertEqualQC x = assertQC . (==x)
+
 
 isNumeric :: LangLit -> Bool
 isNumeric x = case typeOf x of
@@ -275,8 +311,10 @@ isNumeric x = case typeOf x of
                 LTInt   -> True
                 _       -> False
 
+
 maxSized :: (Testable prop) => Int -> prop -> Property
 maxSized x = mapSize (min x)
+
 
 assertQC :: (Monad m) => Bool -> PropertyM m ()
 assertQC = Monadic.assert

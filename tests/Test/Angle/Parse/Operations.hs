@@ -14,6 +14,7 @@ testAddList xs ys = monadicEither $ do
                       res <- run $ addLit (LitList xs:ys)
                       assertEqualQC (LitList (xs++ys)) res
 
+
 testAndLitBool :: [Bool] -> Property
 testAndLitBool xs = monadicEither $ do
                       res <- run $ andLit (map LitBool xs)

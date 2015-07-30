@@ -16,13 +16,16 @@ testTokInt x = evalScan (show x) tokInt == Right x
 testTokFloat :: Double -> Bool
 testTokFloat x = evalScan (showFFloat Nothing x "") tokFloat == Right x
                  
+
 testTokString :: NoQuoteString -> Bool
 testTokString (NoQuoteString x) = evalScan ('"':x++"\"") tokString == Right x
                                   
+
 newtype NoQuoteString = NoQuoteString 
     { getNoQuoteString :: String }
     deriving (Show)
     
+
 instance Arbitrary NoQuoteString where
     arbitrary = liftM (NoQuoteString . filter (/='"')) arbitrary 
 
