@@ -64,8 +64,181 @@ data Env = Env { currentScope :: Scope
                , sourceText :: String
                , envSourceRef :: SourceRef
                , envSynRep :: String
+               , envStack :: Stack
                } deriving (Show, Eq)
+
+
+-- TODO:
+-- Stacks
+-- * For keeping track of statements:
+--  - Maybe have nested (i.e multi) statements just execute
+--    in same stack, only having to push a new stack
+--    when entering a function or loop.
+-- * Moving up a stack should FORCE the execution to continue
+--   in the new stack, there is no point in the stacks
+--   if they cannot track statements.
+
+-- * global (initial) stack is passed a multistatement to
+--   start the execution process.
+--   - the global stack will create new child stacks
+--     as required.
+--   - but as using a multistatement as a means of wrapping
+--     many single statements, perhaps the stacks should
+--     work with lists of statements instead?
+-- * stacks could also be useful in reporting errors, as the
+--   stacks could track their statement position and any
+--   function calls / loops that they enter.
+
+
+-- Stack API
+-- * Stacks have types:
+--   - Global, Function and Loop
+--   - Only one Global stack, the rest are created
+--     as needed.
+--   - stackType :: Stack -> StackType
+-- * Stacks know their parents
+--   - parentStack :: Stack -> Maybe Stack
+--   - only the Global stack should return Nothing.
+-- * Stacks can have names
+--   - stackName :: Stack -> Maybe String
+--   - useful for keeping track of function calls.
+-- * Stacks have levels (not sure about this one)
+--   - stackLevel :: Stack -> Int
+--   - for error reporting, allows stack depth to be
+--     known.
+
+
+data Stack = Stack { parentStack :: Maybe Stack
+                   , stackLevel :: Int
+                   , stackName :: Maybe String
+                   , stackType :: StackType
+                   } deriving (Show, Eq)
+
+
+data StackType = FunctionStack | LoopStack | GlobalStack
+                 deriving (Show, Eq)
+
+
+startStack :: Stack
+startStack = newStack (Just "global stack") Nothing GlobalStack
+
+
+newStack :: Maybe String -> Maybe Stack -> StackType -> Stack
+newStack name stack t = 
+    Stack
+    { parentStack = stack
+    , stackLevel = maybe 0 ((+1) . stackLevel) stack
+    , stackName = name
+    , stackType = t
+    } 
+
+
+parentStackWithType :: Stack -> StackType -> Maybe Stack
+parentStackWithType stack typ = 
+    case parentStack stack of
+      Nothing -> Nothing
+      Just par -> if stackType par == typ
+                  then Just par
+                  else parentStackWithType par typ
+
+
+modifyStack :: (Stack -> Stack) -> ExecIO ()
+modifyStack f = modify (\e -> e { envStack = f $ envStack e })
+                
+
+upStack :: ExecIO ()
+upStack = do
+  currStack <- liftM envStack get 
+  case parentStack currStack of
+    Nothing -> return ()
+    Just x -> (return $! traceShowMsg "upStack - entering stack: " x) >> modifyStack (const x)
              
+
+                                                     
+updatePos :: SourceRef -> ExecIO ()
+updatePos pos = modify (\e -> e { envSourceRef = pos })
+        
+execFunctionStack :: Stmt -> ExecIO LangLit
+execFunctionStack s@(SingleStmt _ _) = withLeavingStack $ execStmt s
+execFunctionStack (MultiStmt []) = upScope >> upStack >> return LitNull
+execFunctionStack s@(MultiStmt _) = withLeavingStack $ execStmt s
+
+
+withLeavingStack :: ExecIO a -> ExecIO a
+withLeavingStack ex = do
+  oldStack <- liftM envStack get
+  r <- ex
+  newStack' <- liftM envStack get
+  if oldStack == newStack'
+      then upStack >> return r
+      else return r
+           
+
+-- | Execute in a new function stack, making sure
+-- to preserve scope and stack when leaving the function.
+withFunctionStack :: Maybe String -> ExecIO a -> ExecIO a
+withFunctionStack name ex = do
+  newFunctionStack name 
+  oldStack <- liftM envStack get
+  r <- ex
+  newStack' <- liftM envStack get
+  if oldStack == newStack'
+      then upStack *> upScope *> return r
+      else return r
+  
+
+withTemporaryStack 
+    :: ExecIO a  -- ^ Wrapped execution
+    -> StackType 
+    -> Maybe String 
+    -> ExecIO a
+withTemporaryStack ex typ name = do
+  downStack name typ
+  withLeavingStack ex
+                   
+
+withLoopStack :: ExecIO a -> ExecIO a
+withLoopStack ex = withTemporaryStack ex LoopStack Nothing
+                   
+
+upStackReturn :: ExecIO ()
+upStackReturn = upStackType FunctionStack
+              
+
+upStackType :: StackType -> ExecIO ()
+upStackType typ = do
+  currStack <- liftM envStack get
+  let outStack = innerStackWithType currStack typ
+  case outStack of
+    Nothing -> error $ "upStackType: no stacks of type " ++ show typ
+    Just p -> modifyStack (const p) >> upStack
+              
+
+innerStackWithType :: Stack -> StackType -> Maybe Stack
+innerStackWithType stack typ = if stackType stack == typ
+                           then Just stack
+                           else parentStackWithType stack typ
+
+
+upStackLoop :: ExecIO ()
+upStackLoop = upStackType LoopStack
+              
+
+-- | Execute the statement in a new stack.
+downStack :: Maybe String -> StackType -> ExecIO ()
+downStack name typ = do
+  currStack <- liftM envStack get
+  return $! traceShowMsg "downStack - entering new stack: " (newStack name (Just currStack) typ)
+  modifyStack (const $ newStack name (Just currStack) typ)
+              
+
+newFunctionStack :: Maybe String -> ExecIO ()
+newFunctionStack name = downStack name FunctionStack
+                             
+
+newLoopStack :: Maybe String -> ExecIO ()
+newLoopStack name = downStack name LoopStack
+
 
 setEnvSynRep :: String -> ExecIO ()
 setEnvSynRep x = modify (\e -> e { envSynRep = x })
@@ -77,6 +250,7 @@ basicEnv = Env { currentScope = emptyScope
                , sourceText = ""
                , envSourceRef = startRef
                , envSynRep = ""
+               , envStack = startStack
                }
          
 
@@ -366,7 +540,8 @@ callFun :: LangIdent -> [Expr] -> ExecIO LangLit
 callFun x args | isBuiltin x = callBuiltin x args
                | otherwise = do
   callsig <- lookupVarLambdaF x
-  callFunCallSig callsig args
+  withFunctionStack (Just . getIdent $ x) $ callFunCallSig callsig args
+
 -- do
   --callsig <- lookupVarLambdaF x
   --argListBind args callsig
@@ -395,12 +570,10 @@ execStmt :: Stmt -> ExecIO LangLit
 -- execStmt (SingleStmt x@(StmtReturn _) pos)
 --     = modify (\s -> s { envSourceRef = pos })
 --       >> execSingStmt x
-execStmt (SingleStmt x pos) 
-    = modify (\s -> s {envSourceRef = pos}) 
-      >> execSingStmt x
-execStmt (MultiStmt []) = return LitNull <* upScope
+execStmt (SingleStmt x pos) = updatePos pos >> execSingStmt x
 execStmt (MultiStmt (x@(SingleStmt (StmtReturn _) _):_)) = execStmt x
--- execStmt (MultiStmt [x]) = execStmt x
+execStmt (MultiStmt []) = return LitNull
+execStmt (MultiStmt [x]) = execStmt x
 execStmt (MultiStmt (x:xs)) = execStmt x >> execStmt (MultiStmt xs)
                               
 -- (MultiStmt (x:xs)) -> execStmt x >> execStmt (MultiStmt xs)
@@ -422,7 +595,7 @@ execSingStmt (StmtReturn x) = do
   isGlob <- liftM (isOutermostScope . currentScope) get
   if isGlob
       then throwLangError returnFromGlobalErr
-      else execExpr x <* upScope
+      else execExpr x <* upScope <* upStackReturn
 
 
 traceShowMsg :: (Show a) => String -> a -> a
