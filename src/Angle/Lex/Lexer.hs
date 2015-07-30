@@ -190,6 +190,17 @@ litList = liftM LitList (tokList $ sepWith tokEltSep langLit)
 
 exprList :: Scanner Expr
 exprList = liftM ExprList (tokList $ sepWith tokEltSep expr)
+           
+
+exprRange :: Scanner Expr
+exprRange = parens $ do
+              from <- expr
+              string ".."
+              to <- expr
+              step <- optional . tryScan $ do
+                        string ".."
+                        expr
+              return $ ExprRange from to step
 
 
 -- | Boolean literal.
@@ -203,10 +214,14 @@ litBool = liftM LitBool (litTrue <|> litFalse)
 -- TODO: Add additional `step' to ranges (1..7..3)
 -- | Dotted range of values.
 litRange :: Scanner LangLit
-litRange = parens (LitRange 
-                   <$> (expr <* tokRangeSep) 
-                   <*> expr)
-           <?> "range literal"
+litRange = parens $ do
+             from <- langLit
+             string ".."
+             to <- langLit
+             step <- optional . tryScan $ do
+                       string ".."
+                       langLit
+             return $ LitRange from to step
                
 
 -- | Non-valued literal.
@@ -219,6 +234,7 @@ expr = (   tryScan exprLit
        <|> exprList
        <|> exprFunIdent 
        <|> tryScan exprOp
+       <|> tryScan exprRange
        <|> exprLambda
        <|> exprFunCall 
        <|> exprIdent)

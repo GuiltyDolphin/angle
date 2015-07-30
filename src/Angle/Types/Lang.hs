@@ -174,9 +174,7 @@ data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
              | LitFloat { getLitFloat :: Double } -- ^ Double-precision floating point value.
              | LitList { getLitList :: [LangLit] } -- ^ List of literal values. Values may be of different types.    
              | LitBool { getLitBool :: Bool } -- ^ Boolean value.
-             | LitRange Expr Expr -- Might want Expr version of
-                                  -- this, then have
-                                  -- LitRange LangLit LangLit
+             | LitRange LangLit LangLit (Maybe LangLit)
              | LitNull -- ^ Null value. Implicit value 
                        -- returned from any expression 
                        -- that fails to return a value 
@@ -191,10 +189,15 @@ instance ShowSyn LangLit where
     showSyn (LitFloat x) = showFFloat Nothing x ""
     showSyn (LitList xs) = showSynList xs
     showSyn (LitBool x) = if x then "true" else "false"
-    showSyn (LitRange x y) = "(" ++ showSyn x ++ ".." ++ showSyn y ++ ")"
+    showSyn (LitRange x y z) = showRange x y z
     showSyn LitNull = "null"
     showSyn (LitLambda x@(CallSig _ (SingleStmt _ _))) = init $ showSyn x
     showSyn (LitLambda x) = showSyn x
+                            
+
+showRange :: (ShowSyn a) => a -> a -> Maybe a -> String
+showRange x y (Just z) = "(" ++ showSyn x ++ ".." ++ showSyn y ++ ".." ++ showSyn z ++ ")"
+showRange x y Nothing = "(" ++ showSyn x ++ ".." ++ showSyn y ++ ")"
                    
 
 data LangType = LTStr
@@ -209,14 +212,14 @@ data LangType = LTStr
 
 
 typeOf :: LangLit -> LangType
-typeOf (LitStr   _)   = LTStr
-typeOf (LitInt   _)   = LTInt
-typeOf (LitFloat _)   = LTFloat
-typeOf (LitList  _)   = LTList
-typeOf (LitBool  _)   = LTBool
-typeOf (LitRange _ _) = LTRange
+typeOf (LitStr{})   = LTStr
+typeOf (LitInt{})   = LTInt
+typeOf (LitFloat{})   = LTFloat
+typeOf (LitList{})   = LTList
+typeOf (LitBool{})   = LTBool
+typeOf (LitRange{}) = LTRange
 typeOf LitNull        = LTNull
-typeOf (LitLambda _) = LTLambda
+typeOf (LitLambda{}) = LTLambda
               
 
 instance Show LangType where
@@ -237,6 +240,7 @@ data Expr = ExprIdent LangIdent
           | ExprFunCall LangIdent [Expr]
           | ExprOp LangOp
           | ExprList [Expr]
+          | ExprRange Expr Expr (Maybe Expr)
             deriving (Show, Eq)
                      
 instance ShowSyn Expr where
@@ -247,6 +251,7 @@ instance ShowSyn Expr where
     showSyn (ExprLambda x) = "(" ++ showSyn (LitLambda x) ++ ")"
     showSyn (ExprFunIdent x) = "$" ++ showSyn x
     showSyn (ExprList _) = error "showSyn - cannot show unevaluated list"
+    showSyn (ExprRange{}) = error "showSyn - cannot show unevaluated range"
                          
                          
 newtype LangIdent = LangIdent { getIdent :: String }
