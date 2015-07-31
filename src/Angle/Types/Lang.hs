@@ -230,7 +230,7 @@ instance Show LangType where
     show LTFloat = "float"
     show LTNull = "null"
     show LTRange = "range"
-    show LTLambda = "lambda"
+    show LTLambda = "function"
                    
 
 data Expr = ExprIdent LangIdent
@@ -238,11 +238,13 @@ data Expr = ExprIdent LangIdent
           | ExprLambda CallSig
           | ExprLit LangLit
           | ExprFunCall LangIdent [Expr]
+          | ExprLambdaCall CallSig [Expr]
           | ExprOp LangOp
           | ExprList [Expr]
           | ExprRange Expr Expr (Maybe Expr)
             deriving (Show, Eq)
                      
+
 instance ShowSyn Expr where
     showSyn (ExprIdent x) = showSyn x
     showSyn (ExprLit x) = showSyn x
@@ -252,6 +254,7 @@ instance ShowSyn Expr where
     showSyn (ExprFunIdent x) = "$" ++ showSyn x
     showSyn (ExprList _) = error "showSyn - cannot show unevaluated list"
     showSyn (ExprRange{}) = error "showSyn - cannot show unevaluated range"
+    showSyn (ExprLambdaCall x xs) = "lambda call"
                          
                          
 newtype LangIdent = LangIdent { getIdent :: String }

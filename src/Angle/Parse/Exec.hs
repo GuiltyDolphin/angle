@@ -253,6 +253,7 @@ execExpr (ExprOp x) = execOp x
 execExpr (ExprFunCall name args) = execFunCall name args
 execExpr (ExprList xs) = liftM LitList $ mapM execExpr xs
 execExpr (ExprLambda x) = return (LitLambda x)
+execExpr (ExprLambdaCall f xs) = callFunCallSig f xs
                                    
 
 execFunCall :: LangIdent -> [Expr] -> ExecIO LangLit
@@ -308,6 +309,8 @@ callBuiltin (LangIdent "print") xs = mapM execExpr xs >>= builtinPrint
 callBuiltin (LangIdent "str")   xs = mapM execExpr xs >>= builtinStr
 callBuiltin (LangIdent "index") xs = mapM execExpr xs >>= builtinIndex
 callBuiltin (LangIdent "length") xs = mapM execExpr xs >>= builtinLength
+callBuiltin (LangIdent "compose") xs = mapM execExpr xs >>= builtinCompose
+callBuiltin (LangIdent "partial") xs = mapM execExpr xs >>= builtinPartial
 callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
          
 
@@ -358,17 +361,66 @@ splice :: Int -> Int -> [a] -> [a]
 splice x y xs = take (1+y-x) $ drop x xs
 
 
+runCompose :: CallSig -> CallSig -> Expr -> ExecIO LangLit
+runCompose c1 c2 e = do
+  intm <- callFunCallSig c2 [e]
+  callFunCallSig c1 [ExprLit intm]
+                 
+
+partial :: CallSig -> [LangLit] -> ExecIO CallSig
+partial x@(CallSig {callArgs=ArgSig {stdArgs=xArgs, catchAllArg=Nothing}, callBody=xBody}) es
+    = do
+  p <- liftM envSourceRef get
+  return CallSig { callArgs=ArgSig {stdArgs=drop (length es) xArgs, catchAllArg=Nothing }, callBody = SingleStmt (StmtExpr (ExprLambdaCall x (map ExprLit es ++ map ExprIdent (drop (length es) xArgs)))) p}
+
+
+builtinPartial :: [LangLit] -> ExecIO LangLit
+builtinPartial [x@(LitLambda _)] = return x
+builtinPartial (LitLambda x:xs) = liftM LitLambda $ partial x xs
+-- builtinCompose (LitLambda x:[]) = return . LitLambda $ x
+-- builtinCompose (LitLambda x:LitLambda y:[]) = liftM LitLambda $ compose x y
+builtinPartial _ = throwImplementationErr "builtinPartial: better message please!"
+
+                 
+
+compose :: CallSig -> CallSig -> ExecIO CallSig
+compose x@(CallSig {callArgs=ArgSig {stdArgs=[argX], catchAllArg=Nothing}, callBody=bodyX})
+        y@(CallSig {callArgs=yArgs@(ArgSig {stdArgs=[argY], catchAllArg=Nothing}), callBody=bodyY})
+    = do 
+  currRef <- liftM envSourceRef get
+  return y { callBody = SingleStmt (StmtExpr (ExprLambdaCall x [ExprLambdaCall y [ExprIdent argY]])) currRef }
+compose _ _ = throwImplementationErr "compose: better message please!"
+              
+
+composeLambdas :: LangLit -> LangLit -> ExecIO LangLit
+composeLambdas (LitLambda x) (LitLambda y) = liftM LitLambda $ compose x y
+composeLambdas _ _ = throwImplementationErr "composeLambdas: better message please!"
+
+builtinCompose :: [LangLit] -> ExecIO LangLit
+builtinCompose [x@(LitLambda _)] = return x
+builtinCompose (x:xs) = foldM composeLambdas x xs
+-- builtinCompose (LitLambda x:[]) = return . LitLambda $ x
+-- builtinCompose (LitLambda x:LitLambda y:[]) = liftM LitLambda $ compose x y
+builtinCompose _ = throwImplementationErr "builtinCompose: better message please!"
+  
+
+
 -- | True if the identifier represents a builtin function.
 isBuiltin :: LangIdent -> Bool
 isBuiltin = (`elem`builtins) . getIdent
-    where builtins = ["print", "str", "index", "length"]
+    where builtins = ["print", "str", "index", "length", "compose", "partial"]
 
 
 callFun :: LangIdent -> [Expr] -> ExecIO LangLit
 callFun x args | isBuiltin x = callBuiltin x args
                | otherwise = do
   callsig <- lookupVarLambdaF x
-  callFunCallSig callsig args
+  callLambda args callsig
+  -- callFunCallSig callsig args
+                 
+
+callLambda :: [Expr] -> CallSig -> ExecIO LangLit
+callLambda args cs = callFunCallSig cs args
 
 -- do
   --callsig <- lookupVarLambdaF x
