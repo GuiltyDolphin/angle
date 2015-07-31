@@ -30,6 +30,8 @@ module Angle.Parse.Error
     , callBuiltinErr
     , implementationErr
     , throwImplementationErr
+    , throwReturn
+    , catchReturn
     ) where
 
 
@@ -64,6 +66,7 @@ data AngleError = ParserError
     , parserErrSourceText :: String
     }
                 | ImplementationError String
+                | ControlException ControlException
 
 
 parserErr :: SourceRef -> ParserError -> String -> AngleError
@@ -72,7 +75,11 @@ parserErr = ParserError
 
 implementationErr :: String -> AngleError
 implementationErr = ImplementationError
-                  
+
+
+controlException :: ControlException -> AngleError
+controlException = ControlException                  
+
 
 instance Show AngleError where
     show (ImplementationError x) = "Implementation error: " ++ x
@@ -305,6 +312,20 @@ instance Show LitError where
 
 
 
+data ControlException = ControlReturn LangLit
+                      deriving (Show, Eq)
+                               
+
+controlReturn :: LangLit -> AngleError
+controlReturn = controlException . ControlReturn
 
 
+throwReturn :: (CanError m) => LangLit -> m a
+throwReturn = throwAE . controlReturn
 
+
+catchReturn :: (CanError m) => m a -> (LangLit -> m a) -> m a
+catchReturn ex h = ex `catchAE` 
+                   (\e -> case e of
+                            ControlException (ControlReturn v) -> h v
+                            err -> throwAE err)

@@ -373,7 +373,9 @@ callFun x args | isBuiltin x = callBuiltin x args
 callFunCallSig :: CallSig -> [Expr] -> ExecIO LangLit
 callFunCallSig callsig args = do
   argListBind args callsig
-  execStmt (callBody callsig)
+  res <- execStmt (callBody callsig) `catchReturn` return
+  upScope
+  return res
            
 
 -- | @withScope ex@ runs @ex@ but will ensure that
@@ -417,7 +419,7 @@ execSingStmt (StmtReturn x) = do
   isGlob <- liftM (isOutermostScope . currentScope) get
   if isGlob
       then throwParserError returnFromGlobalErr
-      else execExpr x <* upScope
+      else execExpr x >>= throwReturn
 
 
 traceShowMsg :: (Show a) => String -> a -> a
