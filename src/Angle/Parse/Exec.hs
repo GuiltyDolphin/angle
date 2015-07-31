@@ -272,6 +272,7 @@ execSpecOp x _ = throwImplementationErr $ "execSpecOp - not a SpecOp: " ++ show 
 execMultiOp :: Op -> [Expr] -> ExecIO LangLit
 execMultiOp OpAdd xs       = withMultiOp xs addLit
 execMultiOp OpAnd xs       = withMultiOp xs andLit
+execMultiOp OpConcat xs    = withMultiOp xs concatLit
 execMultiOp OpDiv xs       = withMultiOp xs divLit
 execMultiOp OpEq  xs       = withMultiOp xs eqLit
 execMultiOp OpGreater xs   = withMultiOp xs greaterLit

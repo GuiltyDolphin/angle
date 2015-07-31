@@ -2,6 +2,7 @@
 module Angle.Parse.Operations
     ( addLit
     , andLit
+    , concatLit
     , divLit
     , eqLit
     , greaterEqLit
@@ -20,6 +21,11 @@ import Control.Monad
 import Angle.Types.Lang
 import Angle.Types.Functions
 import Angle.Parse.Error
+    
+
+-- TODO:
+-- * Transfer operators to throwParserError, so that
+--    error position is correct.
 
 
 -- | Addition operator.
@@ -41,6 +47,22 @@ andLit []               = return $ LitBool True
 andLit (x@(LitBool _):xs) = foldM andLitBool x xs
     where andLitBool = onLitBool (&&)
 andLit (x:_) = langError $ typeNotValidErrT x
+               
+
+-- | Concatenation operator
+--
+-- On lists: concatenates the lists.
+--
+-- On lists with other types: concatenates the lists
+-- and appends the other elements in the appropriate places.
+--
+-- On other types: creates a list of the values.
+concatLit :: MultiOperator
+concatLit (z:zs) = foldM concatLit' z zs
+  where concatLit' (LitList xs) (LitList ys) = return . LitList $ xs ++ ys
+        concatLit' (LitList xs) y = return . LitList $ xs ++ [y]
+        concatLit' x (LitList ys) = return . LitList $ x : ys
+        concatLit' x y = return . LitList $ [x, y]
 
 
 -- | Division operator.

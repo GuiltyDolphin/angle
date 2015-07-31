@@ -288,8 +288,10 @@ instance ShowSyn LangOp where
     showSyn (SpecOp o e) = showSyn o ++ showSyn e
     showSyn (MultiOp o es) = concat ["(", showSyn o, showSynOpList es]
 
+
 data Op = OpAdd 
         | OpAnd
+        | OpConcat
         | OpDiv 
         | OpEq
         | OpGreater
@@ -308,6 +310,7 @@ data Op = OpAdd
 instance ShowSyn Op where
     showSyn OpAdd = "+"
     showSyn OpAnd = "&"
+    showSyn OpConcat = "++"
     showSyn OpDiv = "/"
     showSyn OpEq = "=="
     showSyn OpGreater = ">"

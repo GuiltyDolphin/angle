@@ -35,6 +35,12 @@ import Angle.Types.Lang
 --
 -- * Fix missing semi-colon at end of multi-stmt
 --   - e.g. {1;2} -> 1, but should error.
+-- * Fix if stmt issue
+--   - e.g. defun foo(x) {if (> x 1) print("yup"); else print("nope!";}
+--    lexes, and it shouldn't!
+--    also, it always prints "yup"
+-- * Spaces will not be parsed after comments
+
 
 stmt :: Scanner Stmt
 stmt = (multiStmt <|> singleStmt) <?> "statement"
@@ -60,7 +66,7 @@ multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
 -- TODO: Last statement in a multi-statement block, or at
 -- end of file, shouldn't need to have a newline or semi-colon
 singStmt :: Scanner SingStmt
-singStmt = optional stmtComment >>
+singStmt = many (surrounded whitespace stmtComment) >>
            stmtStruct 
            <|> stmtReturn <* singStmtEnd
            <|> stmtAssign <* singStmtEnd
@@ -304,12 +310,13 @@ makeOp sc op = sc >> return op
 -- slower) or resolve the conflict!
 -- Probably fixed.
 
-opAdd, opAnd, opDiv, opEq,
+opAdd, opAnd, opConcat, opDiv, opEq,
   opGreater, opGreaterEq, opLess, opLessEq,
   opMult, opNeg, opNot, opOr, opSub
   :: Scanner Op
 opAdd  = makeOp (char '+')    OpAdd
 opAnd  = makeOp (char '&')    OpAnd
+opConcat = makeOp (string "++") OpConcat
 opDiv  = makeOp (char '/')    OpDiv
 opEq   = makeOp (string "==") OpEq
 opGreater = makeOp (char '>') OpGreater
@@ -347,13 +354,13 @@ preOp sc = do
 -- |Operators called within parentheses that may have
 -- multiple operands
 multiOp :: Scanner LangOp
-multiOp = parens (tryScan (choice (map multOp multiOps))
+multiOp = parens (choice (map (tryScan . multOp) multiOps)
                   <|> multOp userOp) <?> "operator expression"
           
 
 -- | List of all the MultiOp scanners.
 multiOps :: [Scanner Op]
-multiOps = [ opAdd, opAnd
+multiOps = [ opAdd, opAnd, opConcat
            , opDiv, opEq
            , opGreater, opGreaterEq
            , opLess, opLessEq
