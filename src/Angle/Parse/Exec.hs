@@ -284,7 +284,7 @@ execMultiOp OpSub xs       = withMultiOp xs subLit
 execMultiOp (UserOp x) xs = do
   sig <- lookupOpF x
   callFunCallSig sig xs
-execMultiOp x _ = throwParserError $ error $ "execMultiOp - not a multiOp: " ++ show x
+execMultiOp x _ = throwImplementationErr $ "execMultiOp - not a multiOp: " ++ show x
   
          
 withMultiOp :: [Expr] -> ([LangLit] -> ExecIO LangLit) -> ExecIO LangLit
@@ -306,13 +306,18 @@ callBuiltin :: LangIdent -> [Expr] -> ExecIO LangLit
 callBuiltin (LangIdent "print") xs = mapM execExpr xs >>= builtinPrint
 callBuiltin (LangIdent "str")   xs = mapM execExpr xs >>= builtinStr
 callBuiltin (LangIdent "index") xs = mapM execExpr xs >>= builtinIndex
-callBuiltin (LangIdent x) _ = error $ "callBuiltin - not a builtin function: " ++ x
+callBuiltin (LangIdent "length") xs = mapM execExpr xs >>= builtinLength
+callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
          
 
 builtinPrint :: [LangLit] -> ExecIO LangLit
 builtinPrint xs = liftIO $ putStrLn res >> return (LitStr res)
                   where res = concatMap showSyn xs
                               
+
+builtinLength :: [LangLit] -> ExecIO LangLit
+builtinLength [LitList xs] = return . LitInt $ length xs
+builtinLength _ = throwParserError $ callBuiltinErr "length: invalid call"
 
 -- | Implementation of the built-in str function.
 builtinStr :: [LangLit] -> ExecIO LangLit
@@ -355,7 +360,7 @@ splice x y xs = take (1+y-x) $ drop x xs
 -- | True if the identifier represents a builtin function.
 isBuiltin :: LangIdent -> Bool
 isBuiltin = (`elem`builtins) . getIdent
-    where builtins = ["print", "str", "index"]
+    where builtins = ["print", "str", "index", "length"]
 
 
 callFun :: LangIdent -> [Expr] -> ExecIO LangLit
