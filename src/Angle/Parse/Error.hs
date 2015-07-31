@@ -14,86 +14,126 @@ module Angle.Parse.Error
     , nameNotValueErr
     , nameNotOpErr
     , wrongNumberOfArgumentsErr
-    , LangError
-    , CanError
+    , ParserError
+    , CanError(..)
     , CanErrorWithPos(..)
     , throwError
     , langError
     , SourcePos
     , LError(..)
-    , throwLangError
+    , AngleError(..)
+    , throwParserError
     , indexOutOfBoundsErr
     , defaultErr
-    , syntaxErr
     , userErr
     , returnFromGlobalErr
     , callBuiltinErr
+    , implementationErr
+    , throwImplementationErr
     ) where
 
 
 import Control.Monad.Error
+import Control.Monad.Trans.Except
 import Data.Function (on)
+import Data.Monoid
    
 import Angle.Scanner
 import Angle.Types.Lang
 
 
-class (MonadError LError m) => CanError (m :: * -> *)
-
-
-instance CanError (Either LError)
-
-
-instance (Monad m) => CanError (ErrorT LError m)
-
+-- class (MonadError AngleError m) => CanError (m :: * -> *)
    
-data LangError = TypeError TypeError
-               | SyntaxError String
-               | NameError NameError
-               | CallError CallError
-               | DefaultError String
-               | LitError LitError
-               | KeywordError KeywordError
-               | UserError String -- TODO: Add keyword and
+-- instance CanError (Either AngleError)
+    
+-- class (MonadError AngleError (ExceptT AngleError m)) => CanError m
+
+-- type LangError = ExceptT AngleError
+-- class (MonadError AngleError m) => CanError m
+   
+-- type CanError = ExceptT AngleError
+class (Monad m) => CanError (m :: * -> *) where
+    throwAE :: AngleError -> m a
+    catchAE :: m a -> (AngleError -> m a) -> m a
+               
+
+-- | General error structure.
+data AngleError = ParserError 
+    { parserErrSourceRef :: SourceRef 
+    , parserErrErr :: ParserError
+    , parserErrSourceText :: String
+    }
+                | ImplementationError String
+
+
+parserErr :: SourceRef -> ParserError -> String -> AngleError
+parserErr = ParserError
+
+
+implementationErr :: String -> AngleError
+implementationErr = ImplementationError
+                  
+
+instance Show AngleError where
+    show (ImplementationError x) = "Implementation error: " ++ x
+    show (ParserError { parserErrErr=ee
+                      , parserErrSourceRef=SourceRef (start,end)
+                      , parserErrSourceText=es
+                      })
+        = cEp ++ cEt ++ cEe
+          where cEp = concat ["[", showPos start, "-", showPos end, "]"] ++ "\n"
+                cEt = let lns = lines es in
+                      if null lns
+                      then "no source\n"
+                      else replicate (colNo start) ' ' ++ "v\n" ++ lns !! lineNo start ++ "\n"
+                cEe = show ee
+                showPos sp 
+                    = let ln = show $ lineNo sp
+                          cn = show $ colNo sp
+                      in concat ["(", ln, ",", cn, ")"]
+
+
+data ParserError = TypeError TypeError
+                 | NameError NameError
+                 | CallError CallError
+                 | DefaultError String
+                 | LitError LitError
+                 | KeywordError KeywordError
+                 | UserError String -- TODO: Add keyword and
                                   -- structures for allowing
                                   -- the user to throw errors
                  
 
-typeErr :: TypeError -> LangError
+typeErr :: TypeError -> ParserError
 typeErr    = TypeError
 
 
-syntaxErr :: String -> LangError
-syntaxErr  = SyntaxError
-
-
-nameErr :: NameError -> LangError
+nameErr :: NameError -> ParserError
 nameErr    = NameError
 
 
-callErr :: CallError -> LangError
+callErr :: CallError -> ParserError
 callErr    = CallError
 
 
-defaultErr :: String -> LangError
+defaultErr :: String -> ParserError
 defaultErr = DefaultError
 
 
-litErr :: LitError -> LangError
+litErr :: LitError -> ParserError
 litErr     = LitError
              
 
-userErr :: String -> LangError
+userErr :: String -> ParserError
 userErr = UserError
           
 
-keywordErr :: KeywordError -> LangError
+keywordErr :: KeywordError -> ParserError
 keywordErr = KeywordError
 
 
-instance Show LangError where
+instance Show ParserError where
     show (TypeError e)    = "wrong type in expression: " ++ show e
-    show (SyntaxError s)  = "syntax error: " ++ s
     show (NameError v)    = "name error: " ++ show v
     show (CallError x)    = "call error: " ++ show x
     show (DefaultError s) = "defaultError: " ++ s
@@ -102,7 +142,7 @@ instance Show LangError where
     show (KeywordError x) = "keyword error: " ++ show x
 
 
-instance Error LangError where
+instance Error ParserError where
     noMsg = DefaultError ""
     strMsg = DefaultError
 
@@ -114,31 +154,31 @@ data TypeError = TypeMismatch   LangType LangType
                | TypeMismatchOp LangType LangType
 
                  
-typeMismatchErr :: LangType -> LangType -> LangError
+typeMismatchErr :: LangType -> LangType -> ParserError
 typeMismatchErr   t1 = typeErr . TypeMismatch   t1
 
 
-typeUnexpectedErr :: LangType -> LangType -> LangError
+typeUnexpectedErr :: LangType -> LangType -> ParserError
 typeUnexpectedErr t1 = typeErr . TypeUnexpected t1
 
 
-typeNotValidErr :: LangType -> LangError
+typeNotValidErr :: LangType -> ParserError
 typeNotValidErr      = typeErr . TypeNotValid
 
 
-typeNotValidErrT :: LangLit -> LangError
+typeNotValidErrT :: LangLit -> ParserError
 typeNotValidErrT     = typeNotValidErr . typeOf
 
 
-typeCastErr :: LangType -> LangType -> LangError
+typeCastErr :: LangType -> LangType -> ParserError
 typeCastErr       t1 = typeErr . TypeCast       t1
 
 
-typeMismatchOpErr :: LangType -> LangType -> LangError
+typeMismatchOpErr :: LangType -> LangType -> ParserError
 typeMismatchOpErr t1 = typeErr . TypeMismatchOp t1
 
 
-typeMismatchOpErrT :: LangLit -> LangLit -> LangError
+typeMismatchOpErrT :: LangLit -> LangLit -> ParserError
 typeMismatchOpErrT = typeMismatchOpErr `on` typeOf
 
                
@@ -157,19 +197,19 @@ data NameError = NameNotDefined LangIdent
                | NameNotOp LangIdent
 
 
-nameNotDefinedErr :: LangIdent -> LangError
+nameNotDefinedErr :: LangIdent -> ParserError
 nameNotDefinedErr  = nameErr . NameNotDefined
 
 
-nameNotFunctionErr :: LangIdent -> LangError
+nameNotFunctionErr :: LangIdent -> ParserError
 nameNotFunctionErr = nameErr . NameNotFunction
 
 
-nameNotValueErr :: LangIdent -> LangError
+nameNotValueErr :: LangIdent -> ParserError
 nameNotValueErr    = nameErr . NameNotValue
 
 
-nameNotOpErr :: LangIdent -> LangError
+nameNotOpErr :: LangIdent -> ParserError
 nameNotOpErr       = nameErr . NameNotOp
 
 
@@ -185,11 +225,11 @@ data CallError = WrongNumberOfArguments Int Int
     deriving (Eq)
              
 
-wrongNumberOfArgumentsErr :: Int -> Int -> LangError
+wrongNumberOfArgumentsErr :: Int -> Int -> ParserError
 wrongNumberOfArgumentsErr expect = callErr . WrongNumberOfArguments expect 
                                    
 
-callBuiltinErr :: String -> LangError
+callBuiltinErr :: String -> ParserError
 callBuiltinErr = callErr . BuiltIn
              
              
@@ -198,7 +238,7 @@ instance Show CallError where
     show (BuiltIn x) = "builtin: " ++ x
 
 
-data LError = LError { errorErr    :: LangError  -- The actual error
+data LError = LError { errorErr    :: ParserError  -- The actual error
                      , errorSource :: String
                      , errorPos    :: SourceRef -- Position at which the error occurred
                      , errorText :: String -- Additonal text representing the error
@@ -209,7 +249,7 @@ data KeywordError = ReturnFromGlobal
                     deriving (Eq)
         
 
-returnFromGlobalErr :: LangError
+returnFromGlobalErr :: ParserError
 returnFromGlobalErr = keywordErr ReturnFromGlobal
                       
 
@@ -217,50 +257,38 @@ instance Show KeywordError where
     show ReturnFromGlobal = "return from outermost scope"
 
 
-
-instance Show LError where
-    show (LError { errorErr=ee
-                 , errorPos=SourceRef (start,end)
-                 , errorText=et
-                 , errorSource=es
-                 })
-        = cEp ++ cEt ++ cEe
-          where cEp = concat ["[", showPos start, "-", showPos end, "]"] ++ "\n"
-                cEt = let lns = lines es in
-                      if null lns
-                      then "no source\n"
-                      else replicate (colNo start) ' ' ++ "v\n" ++ lns !! lineNo start ++ "\n"
-                cEe = show ee
-                showPos sp 
-                    = let ln = show $ lineNo sp
-                          cn = show $ colNo sp
-                      in concat ["(", ln, ",", cn, ")"]
-                      
-
 instance Error LError where
     noMsg = LError {errorErr=noMsg, errorPos=SourceRef (beginningOfFile, beginningOfFile), errorSource="", errorText=""}
     strMsg m = noMsg {errorErr=strMsg m}
                
 
-langError :: (CanError m) => LangError -> m a
-langError e = throwError noMsg { errorErr = e }
-              
+-- langError :: (CanError m) => ParserError -> m a
+-- langError e
+-- langError e = throwError noMsg { errorErr = e }
+-- langError :: (CanError m) => ParserError -> m a
+-- langError e = throwError ParserError { parserErrErr = e }
+langError ::  (CanError m) => ParserError -> m a
+langError e = throwAE ParserError { parserErrErr = e }
 
-throwLangError :: (CanErrorWithPos m) => LangError -> m a
-throwLangError e = do
+
+throwParserError :: (CanErrorWithPos m, Monad m) => ParserError -> m a
+throwParserError e = do
   errPosRef <- getErrorPos
-  errText <- getErrorText
   errSource <- getErrorSource
-  throwError LError { errorErr = e, errorPos = errPosRef
-                    , errorText = errText
-                    , errorSource = errSource
-                    }
+  throwAE ParserError { parserErrSourceRef = errPosRef
+                         , parserErrSourceText = errSource
+                         , parserErrErr = e
+                         }
 
 
-class (MonadError LError m) => CanErrorWithPos m where
+-- throwImplementationErr :: (CanError m) => String -> m a
+-- throwImplementationErr = throwError . implementationErr
+throwImplementationErr :: (CanError m) => String -> m a
+throwImplementationErr = throwAE . implementationErr
+
+
+class (CanError m) => CanErrorWithPos m where
     getErrorPos :: m SourceRef
-    -- getErrorLError :: m LError
-    getErrorText :: m String
     getErrorSource :: m String
 
 
@@ -268,7 +296,7 @@ data LitError = IndexOutOfBoundsError Int
               deriving (Eq)
                        
 
-indexOutOfBoundsErr :: Int -> LangError
+indexOutOfBoundsErr :: Int -> ParserError
 indexOutOfBoundsErr = litErr . IndexOutOfBoundsError
 
 

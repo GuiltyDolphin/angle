@@ -241,4 +241,4 @@ onlyNumOp :: (CanError m) => (LangLit -> LangLit -> m LangLit) -> [LangLit] -> m
 onlyNumOp f (x@(LitInt _):xs) = foldM f x xs
 onlyNumOp f (x@(LitFloat _):xs) = foldM f x xs
 onlyNumOp _ (x:_)              = langError $ typeNotValidErrT x
-onlyNumOp _ [] = error "onlyNumOp - got empty list"
+onlyNumOp _ [] = throwImplementationErr "onlyNumOp - got empty list"

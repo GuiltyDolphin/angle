@@ -1,10 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Angle.Parse.Exec
-    ( runExecIOBasic
-    , runExecIOEnv
-    , basicEnv
-    , execStmt
-    , ExecIO
+    ( execStmt
     , Env(..)
     ) where
 
@@ -19,6 +17,7 @@ import Debug.Trace (trace)
 import Angle.Parse.Error
 import Angle.Parse.Operations    
 import Angle.Parse.Scope
+import Angle.Parse.Types
 import Angle.Parse.Var
 import Angle.Types.Lang
     
@@ -62,18 +61,6 @@ import Angle.Types.Lang
 -- - Function assign (other than defun)
 
 
--- *****************************************
--- * Env - A temporary test of environment *
--- *****************************************
-data Env = Env { currentScope :: Scope
-               , envOptions :: OptionSet
-               , sourceText :: String
-               , envSourceRef :: SourceRef
-               , envSynRep :: String
-               , envStack :: Stack
-               } deriving (Show, Eq)
-
-
 -- TODO:
 -- Stacks
 -- * For keeping track of statements:
@@ -96,168 +83,12 @@ data Env = Env { currentScope :: Scope
 --   function calls / loops that they enter.
 
 
--- Stack API
--- * Stacks have types:
---   - Global, Function and Loop
---   - Only one Global stack, the rest are created
---     as needed.
---   - stackType :: Stack -> StackType
--- * Stacks know their parents
---   - parentStack :: Stack -> Maybe Stack
---   - only the Global stack should return Nothing.
--- * Stacks can have names
---   - stackName :: Stack -> Maybe String
---   - useful for keeping track of function calls.
--- * Stacks have levels (not sure about this one)
---   - stackLevel :: Stack -> Int
---   - for error reporting, allows stack depth to be
---     known.
-
-
-data Stack = Stack { parentStack :: Maybe Stack
-                   , stackLevel :: Int
-                   , stackName :: Maybe String
-                   , stackType :: StackType
-                   } deriving (Show, Eq)
-
-
-data StackType = FunctionStack | LoopStack | GlobalStack
-                 deriving (Show, Eq)
-
-
-startStack :: Stack
-startStack = newStack (Just "global stack") Nothing GlobalStack
-
-
-newStack :: Maybe String -> Maybe Stack -> StackType -> Stack
-newStack name stack t = 
-    Stack
-    { parentStack = stack
-    , stackLevel = maybe 0 ((+1) . stackLevel) stack
-    , stackName = name
-    , stackType = t
-    } 
-
-
-parentStackWithType :: Stack -> StackType -> Maybe Stack
-parentStackWithType stack typ = 
-    case parentStack stack of
-      Nothing -> Nothing
-      Just par -> if stackType par == typ
-                  then Just par
-                  else parentStackWithType par typ
-
-
-modifyStack :: (Stack -> Stack) -> ExecIO ()
-modifyStack f = modify (\e -> e { envStack = f $ envStack e })
-                
-
-upStack :: ExecIO ()
-upStack = do
-  currStack <- liftM envStack get 
-  case parentStack currStack of
-    Nothing -> return ()
-    Just x -> (return $! traceShowMsg "upStack - entering stack: " x) >> modifyStack (const x)
-             
-
-                                                     
 updatePos :: SourceRef -> ExecIO ()
 updatePos pos = modify (\e -> e { envSourceRef = pos })
         
-execFunctionStack :: Stmt -> ExecIO LangLit
-execFunctionStack s@(SingleStmt _ _) = withLeavingStack $ execStmt s
-execFunctionStack (MultiStmt []) = upScope >> upStack >> return LitNull
-execFunctionStack s@(MultiStmt _) = withLeavingStack $ execStmt s
-
-
-withLeavingStack :: ExecIO a -> ExecIO a
-withLeavingStack ex = do
-  oldStack <- liftM envStack get
-  r <- ex
-  newStack' <- liftM envStack get
-  if oldStack == newStack'
-      then upStack >> return r
-      else return r
-           
-
--- | Execute in a new function stack, making sure
--- to preserve scope and stack when leaving the function.
-withFunctionStack :: Maybe String -> ExecIO a -> ExecIO a
-withFunctionStack name ex = do
-  newFunctionStack name 
-  oldStack <- liftM envStack get
-  r <- ex
-  newStack' <- liftM envStack get
-  if oldStack == newStack'
-      then upStack *> upScope *> return r
-      else return r
-  
-
-withTemporaryStack 
-    :: ExecIO a  -- ^ Wrapped execution
-    -> StackType 
-    -> Maybe String 
-    -> ExecIO a
-withTemporaryStack ex typ name = do
-  downStack name typ
-  withLeavingStack ex
-                   
-
-withLoopStack :: ExecIO a -> ExecIO a
-withLoopStack ex = withTemporaryStack ex LoopStack Nothing
-                   
-
-upStackReturn :: ExecIO ()
-upStackReturn = upStackType FunctionStack
               
-
-upStackType :: StackType -> ExecIO ()
-upStackType typ = do
-  currStack <- liftM envStack get
-  let outStack = innerStackWithType currStack typ
-  case outStack of
-    Nothing -> error $ "upStackType: no stacks of type " ++ show typ
-    Just p -> modifyStack (const p) >> upStack
-              
-
-innerStackWithType :: Stack -> StackType -> Maybe Stack
-innerStackWithType stack typ = if stackType stack == typ
-                           then Just stack
-                           else parentStackWithType stack typ
-
-
-upStackLoop :: ExecIO ()
-upStackLoop = upStackType LoopStack
-              
-
--- | Execute the statement in a new stack.
-downStack :: Maybe String -> StackType -> ExecIO ()
-downStack name typ = do
-  currStack <- liftM envStack get
-  return $! traceShowMsg "downStack - entering new stack: " (newStack name (Just currStack) typ)
-  modifyStack (const $ newStack name (Just currStack) typ)
-              
-
-newFunctionStack :: Maybe String -> ExecIO ()
-newFunctionStack name = downStack name FunctionStack
-                             
-
-newLoopStack :: Maybe String -> ExecIO ()
-newLoopStack name = downStack name LoopStack
-
-
 setEnvSynRep :: String -> ExecIO ()
 setEnvSynRep x = modify (\e -> e { envSynRep = x })
-         
-
-basicEnv :: Env
-basicEnv = Env { currentScope = emptyScope
-               , envOptions = defaultOptions
-               , sourceText = ""
-               , envSourceRef = startRef
-               , envSynRep = ""
-               , envStack = startStack
-               }
          
 
 data OptionSet = OS { printName :: Bool }
@@ -298,7 +129,7 @@ lookupVarLitF :: LangIdent -> ExecIO LangLit
 lookupVarLitF name = do
   res <- lookupVarLit name
   case res of
-    Nothing -> throwLangError $ nameNotValueErr name
+    Nothing -> throwParserError $ nameNotValueErr name
     Just x -> return x
               
 
@@ -314,7 +145,7 @@ lookupVarLambdaF :: LangIdent -> ExecIO CallSig
 lookupVarLambdaF name = do
   res <- lookupVarLambda name
   case res of
-    Nothing -> throwLangError $ nameNotFunctionErr name
+    Nothing -> throwParserError $ nameNotFunctionErr name
     Just x -> return x
 
          
@@ -323,7 +154,7 @@ lookupVarF name = do
   res <- lookupVar name
   case res of
     Just x -> return x
-    Nothing -> throwLangError $ nameNotDefinedErr name
+    Nothing -> throwParserError $ nameNotDefinedErr name
                
 
 lookupOp :: LangIdent -> ExecIO (Maybe CallSig)
@@ -338,7 +169,7 @@ lookupOpF :: LangIdent -> ExecIO CallSig
 lookupOpF opName = do
   res <- lookupOp opName
   case res of
-    Nothing -> throwLangError $ nameNotOpErr opName
+    Nothing -> throwParserError $ nameNotOpErr opName
     Just x -> return x
   
 
@@ -403,7 +234,7 @@ argListBind args cs = do
       la = length args
       lp = length (stdArgs params)
   when (la > lp && not (hasCatchAllArg params) || la < lp)
-           (throwLangError $ wrongNumberOfArgumentsErr lp la)
+           (throwParserError $ wrongNumberOfArgumentsErr lp la)
   vals <- mapM execExpr args
   let toBind = zip (stdArgs params) vals
       fullBind = toBind ++ [(fromJust $ catchAllArg params, LitList $ drop (length toBind) vals) | hasCatchAllArg params]
@@ -418,7 +249,7 @@ execExpr :: Expr -> ExecIO LangLit
 execExpr (ExprLit x) = return x
 execExpr (ExprIdent x) = lookupVarLitF x
 execExpr (ExprFunIdent x) = liftM LitLambda $ lookupVarLambdaF x
-execExpr (ExprOp x) = withErrHandle (execOp x)
+execExpr (ExprOp x) = execOp x
 execExpr (ExprFunCall name args) = execFunCall name args
 execExpr (ExprList xs) = liftM LitList $ mapM execExpr xs
 execExpr (ExprLambda x) = return (LitLambda x)
@@ -435,7 +266,7 @@ execOp (MultiOp op exprs) = execMultiOp op exprs
 
 execSpecOp :: Op -> Expr -> ExecIO LangLit
 execSpecOp OpNeg x = execExpr x >>= notLit
-execSpecOp x _ = error $ "execSpecOp - not a SpecOp: " ++ show x
+execSpecOp x _ = throwImplementationErr $ "execSpecOp - not a SpecOp: " ++ show x
 
 
 execMultiOp :: Op -> [Expr] -> ExecIO LangLit
@@ -453,27 +284,12 @@ execMultiOp OpSub xs       = withMultiOp xs subLit
 execMultiOp (UserOp x) xs = do
   sig <- lookupOpF x
   callFunCallSig sig xs
-execMultiOp x _ = error $ "execMultiOp - not a multiOp: " ++ show x
+execMultiOp x _ = throwParserError $ error $ "execMultiOp - not a multiOp: " ++ show x
   
          
 withMultiOp :: [Expr] -> ([LangLit] -> ExecIO LangLit) -> ExecIO LangLit
 withMultiOp xs f = mapM execExpr xs >>= f 
   -- liftIO $ addLit (map execExpr xs)
-                       
-
-newtype ExecIO a = ExecIO 
-    { runEIO :: ErrorT LError (StateT Env IO) a }
-    deriving (Functor, Applicative, Monad
-             , MonadState Env, MonadError LError
-             , CanError, MonadIO)
-
-              
-runExecIOBasic :: ExecIO a -> IO (Either LError a)
-runExecIOBasic = runExecIOEnv basicEnv
-
-
-runExecIOEnv :: Env -> ExecIO a -> IO (Either LError a)
-runExecIOEnv e x = evalStateT (runErrorT (runEIO x)) e
                    
 
 toLitStr :: LangLit -> LangLit
@@ -482,7 +298,7 @@ toLitStr (LitFloat x) = LitStr (show x)
 toLitStr (LitBool x) = LitStr (show x)
 toLitStr x@(LitStr _) = x
 toLitStr (LitList xs) = LitStr (show xs)
-toLitStr x@(LitRange _ _) = LitStr $ showSyn x
+toLitStr x@(LitRange{}) = LitStr $ showSyn x
 toLitStr LitNull = LitStr ""
                    
 
@@ -501,7 +317,7 @@ builtinPrint xs = liftIO $ putStrLn res >> return (LitStr res)
 -- | Implementation of the built-in str function.
 builtinStr :: [LangLit] -> ExecIO LangLit
 builtinStr [] = return $ LitStr ""
-builtinStr xs | length xs > 1 = throwLangError $ wrongNumberOfArgumentsErr 1 (length xs)
+builtinStr xs | length xs > 1 = throwParserError $ wrongNumberOfArgumentsErr 1 (length xs)
               | otherwise = return $ toLitStr (head xs)
                             
                        
@@ -517,19 +333,19 @@ builtinStr xs | length xs > 1 = throwLangError $ wrongNumberOfArgumentsErr 1 (le
 -- index(int:x, int:y, list:xs): return a list of elements that lie between index @x@ and index@y@ of @xs@.
 builtinIndex :: [LangLit] -> ExecIO LangLit
 builtinIndex [LitInt x,LitList xs]
-    | x >= length xs = throwLangError $ indexOutOfBoundsErr x
+    | x >= length xs = throwParserError $ indexOutOfBoundsErr x
     | x < 0 = return $ xs !! (length xs + x)
     | otherwise = return $ xs !! x
 builtinIndex [LitInt x,LitInt y,LitList xs] 
     | x >= length xs || y > length xs 
-        = throwLangError $ indexOutOfBoundsErr x
+        = throwParserError $ indexOutOfBoundsErr x
     | x < 0 = builtinIndex 
               [LitInt (length xs + x), LitInt y, LitList xs]
     | y < 0 = builtinIndex 
               [LitInt x, LitInt (length xs + y), LitList xs]
     | otherwise 
         = return . LitList $ splice x y xs
-builtinIndex _ = throwLangError $ callBuiltinErr "index: invalid call signature"
+builtinIndex _ = throwParserError $ callBuiltinErr "index: invalid call signature"
 
 
 splice :: Int -> Int -> [a] -> [a]
@@ -546,7 +362,7 @@ callFun :: LangIdent -> [Expr] -> ExecIO LangLit
 callFun x args | isBuiltin x = callBuiltin x args
                | otherwise = do
   callsig <- lookupVarLambdaF x
-  withFunctionStack (Just . getIdent $ x) $ callFunCallSig callsig args
+  callFunCallSig callsig args
 
 -- do
   --callsig <- lookupVarLambdaF x
@@ -600,8 +416,8 @@ execSingStmt (StmtComment _) = return LitNull
 execSingStmt (StmtReturn x) = do
   isGlob <- liftM (isOutermostScope . currentScope) get
   if isGlob
-      then throwLangError returnFromGlobalErr
-      else execExpr x <* upScope <* upStackReturn
+      then throwParserError returnFromGlobalErr
+      else execExpr x <* upScope
 
 
 traceShowMsg :: (Show a) => String -> a -> a
@@ -640,13 +456,13 @@ execStructIf if' thn els = do
     (LitBool False) -> case els of 
                          Nothing -> return LitNull
                          Just s  -> execStmt s
-    x -> throwLangError $ typeUnexpectedErr (typeOf x) LTBool
+    x -> throwParserError $ typeUnexpectedErr (typeOf x) LTBool
                     
 
 
 toIter :: LangLit -> ExecIO [LangLit]                        
 toIter (LitList xs) = return xs
-toIter _ = throwLangError $ defaultErr "toIter: TODO: define this!"
+toIter _ = throwParserError $ defaultErr "toIter: TODO: define this!"
 
 
 execStructFor :: LangIdent -> Expr -> Stmt -> ExecIO LangLit
@@ -676,17 +492,10 @@ execStructWhile :: Expr -> Stmt -> ExecIO LangLit
 execStructWhile = undefined
                   
 
-instance CanErrorWithPos ExecIO where
-    getErrorPos = liftM envSourceRef get
-    getErrorText = liftM envSynRep get
-    getErrorSource = liftM sourceText get
-                     
--- | Attempts to run the given ExecIO as usual,
--- but if an error occurs, will update the information
--- of the error and throw a new one.
-withErrHandle :: ExecIO a -> ExecIO a
-withErrHandle e = e `catchError` (\(LError {errorErr=lerr})
-                                    -> throwLangError lerr)
+-- instance CanErrorWithPos ExecIO where
+--     getErrorPos = liftM envSourceRef get
+--     getErrorText = liftM envSynRep get
+--     getErrorSource = liftM sourceText get
     
                   
 
