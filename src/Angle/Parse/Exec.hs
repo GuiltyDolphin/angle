@@ -10,16 +10,18 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.Error
 import Control.Monad.State
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromJust, fromMaybe, maybeToList)
     
 import Debug.Trace (trace)
 
+import Angle.Parse.Builtins
 import Angle.Parse.Error
 import Angle.Parse.Operations    
 import Angle.Parse.Scope
 import Angle.Parse.Types
 import Angle.Parse.Var
 import Angle.Types.Lang
+import Angle.Lex.Lexer (program, evalScan)
     
 -- TODO:
 -- - errors:
@@ -186,6 +188,7 @@ assignVarLit :: LangIdent -> LangLit -> ExecIO LangLit
 assignVarLit name (LitLambda x) = assignVarLambda name x >> return LitNull
 assignVarLit name val = do
   current <- lookupVarCurrentScope name
+  when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
   modifyScope $ flip (setVarInScope name $ setVarLit
                       (fromMaybe emptyVar current)
                       val) True
@@ -208,6 +211,7 @@ assignVar name val = modifyScope $ flip (setVarInScope name val) True
 assignVarLambda :: LangIdent -> CallSig -> ExecIO ()
 assignVarLambda name val = do
   current <- lookupVarCurrentScope name
+  when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
   modifyScope $ flip (setVarInScope name $ setVarFun 
                       (fromMaybe emptyVar current) val) True
 
@@ -229,7 +233,8 @@ upScope = do
   
           
 argListBind :: [Expr] -> CallSig -> ExecIO ()
-argListBind args cs = do
+argListBind args' cs = do
+  args <- expandParams args'
   let params = callArgs cs
       la = length args
       lp = length (stdArgs params)
@@ -243,6 +248,19 @@ argListBind args cs = do
                  -- else [(fromJust $ catchAllArg params, LitList []) | hasCatchAllArg params] 
   newScope
   forM_ fullBind (uncurry assignVarLit)
+
+
+-- | Expand any ExprParamExpand expressions in an argument list.
+expandParams :: [Expr] -> ExecIO [Expr]
+expandParams [] = return []
+expandParams (x:xs) 
+  = case x of
+      ExprParamExpand n -> do
+             val <- lookupVarLitF n
+             case val of 
+               LitList vs -> liftM (map ExprLit vs ++) $ expandParams xs
+               _ -> liftM (x:) $ expandParams xs
+      _ -> liftM (x:) $ expandParams xs
                          
 
 execExpr :: Expr -> ExecIO LangLit
@@ -266,7 +284,8 @@ execOp (MultiOp op exprs) = execMultiOp op exprs
 
 
 execSpecOp :: Op -> Expr -> ExecIO LangLit
-execSpecOp OpNeg x = execExpr x >>= notLit
+execSpecOp OpNeg x = execExpr x >>= negLit
+execSpecOp OpNot x = execExpr x >>= notLit
 execSpecOp x _ = throwImplementationErr $ "execSpecOp - not a SpecOp: " ++ show x
 
 
@@ -293,123 +312,6 @@ withMultiOp :: [Expr] -> ([LangLit] -> ExecIO LangLit) -> ExecIO LangLit
 withMultiOp xs f = mapM execExpr xs >>= f 
   -- liftIO $ addLit (map execExpr xs)
                    
-
-toLitStr :: LangLit -> LangLit
-toLitStr (LitInt x) = LitStr (show x)
-toLitStr (LitFloat x) = LitStr (show x)
-toLitStr (LitBool x) = LitStr (show x)
-toLitStr x@(LitStr _) = x
-toLitStr (LitList xs) = LitStr (show xs)
-toLitStr x@(LitRange{}) = LitStr $ showSyn x
-toLitStr LitNull = LitStr ""
-                   
-
-callBuiltin :: LangIdent -> [Expr] -> ExecIO LangLit 
-callBuiltin (LangIdent "print") xs = mapM execExpr xs >>= builtinPrint
-callBuiltin (LangIdent "str")   xs = mapM execExpr xs >>= builtinStr
-callBuiltin (LangIdent "index") xs = mapM execExpr xs >>= builtinIndex
-callBuiltin (LangIdent "length") xs = mapM execExpr xs >>= builtinLength
-callBuiltin (LangIdent "compose") xs = mapM execExpr xs >>= builtinCompose
-callBuiltin (LangIdent "partial") xs = mapM execExpr xs >>= builtinPartial
-callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
-         
-
-builtinPrint :: [LangLit] -> ExecIO LangLit
-builtinPrint xs = liftIO $ putStrLn res >> return (LitStr res)
-                  where res = concatMap showSyn xs
-                              
-
-builtinLength :: [LangLit] -> ExecIO LangLit
-builtinLength [LitList xs] = return . LitInt $ length xs
-builtinLength _ = throwParserError $ callBuiltinErr "length: invalid call"
-
--- | Implementation of the built-in str function.
-builtinStr :: [LangLit] -> ExecIO LangLit
-builtinStr [] = return $ LitStr ""
-builtinStr xs | length xs > 1 = throwParserError $ wrongNumberOfArgumentsErr 1 (length xs)
-              | otherwise = return $ toLitStr (head xs)
-                            
-                       
--- TODO:
--- - Currently wraps back round with negatives
---   e.g. index(-5,-1,[1,2,3]); -> [2, 3]     
--- - should probably work more like Pyhon's indexing system.
-
--- | Builtin index function.
---
--- index(int:x, list:xs): retrieve element at index @x@ from @xs@
---
--- index(int:x, int:y, list:xs): return a list of elements that lie between index @x@ and index@y@ of @xs@.
-builtinIndex :: [LangLit] -> ExecIO LangLit
-builtinIndex [LitInt x,LitList xs]
-    | x >= length xs = throwParserError $ indexOutOfBoundsErr x
-    | x < 0 = return $ xs !! (length xs + x)
-    | otherwise = return $ xs !! x
-builtinIndex [LitInt x,LitInt y,LitList xs] 
-    | x >= length xs || y > length xs 
-        = throwParserError $ indexOutOfBoundsErr x
-    | x < 0 = builtinIndex 
-              [LitInt (length xs + x), LitInt y, LitList xs]
-    | y < 0 = builtinIndex 
-              [LitInt x, LitInt (length xs + y), LitList xs]
-    | otherwise 
-        = return . LitList $ splice x y xs
-builtinIndex _ = throwParserError $ callBuiltinErr "index: invalid call signature"
-
-
-splice :: Int -> Int -> [a] -> [a]
-splice x y xs = take (1+y-x) $ drop x xs
-
-
-runCompose :: CallSig -> CallSig -> Expr -> ExecIO LangLit
-runCompose c1 c2 e = do
-  intm <- callFunCallSig c2 [e]
-  callFunCallSig c1 [ExprLit intm]
-                 
-
-partial :: CallSig -> [LangLit] -> ExecIO CallSig
-partial x@(CallSig {callArgs=ArgSig {stdArgs=xArgs, catchAllArg=Nothing}, callBody=xBody}) es
-    = do
-  p <- liftM envSourceRef get
-  return CallSig { callArgs=ArgSig {stdArgs=drop (length es) xArgs, catchAllArg=Nothing }, callBody = SingleStmt (StmtExpr (ExprLambdaCall x (map ExprLit es ++ map ExprIdent (drop (length es) xArgs)))) p}
-
-
-builtinPartial :: [LangLit] -> ExecIO LangLit
-builtinPartial [x@(LitLambda _)] = return x
-builtinPartial (LitLambda x:xs) = liftM LitLambda $ partial x xs
--- builtinCompose (LitLambda x:[]) = return . LitLambda $ x
--- builtinCompose (LitLambda x:LitLambda y:[]) = liftM LitLambda $ compose x y
-builtinPartial _ = throwImplementationErr "builtinPartial: better message please!"
-
-                 
-
-compose :: CallSig -> CallSig -> ExecIO CallSig
-compose x@(CallSig {callArgs=ArgSig {stdArgs=[argX], catchAllArg=Nothing}, callBody=bodyX})
-        y@(CallSig {callArgs=yArgs@(ArgSig {stdArgs=[argY], catchAllArg=Nothing}), callBody=bodyY})
-    = do 
-  currRef <- liftM envSourceRef get
-  return y { callBody = SingleStmt (StmtExpr (ExprLambdaCall x [ExprLambdaCall y [ExprIdent argY]])) currRef }
-compose _ _ = throwImplementationErr "compose: better message please!"
-              
-
-composeLambdas :: LangLit -> LangLit -> ExecIO LangLit
-composeLambdas (LitLambda x) (LitLambda y) = liftM LitLambda $ compose x y
-composeLambdas _ _ = throwImplementationErr "composeLambdas: better message please!"
-
-builtinCompose :: [LangLit] -> ExecIO LangLit
-builtinCompose [x@(LitLambda _)] = return x
-builtinCompose (x:xs) = foldM composeLambdas x xs
--- builtinCompose (LitLambda x:[]) = return . LitLambda $ x
--- builtinCompose (LitLambda x:LitLambda y:[]) = liftM LitLambda $ compose x y
-builtinCompose _ = throwImplementationErr "builtinCompose: better message please!"
-  
-
-
--- | True if the identifier represents a builtin function.
-isBuiltin :: LangIdent -> Bool
-isBuiltin = (`elem`builtins) . getIdent
-    where builtins = ["print", "str", "index", "length", "compose", "partial"]
-
 
 callFun :: LangIdent -> [Expr] -> ExecIO LangLit
 callFun x args | isBuiltin x = callBuiltin x args
@@ -588,3 +490,30 @@ execStructWhile = undefined
 --                                                     }))
   
   
+
+builtinArgs :: [Expr] -> ExecIO [LangLit]
+builtinArgs xs = expandParams xs >>= mapM execExpr
+
+callBuiltin :: LangIdent -> [Expr] -> ExecIO LangLit 
+callBuiltin (LangIdent "print") xs = builtinArgs xs >>= builtinPrint
+callBuiltin (LangIdent "str")   xs = builtinArgs xs >>= builtinStr
+callBuiltin (LangIdent "index") xs = builtinArgs xs >>= builtinIndex
+callBuiltin (LangIdent "length") xs = builtinArgs xs >>= builtinLength
+callBuiltin (LangIdent "compose") xs = builtinArgs xs >>= builtinCompose
+callBuiltin (LangIdent "partial") xs = builtinArgs xs >>= builtinPartial
+callBuiltin (LangIdent "input") xs = builtinArgs xs >>= builtinInput
+callBuiltin (LangIdent "eval") xs = builtinArgs xs >>= builtinEval
+callBuiltin (LangIdent "asType") xs = builtinArgs xs >>= builtinAsType
+callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
+
+
+builtinEval :: [LangLit] -> ExecIO LangLit
+builtinEval xs = do
+  let r = evalScan st program
+  case r of
+    Left _ -> throwParserError . callBuiltinErr $ "eval: no parse"
+    Right res -> execStmt res
+    where st = concatMap
+                (\x -> case x of
+                         (LitStr s) -> s
+                         _ -> showSyn x) xs
