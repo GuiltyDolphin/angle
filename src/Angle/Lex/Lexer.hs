@@ -205,6 +205,7 @@ exprLit = liftM ExprLit langLit
 langLit :: Scanner LangLit
 langLit = litStr 
           <|> litNull
+          <|> litChar
           <|> litRange 
           <|> litBool 
           <|> litList 
@@ -256,6 +257,10 @@ litBool = liftM LitBool (litTrue <|> litFalse)
           <?> "boolean literal"
     where litTrue  = string "true" >> return True
           litFalse = string "false" >> return False
+                     
+
+litChar :: Scanner LangLit
+litChar = liftM LitChar $ surrounded (char '\'') (notChar '\'')
                    
 
 -- TODO: Add additional `step' to ranges (1..7..3)

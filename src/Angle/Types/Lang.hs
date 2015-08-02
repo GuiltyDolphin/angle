@@ -238,6 +238,7 @@ data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
              | LitList { getLitList :: [LangLit] } -- ^ List of literal values. Values may be of different types.    
              | LitBool { getLitBool :: Bool } -- ^ Boolean value.
              | LitRange LangLit LangLit (Maybe LangLit)
+             | LitChar { getLitChar :: Char }
              | LitNull -- ^ Null value. Implicit value 
                        -- returned from any expression 
                        -- that fails to return a value 
@@ -248,6 +249,7 @@ data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
 
 instance ShowSyn LangLit where
     showSyn (LitStr x) = '\"' : x ++ "\""
+    showSyn (LitChar x) = show x
     showSyn (LitInt x) = show x
     showSyn (LitFloat x) = showFFloat Nothing x ""
     showSyn (LitList xs) = showSynList xs
