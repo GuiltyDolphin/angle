@@ -10,14 +10,14 @@ import TestHelper
     
     
 testAddList :: [LangLit] -> [LangLit] -> Property
-testAddList xs ys = monadicEither $ do
-                      res <- run $ addLit (LitList xs:ys)
+testAddList xs ys = monadicIO $ do
+                      res <- run $ runExec $ addLit (LitList xs:ys)
                       assertEqualQC (LitList (xs++ys)) res
 
 
 testAndLitBool :: [Bool] -> Property
-testAndLitBool xs = monadicEither $ do
-                      res <- run $ andLit (map LitBool xs)
+testAndLitBool xs = monadicIO $ do
+                      res <- run $ runExec $ andLit (map LitBool xs)
                       assertEqualQC (LitBool $ and xs) res
 
 

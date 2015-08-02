@@ -63,6 +63,7 @@ concatLit (z:zs) = foldM concatLit' z zs
         concatLit' (LitList xs) y = return . LitList $ xs ++ [y]
         concatLit' x (LitList ys) = return . LitList $ x : ys
         concatLit' x y = return . LitList $ [x, y]
+concatLit _ = throwParserError $ malformedSignatureErr "++"
 
 
 -- | Division operator.

@@ -141,15 +141,8 @@ instance Arbitrary LangOp where
 
 
 instance Arbitrary Op where
-    arbitrary = elements
-                [ OpNeg
-                , OpMult
-                , OpDiv
-                , OpAdd
-                , OpSub
-                , OpNot
-                , OpEq
-                ]
+    arbitrary = oneof [ liftArby getMultiOp
+                      , liftArby getSpecOp]
 
 
 
@@ -203,11 +196,18 @@ instance Arbitrary SpecOp where
 
 instance Arbitrary MultiOp where
     arbitrary = elements $ map ArbyMultiOp
-                [ OpMult
+                [ OpAdd
+                , OpAnd
+                , OpConcat
                 , OpDiv
-                , OpAdd
-                , OpSub
                 , OpEq
+                , OpGreater
+                , OpGreaterEq
+                , OpLess
+                , OpLessEq
+                , OpMult
+                , OpOr
+                , OpSub
                 ]
 
     
