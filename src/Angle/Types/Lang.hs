@@ -255,7 +255,7 @@ instance ShowSyn Expr where
     showSyn (ExprFunIdent x) = "$" ++ showSyn x
     showSyn (ExprList _) = error "showSyn - cannot show unevaluated list"
     showSyn (ExprRange{}) = error "showSyn - cannot show unevaluated range"
-    showSyn (ExprLambdaCall x xs) = "lambda call"
+    showSyn (ExprLambdaCall x xs) = showSyn (ExprLambda x) ++ " : (" ++ showSynArgs xs ++ ")"
     showSyn (ExprParamExpand _) = error "showSyn - ExprParamExpand made it to showSyn"
                          
                          
