@@ -9,6 +9,7 @@ module Angle.Lex.Lexer
     , litBool
     , litRange
     , litNull
+    , litList
     , langOp
     , exprIdent
     , exprLit

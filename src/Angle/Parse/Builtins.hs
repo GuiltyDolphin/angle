@@ -22,6 +22,7 @@ import Angle.Parse.Error
 import Angle.Parse.Scope
 import Angle.Parse.Types
 import Angle.Types.Lang
+import Angle.Lex.Lexer (litList, evalScan)
 
            
 builtinCallSig :: LangIdent -> CallSig
@@ -100,6 +101,9 @@ asType (LitStr _) x = return . toLitStr $ x
 asType (LitFloat _) (LitInt x) = return . LitFloat $ fromIntegral x
 asType (LitFloat _) (LitStr y) = fromStr y LitFloat
 asType (LitInt _) (LitStr y) = fromStr y LitInt
+asType (LitList _) (LitStr y) = case evalScan y litList of
+                                  Left _ -> throwParserError . callBuiltinErr $ "asType: could not convert string literal to list"
+                                  Right r -> return r
 asType (LitBool _) (LitStr y) = 
     case y of
       "true" -> return $ LitBool True
