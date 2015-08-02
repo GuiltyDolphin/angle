@@ -237,8 +237,8 @@ data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
              | LitFloat { getLitFloat :: Double } -- ^ Double-precision floating point value.
              | LitList { getLitList :: [LangLit] } -- ^ List of literal values. Values may be of different types.    
              | LitBool { getLitBool :: Bool } -- ^ Boolean value.
-             | LitRange LangLit LangLit (Maybe LangLit)
              | LitChar { getLitChar :: Char }
+             | LitRange LangLit (Maybe LangLit) (Maybe LangLit)
              | LitNull -- ^ Null value. Implicit value 
                        -- returned from any expression 
                        -- that fails to return a value 
@@ -260,9 +260,8 @@ instance ShowSyn LangLit where
     showSyn (LitLambda x) = showSyn x
                             
 
-showRange :: (ShowSyn a) => a -> a -> Maybe a -> String
-showRange x y (Just z) = "(" ++ showSyn x ++ ".." ++ showSyn y ++ ".." ++ showSyn z ++ ")"
-showRange x y Nothing = "(" ++ showSyn x ++ ".." ++ showSyn y ++ ")"
+showRange :: (ShowSyn a) => a -> Maybe a -> Maybe a -> String
+showRange x y z = "(" ++ showSyn x ++ ".." ++ maybe "" showSyn y ++ maybe "" ((".." ++) . showSyn) z ++ ")"
                    
 
 data LangType = LTStr
@@ -311,7 +310,7 @@ data Expr = ExprIdent LangIdent
           | ExprLambdaCall Lambda [Expr]
           | ExprOp LangOp
           | ExprList [Expr]
-          | ExprRange Expr Expr (Maybe Expr)
+          | ExprRange Expr (Maybe Expr) (Maybe Expr)
           | ExprParamExpand LangIdent
             deriving (Show, Eq)
                      

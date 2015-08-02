@@ -244,7 +244,7 @@ exprRange :: Scanner Expr
 exprRange = parens $ do
               from <- expr
               string ".."
-              to <- expr
+              to <- optional expr
               step <- optional . tryScan $ do
                         string ".."
                         expr
@@ -266,13 +266,13 @@ litChar = liftM LitChar $ surrounded (char '\'') (notChar '\'')
 -- TODO: Add additional `step' to ranges (1..7..3)
 -- | Dotted range of values.
 litRange :: Scanner LangLit
-litRange = parens $ do
+litRange = tryScan $ parens $ do
              from <- langLit
              string ".."
-             to <- langLit
+             to <- optional langLit
              step <- optional . tryScan $ do
-                       string ".."
-                       langLit
+                                string ".."
+                                langLit
              return $ LitRange from to step
                
 
