@@ -19,6 +19,7 @@ module Angle.Lex.Lexer
     , singStmt
     , expr
     , structDefun
+    , evalScan
     ) where
 
 
