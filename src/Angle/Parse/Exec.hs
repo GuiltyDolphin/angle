@@ -132,7 +132,7 @@ lookupClassF = lookupVarF classBindings nameNotDefinedClassErr
 getScope = liftM currentScope get 
            
 
-lookupVarLitF = lookupVarF valueBindings nameNotDefinedLitErr
+lookupVarLitF = (returnVal =<<) . lookupVarF valueBindings nameNotDefinedLitErr
 
 -- lookupVarLitF :: LangIdent -> ExecIO LangLit
 -- lookupVarLitF name = do
@@ -249,10 +249,10 @@ assignVarLambda name val = do
 --   when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
 --   modifyScope $ setVarFunInScope name emptyVar {varDef=Just val}
               
-assignVarClass = assignVar AnnClass classBindings setVarClassInScope
+assignVarClass = assignVar classBindings setVarClassInScope
               
 
-assignVar typ binds setf name val = do
+assignVar binds setf name val = do
   current <- lookupVarCurrentScope binds name
   when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
   modifyScope $ setf name emptyVar {varDef=Just val}
@@ -398,13 +398,13 @@ expandParams (x:xs)
                          
 
 execExpr :: Expr -> ExecIO LangLit
-execExpr (ExprLit x) = return x
+execExpr (ExprLit x) = returnVal x
 execExpr (ExprIdent x) = lookupVarLitF x
 execExpr (ExprFunIdent x) = liftM LitLambda $ lookupVarLambdaF x
 execExpr (ExprOp x) = execOp x
 execExpr (ExprFunCall name args) = execFunCall name args
 execExpr (ExprList xs) = liftM LitList $ mapM execExpr xs
-execExpr (ExprLambda x) = return (LitLambda x)
+execExpr (ExprLambda x) = returnVal (LitLambda x)
 execExpr (ExprLambdaCall f xs) = callLambda f xs
                                    
 
