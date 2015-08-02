@@ -9,6 +9,7 @@ module Angle.Parse.Types
     , runExecIOBasic
     , runExecIOEnv
     , Env(..)
+    , basicEnv
     ) where
 
 

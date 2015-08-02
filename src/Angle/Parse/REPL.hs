@@ -14,8 +14,10 @@ import qualified System.Console.CmdArgs as CA
 
 import Angle.Lex.Lexer
 import Angle.Lex.Helpers
+import Angle.Parse.Builtins
 import Angle.Parse.Exec
 import Angle.Parse.Error
+import Angle.Parse.Types
 import Angle.Types.Lang
     
 data ReplOptions = ReplOptions
@@ -35,7 +37,7 @@ processLine :: String -> IO ()
 processLine s = do
   case evalScan s program of
     Left err -> print err
-    Right res -> runExecIOBasic (execStmt res) >>= print
+    Right res -> runExecIOEnv startEnv (execStmt res) >>= print
                                
 -- execLine :: Env -> String -> IO Env
 -- execLine e s = case evalScan s program of
@@ -114,14 +116,14 @@ runMain opts = undefined
                
 runWithSource :: String -> IO ()
 runWithSource s = do
-  x <- runExecIOBasic $ withSource s
+  x <- runExecIOEnv startEnv $ withSource s
   return ()
 
 main = do 
   args <- cmdArgs replOptions
   unless (null $ file args)
        (readFile (file args) >>= runWithSource)
-  runExecIOBasic mainProg
+  runExecIOEnv startEnv mainProg
   -- runExecIOBasic mainProg
   -- putStr "> "
   -- userInput <- getLine
