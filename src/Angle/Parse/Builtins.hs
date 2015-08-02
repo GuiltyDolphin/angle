@@ -8,6 +8,7 @@ module Angle.Parse.Builtins
     , builtinCompose
     , builtinPartial
     , builtinAsType
+    , builtinGetArgs
     , builtinInput
     , startEnv
     ) where
@@ -17,6 +18,7 @@ import Control.Monad
 import Control.Monad.State
 import qualified Data.Map as M
 import Data.Maybe (maybeToList)
+import System.Environment
 
 import Angle.Parse.Error
 import Angle.Parse.Scope
@@ -68,7 +70,7 @@ builtins = [ "print", "str"
            , "index", "length"
            , "compose", "partial"
            , "input", "eval"
-           , "asType"]
+           , "asType", "getArgs"]
          
 
 builtinPrint :: [LangLit] -> ExecIO LangLit
@@ -245,4 +247,7 @@ toLitStr x@(LitStr _) = x
 toLitStr (LitList xs) = LitStr (show xs)
 toLitStr x@(LitRange{}) = LitStr $ showSyn x
 toLitStr LitNull = LitStr ""
-                   
+
+
+builtinGetArgs :: [LangLit] -> ExecIO LangLit
+builtinGetArgs _ = liftM (LitList . map LitStr) $ liftIO getArgs
