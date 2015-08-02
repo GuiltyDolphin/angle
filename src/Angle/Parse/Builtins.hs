@@ -13,6 +13,11 @@ module Angle.Parse.Builtins
     , startEnv
     , argsToString
     ) where
+      
+
+-- TODO:
+-- * inClass(x,..cls) - builtin function for checking
+--    if x satisfies the given classes.
 
 
 import Control.Monad
@@ -162,8 +167,7 @@ builtinIndex _ = throwParserError $ callBuiltinErr "index: invalid call signatur
 
 splice :: Int -> Int -> [a] -> [a]
 splice x y xs = take (1+y-x) $ drop x xs
-
-
+                
 -- runCompose :: CallSig -> CallSig -> Expr -> ExecIO LangLit
 -- runCompose c1 c2 e = do
 --   intm <- callFunCallSig c2 [e]

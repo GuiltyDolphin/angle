@@ -18,6 +18,7 @@ module Angle.Lex.Token
     , tokRangeSep
     , tokSpace
     , tokWhitespace
+    , tokNSpaced
     , tokPeriod
     , tokString
     , tokNewLine
@@ -218,6 +219,7 @@ exprSep = lookAhead (charFrom sepChar) <?> "expression boundary"
 keywords :: [String]
 keywords = [ "break"
            , "continue"
+           , "defclass"
            , "defun"
            , "do"
            , "else"
@@ -265,3 +267,6 @@ whitespace = many tokWhitespace
 
 spaces :: Scanner String
 spaces = many tokSpace
+
+
+tokNSpaced = tokSpace <|> tokNewLine >> whitespace

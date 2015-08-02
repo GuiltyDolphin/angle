@@ -117,12 +117,14 @@ newScope = do
               
 lookupVarLit = lookupVar valueBindings
               
+
 lookupVar binds name = do
   currScope <- getScope
   case resolve binds name currScope of
     Nothing -> return Nothing
     Just x -> return $ varDef x
               
+
 lookupVarF binds err name = lookupVar binds name
                         >>= maybe (throwParserError $ err name)
                             return

@@ -30,6 +30,12 @@ module Angle.Types.Lang
     , Lambda(..)
     , typeAnnOf
     ) where
+    
+
+-- TODO:
+-- * AnnType
+--   - Add AnnAny - a type that allows any 
+--     type to be passed (as in, function, literal etc..)
 
 import Numeric (showFFloat)
     
