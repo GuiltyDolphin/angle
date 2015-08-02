@@ -242,6 +242,7 @@ data Expr = ExprIdent LangIdent
           | ExprOp LangOp
           | ExprList [Expr]
           | ExprRange Expr Expr (Maybe Expr)
+          | ExprParamExpand LangIdent
             deriving (Show, Eq)
                      
 
@@ -255,6 +256,7 @@ instance ShowSyn Expr where
     showSyn (ExprList _) = error "showSyn - cannot show unevaluated list"
     showSyn (ExprRange{}) = error "showSyn - cannot show unevaluated range"
     showSyn (ExprLambdaCall x xs) = "lambda call"
+    showSyn (ExprParamExpand _) = error "showSyn - ExprParamExpand made it to showSyn"
                          
                          
 newtype LangIdent = LangIdent { getIdent :: String }

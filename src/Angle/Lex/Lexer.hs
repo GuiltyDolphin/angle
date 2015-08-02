@@ -276,7 +276,11 @@ exprLambda = liftM ExprLambda . parens $ do
 
 -- | Set of arguments for a function 
 arglist :: Scanner [Expr]
-arglist = within tokTupleStart tokTupleEnd (sepWith tokEltSep expr)
+arglist = within tokTupleStart tokTupleEnd (sepWith tokEltSep (expr <|> exprParamExpand))
+          
+
+exprParamExpand :: Scanner Expr
+exprParamExpand = liftM ExprParamExpand $ string ".." >> langIdent
 
 
 callList :: Scanner ArgSig
