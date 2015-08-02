@@ -229,6 +229,8 @@ keywords = [ "break"
            , "return"
            , "then"
            , "true"
+           , "unless"
+           , "when"
            , "while"]
            
 

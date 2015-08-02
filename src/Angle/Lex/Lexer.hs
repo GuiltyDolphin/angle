@@ -129,6 +129,7 @@ langStruct :: Scanner LangStruct
 langStruct =     structFor 
              <|> structWhile 
              <|> structIf 
+             <|> structUnless
              <|> structDefun 
              <|> structDefClass
              <?> "language construct"
@@ -151,11 +152,36 @@ structWhile = StructWhile
          
 
 -- | Conditional if statement.
+--
+-- of the form:
+--
+-- if EXPR then STMT {else STMT}
 structIf :: Scanner LangStruct
 structIf = StructIf
            <$> (string "if " *> expr)
            <*> (string " then " *> stmt)
            <*> optional (string "else " *> stmt)
+
+
+-- | unless EXPR STMT
+--
+-- is equivalent to 
+-- 
+-- if (NOT)EXPR then STMT
+structUnless :: Scanner LangStruct
+structUnless = do
+  e <- string "unless " *> expr
+  char ' ' <|> tokNewLine
+  s <- stmt
+  return $ StructIf (ExprOp (SpecOp OpNot e)) s Nothing
+         
+
+structWhen :: Scanner LangStruct
+structWhen = do
+  e <- string "when " *> expr
+  char ' ' <|> tokNewLine
+  s <- stmt
+  return $ StructIf e s Nothing
 
         
 -- | Function definition.
