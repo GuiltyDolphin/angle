@@ -514,7 +514,4 @@ builtinEval xs = do
   case r of
     Left _ -> throwParserError . callBuiltinErr $ "eval: no parse"
     Right res -> execStmt res
-    where st = concatMap
-                (\x -> case x of
-                         (LitStr s) -> s
-                         _ -> showSyn x) xs
+    where st = argsToString xs

@@ -11,6 +11,7 @@ module Angle.Parse.Builtins
     , builtinGetArgs
     , builtinInput
     , startEnv
+    , argsToString
     ) where
 
 
@@ -75,20 +76,19 @@ builtins = [ "print", "str"
 
 builtinPrint :: [LangLit] -> ExecIO LangLit
 builtinPrint xs = liftIO $ putStrLn res >> return (LitStr res)
-    where res = concatMap 
-                (\x -> case x of
-                         (LitStr s) -> s
-                         _ -> showSyn x) xs
+    where res = argsToString xs
                                             
 
 builtinInput :: [LangLit] -> ExecIO LangLit
 builtinInput xs = liftM LitStr (liftIO $ putStr res >> liftIO getLine) 
-    where res = concatMap
-                (\x -> case x of
-                         (LitStr s) -> s
-                         _ -> showSyn x) xs
+    where res = argsToString xs
                               
 
+argsToString :: [LangLit] -> String
+argsToString = concatMap 
+               (\x -> case x of
+                        (LitStr s) -> s
+                        _ -> showSyn x)
                               
 
 builtinAsType :: [LangLit] -> ExecIO LangLit
