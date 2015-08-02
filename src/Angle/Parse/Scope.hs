@@ -11,6 +11,7 @@ module Angle.Parse.Scope
     , mergeScope
     , setVarFunInScope
     , setVarLitInScope
+    , setVarClassInScope
     , deleteLitFromScope
     , deleteFunFromScope
     , resolveLit
@@ -66,7 +67,7 @@ data Scope = Scope
 --    , bindings   :: BindEnv
     , valueBindings :: BindEnv LangLit
     , lambdaBindings :: BindEnv Lambda
-    , classBindings :: BindEnv ClassLambda
+    , classBindings :: BindEnv Lambda -- ClassLambda
     } deriving (Show, Eq)
 
 
@@ -159,6 +160,8 @@ onClassBindings f scope = scope { classBindings = f $ classBindings scope }
 setVarLitInScope name val = onLitBindings (M.insert name val)
       
 setVarFunInScope name val = onFunBindings (M.insert name val)
+                            
+setVarClassInScope name val = onClassBindings (M.insert name val)
                                          
 
 

@@ -17,7 +17,6 @@ module Angle.Types.Lang
     , LangIdent(..)
     , LangType(..)
     , typeOf
-    , CallSig(..)
     , ArgSig(..)
     , hasCatchAllArg
     , ShowSyn(..)
@@ -29,6 +28,7 @@ module Angle.Types.Lang
     , ArgElt(..)
     , argNoAnn
     , Lambda(..)
+    , typeAnnOf
     ) where
 
 import Numeric (showFFloat)
@@ -108,6 +108,7 @@ data LangStruct = StructFor LangIdent Expr Stmt
                 | StructWhile Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)
                 | StructDefun LangIdent Lambda
+                | StructDefClass LangIdent Lambda
                   deriving (Show, Eq)
                            
 
@@ -126,6 +127,8 @@ instance ShowSyn LangStruct where
             Just x -> " else " ++ showSyn x
     showSyn (StructDefun n c)
         = concat ["defun ", showSyn n, showSyn c]
+    showSyn (StructDefClass n c)
+        = concat ["defclass ", showSyn n, showSyn c]
     -- showSyn (StructDefun n c) 
     --     = concat ["defun ", showSyn n, showSynSep "("
     --                           (case catchArg of
@@ -156,11 +159,6 @@ showSynOpList = showSynSep " " ")" " "
 
 data ParamList = ParamList { parListParams :: [Expr] }
                deriving (Show, Eq)
-
-data CallSig = CallSig 
-    { callArgs :: ArgSig -- ^ The argument list that is accepted by the function.
-    , callBody :: Stmt -- ^ The function body.
-    } deriving (Show, Eq)
              
 
 data Lambda = Lambda { lambdaArgs :: ArgSig
@@ -177,13 +175,13 @@ data ArgSig = ArgSig { stdArgs :: [ArgElt] -- ^ Standard positional arguments.
 
 
 data ArgElt = ArgElt 
-    { argEltType :: Maybe AnnType
+    { argEltType :: AnnType
     , argEltName :: LangIdent
     , argEltClass :: Maybe ClassRef
     } deriving (Show, Eq)
             
 argNoAnn :: LangIdent -> ArgElt
-argNoAnn name = ArgElt { argEltType = Nothing
+argNoAnn name = ArgElt { argEltType = AnnLit
                        , argEltName = name
                        , argEltClass = Nothing }
             
@@ -193,15 +191,15 @@ instance ShowSyn ArgElt where
                     , argEltName=name
                     , argEltClass=cls })
         = case typ of
-            Just AnnFun -> "$"
-            Just AnnClass -> "@"
-            Nothing -> ""
+            AnnFun -> "$"
+            AnnClass -> "@"
+            AnnLit -> ""
           ++ showSyn name ++ case cls of 
                                Just c -> ':' : showSyn c
                                Nothing -> ""
 
 
-data ClassLambda = ClassLambda LangIdent LangIdent Stmt
+data ClassLambda = ClassLambda LangIdent Lambda
               deriving (Show, Eq)
               
 
@@ -212,8 +210,13 @@ instance ShowSyn ClassRef where
     showSyn (ClassRef {getClassRef = name}) = '@' : showSyn name
                                      
 
-data AnnType = AnnClass | AnnFun
-               deriving (Show, Eq)
+data AnnType = AnnClass | AnnFun | AnnLit
+               deriving (Eq)
+                        
+instance Show AnnType where
+    show AnnClass = "class"
+    show AnnFun = "function"
+    show AnnLit = "literal"
 
 
 -- | @True@ if `catchAllArg` is @Just@ something.
@@ -275,6 +278,11 @@ typeOf (LitBool{})   = LTBool
 typeOf (LitRange{}) = LTRange
 typeOf LitNull        = LTNull
 typeOf (LitLambda{}) = LTLambda
+                       
+
+-- TODO: Check this - can't identify classes
+typeAnnOf (LitLambda{}) = AnnFun
+typeAnnOf _ = AnnLit
               
 
 instance Show LangType where
@@ -319,10 +327,6 @@ newtype LangIdent = LangIdent { getIdent :: String }
                           
 instance ShowSyn LangIdent where
     showSyn = getIdent
-    
-                         
-instance ShowSyn CallSig where
-    showSyn (CallSig args body) = showSyn args ++ " " ++ showSyn body
                                   
 
 -- | TODO: Check this out... It looks a bit weird.

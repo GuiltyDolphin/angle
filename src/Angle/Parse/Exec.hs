@@ -8,7 +8,7 @@ module Angle.Parse.Exec
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromJust, fromMaybe, isJust, isNothing)
     
 import Debug.Trace (trace)
 
@@ -108,21 +108,38 @@ newScope = do
 --   let res = resolve name (currentScope env)
 --   return res
          
-lookupVarLit :: LangIdent -> ExecIO (Maybe LangLit)
-lookupVarLit name = do
+-- lookupVarLit :: LangIdent -> ExecIO (Maybe LangLit)
+-- lookupVarLit name = do
+--   currScope <- getScope
+--   case resolveLit name currScope of 
+--     Nothing -> return Nothing
+--     Just x -> return $ varDef x
+              
+lookupVarLit = lookupVar valueBindings
+              
+lookupVar binds name = do
   currScope <- getScope
-  case resolveLit name currScope of 
+  case resolve binds name currScope of
     Nothing -> return Nothing
     Just x -> return $ varDef x
+              
+lookupVarF binds err name = lookupVar binds name
+                        >>= maybe (throwParserError $ err name)
+                            return
+                            
+lookupClassF = lookupVarF classBindings nameNotDefinedClassErr
  
 getScope = liftM currentScope get 
+           
 
-lookupVarLitF :: LangIdent -> ExecIO LangLit
-lookupVarLitF name = do
-  res <- lookupVarLit name
-  case res of
-    Nothing -> throwParserError $ nameNotValueErr name
-    Just x -> return x
+lookupVarLitF = lookupVarF valueBindings nameNotDefinedLitErr
+
+-- lookupVarLitF :: LangIdent -> ExecIO LangLit
+-- lookupVarLitF name = do
+--   res <- lookupVarLit name
+--   case res of
+--     Nothing -> throwParserError $ nameNotValueErr name
+--     Just x -> return x
               
 
 lookupVarLambda :: LangIdent -> ExecIO (Maybe Lambda)
@@ -132,10 +149,11 @@ lookupVarLambda name = do
     Nothing -> return Nothing
     Just x -> return $ varDef x
               
-              
-lookupVarLambdaF :: LangIdent -> ExecIO Lambda
-lookupVarLambdaF name = lookupVarLambda name >>= (maybe tError return) 
-    where tError = throwParserError . nameNotFunctionErr $ name
+  
+lookupVarLambdaF = lookupVarF lambdaBindings nameNotDefinedFunErr            
+-- lookupVarLambdaF :: LangIdent -> ExecIO Lambda
+-- lookupVarLambdaF name = lookupVarLambda name >>= (maybe tError return) 
+--     where tError = throwParserError . nameNotFunctionErr $ name
 
 
 -- lookupVarLambdaF :: LangIdent -> ExecIO CallSig
@@ -225,6 +243,21 @@ assignVarLambda name val = do
   current <- lookupVarFunCurrentScope name
   when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
   modifyScope $ setVarFunInScope name emptyVar {varDef=Just val}
+              
+-- assignVarClass name val = do
+--   current <- lookupVarFunCurrentScope name
+--   when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
+--   modifyScope $ setVarFunInScope name emptyVar {varDef=Just val}
+              
+assignVarClass = assignVar AnnClass classBindings setVarClassInScope
+              
+
+assignVar typ binds setf name val = do
+  current <- lookupVarCurrentScope binds name
+  when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
+  modifyScope $ setf name emptyVar {varDef=Just val}
+  
+  
 
 
 infix 4 |=
@@ -243,9 +276,38 @@ upScope = do
     Just x -> modifyScope (const x)
   
   
-argListBind = undefined        
--- argListBind :: [Expr] -> CallSig -> ExecIO ()
--- argListBind args' cs = do
+bindArgs args (ArgSig 
+                    { stdArgs=params
+                    , catchAllArg=catchParam}) 
+    = do
+  let toCheck = zip args params
+      la = length args
+      lp = length params
+  when (la > lp && isNothing catchParam || la < lp)
+           (throwParserError $ wrongNumberOfArgumentsErr lp la)
+  catchBind <- case catchParam of
+                 Nothing -> return []
+                 Just cp -> do
+                   let toCatch = drop lp args
+                   res <- mapM execExpr toCatch
+                   return [(cp, LitList res)]
+  vals <- mapM (uncurry checkArg) toCheck
+  let toBindFuns = map fst $ filter (isAnnFun . snd)  vals
+      toBindClass = map fst $ filter (isAnnClass . snd) vals
+      toBindLits = (map fst $ filter (isAnnLit . snd) vals) ++ catchBind
+      isAnnFun AnnFun = True
+      isAnnFun _ = False
+      isAnnLit AnnLit = True
+      isAnnLit _ = False
+      isAnnClass AnnClass = True
+      isAnnClass _ = False
+  newScope
+  forM_ toBindFuns (\(x, (LitLambda l)) -> assignVarLambda x l)
+  forM_ toBindClass (\(x, (LitLambda l)) -> assignVarClass x l)
+  forM_ toBindLits (uncurry assignVarLit)
+  return ()
+-- bindArgs :: [Expr] -> CallSig -> ExecIO ()
+-- bindArgs args' cs = do
 --   args <- expandParams args'
 --   let params = callArgs cs
 --       la = length args
@@ -262,30 +324,65 @@ argListBind = undefined
 --   forM_ fullBind (uncurry assignVarLit)
         
 
-checkArg :: Expr -> ArgElt -> ExecIO Bool
-checkArg ex (ArgElt {argEltClass=cls, argEltType=typ}) = do
+-- | Make sure the argument satisfies any
+-- class or type restrictions placed upon it.
+checkArg :: Expr -> ArgElt -> ExecIO ((LangIdent, LangLit), AnnType)
+checkArg ex (ArgElt {argEltClass=cls, argEltType=typ
+                    , argEltName=name}) = do
   v <- execExpr ex
-  p1 <- checkSatClass v cls
-  p2 <- checkSatType v typ
-  return (p1 && p2)
+  checkSatClass v $ fmap getClassRef cls
+  checkSatType v typ
+  return ((name, v), typ)
          
 
-chackSatClass :: LangLit -> Maybe LangLit -> ExecIO Bool
-chackSatClass _ Nothing = return True
-chackSatClass v (Just c) = do
-  cls <- lookupClassF c
-  execClass (ExprLit v) cls
-
-
-lookupClass :: LangLit -> ExecIO (Maybe ClassLambda)
-lookupClass name = undefined
+checkSatClass :: LangLit -> Maybe LangIdent -> ExecIO ()
+checkSatClass _ Nothing = return ()
+checkSatClass v (Just clsName) = do
+  res <- satClass v clsName
+  case res of
+    True -> return ()
+    False -> throwParserError $ typeExpectClassErr v clsName
                    
-lookupClassF = undefined
+lookupClass = lookupVar classBindings
+                   
                
-execClass = undefined
+-- execClass val cls = do
+--   res <- callLambda cls [val]
+--   case res of
+--     LitBool x -> return x
+--     y -> throwParserError $ typeClassWrongReturnErr (typeOf y)
 
-checkSatType = undefined
-checkSatClass = undefined
+
+execClass val clsName = do
+  cls <- lookupClassF clsName
+  res <- callLambda cls [ExprLit val]
+  case res of
+    x@(LitBool _) -> return x
+    y -> throwParserError 
+         $ typeClassWrongReturnErr clsName (typeOf y)
+
+
+satType (LitLambda _) AnnFun = True
+satType (LitLambda _) AnnClass = True -- TODO: Check this!
+satType (LitLambda _) AnnLit = False
+satType _ AnnLit = True
+satType _ _ = False
+
+              
+checkSatType val typ = do
+  let res = satType val typ
+  unless res $ throwParserError $ typeAnnWrongErr typ $ typeAnnOf val
+
+
+satClass val clsName = do
+  (LitBool res) <- execClass val clsName
+  return res
+
+  -- cls <- lookupClassF clsName
+  -- execClass val cls
+  
+  
+  
 
 -- | Expand any ExprParamExpand expressions in an argument list.
 expandParams :: [Expr] -> ExecIO [Expr]
@@ -339,7 +436,7 @@ execMultiOp OpLessEq xs    = withMultiOp xs lessEqLit
 execMultiOp OpMult xs      = withMultiOp xs multLit
 execMultiOp OpOr xs        = withMultiOp xs orLit
 execMultiOp OpSub xs       = withMultiOp xs subLit
-execMultiOp (UserOp _) _ = undefined
+execMultiOp (UserOp _) _ = throwImplementationErr "execMultiOp: implement user operators"
 -- execMultiOp (UserOp x) xs = do
 --   sig <- lookupOpF x
 --   callFunCallSig sig xs
@@ -360,18 +457,20 @@ callFun x args | isBuiltin x = callBuiltin x args
                  
 
 callLambda :: Lambda -> [Expr] -> ExecIO LangLit
-callLambda l args = undefined -- callFunCallSig l args
-
--- do
-  --callsig <- lookupVarLambdaF x
-  --argListBind args callsig
-  --execStmt (callBody callsig)
+callLambda (Lambda 
+            { lambdaArgs=params
+            , lambdaBody=body}) args
+    = do
+  bindArgs args params
+  res <- execStmt body `catchReturn` return
+  upScope
+  return res
            
 
-callFunCallSig :: CallSig -> [Expr] -> ExecIO LangLit
-callFunCallSig callsig args = do
-  argListBind args callsig
-  res <- execStmt (callBody callsig) `catchReturn` return
+callFunCallSig :: Lambda -> [Expr] -> ExecIO LangLit
+callFunCallSig (Lambda {lambdaArgs=params, lambdaBody=body}) args = do
+  bindArgs args params
+  res <- execStmt body `catchReturn` return
   upScope
   return res
            
@@ -446,6 +545,7 @@ execLangStruct (StructFor name e s) = execStructFor name e s
 execLangStruct (StructWhile e s) = execStructWhile e s
 execLangStruct (StructIf if' thn els) = execStructIf if' thn els
 execLangStruct (StructDefun name cs) = assignVarLambda name cs *> return LitNull
+execLangStruct (StructDefClass name cs) = assignVarClass name cs *> return LitNull
                                         
 
 execStructIf :: Expr -> Stmt -> Maybe Stmt -> ExecIO LangLit

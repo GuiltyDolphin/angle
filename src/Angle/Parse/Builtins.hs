@@ -91,31 +91,31 @@ argsToString = concatMap
                         (LitStr s) -> s
                         _ -> showSyn x)
                               
-
 builtinAsType :: [LangLit] -> ExecIO LangLit
 builtinAsType [x] = return x
 builtinAsType [x,y] = asType x y
 builtinAsType (x:xs) = liftM LitList $ mapM (asType x) xs
 builtinAsType _ = throwParserError $ callBuiltinErr "asType: invalid call"
-                         
-
+                  
 asType :: LangLit -> LangLit -> ExecIO LangLit
+asType x y | typeOf x == typeOf y = return y
 asType (LitStr _) x = return . toLitStr $ x
 asType (LitFloat _) (LitInt x) = return . LitFloat $ fromIntegral x
 asType (LitFloat _) (LitStr y) = fromStr y LitFloat
 asType (LitInt _) (LitStr y) = fromStr y LitInt
 asType (LitList _) (LitStr y) = case evalScan y litList of
-                                  Left _ -> throwParserError . callBuiltinErr $ "asType: could not convert string literal to list"
-                                  Right r -> return r
+                                   Left _ -> return LitNull -- throwParserError . callBuiltinErr $ "asType: could not convert string literal to list"
+                                   Right r -> return r
 asType (LitBool _) (LitStr y) = 
     case y of
       "true" -> return $ LitBool True
       "false" -> return $ LitBool False
-      _ -> throwParserError . callBuiltinErr $ "asType: could not convert string literal to boolean"
+      _ -> return LitNull -- throwParserError . callBuiltinErr $ "asType: could not convert string literal to boolean"
+asType _ _ = return LitNull
                                     
 fromStr :: (Read a) => String -> (a -> LangLit) -> ExecIO LangLit
 fromStr s f = case reads s of
-              [] -> throwParserError . callBuiltinErr $ "asType: could not convert string literal to " ++ show (typeOf $ f undefined)
+              [] -> return LitNull -- throwParserError . callBuiltinErr $ "asType: could not convert string literal to " ++ show (typeOf $ f undefined)
               [(r,"")] -> return $ f r
                               
 

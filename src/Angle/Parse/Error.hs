@@ -9,9 +9,13 @@ module Angle.Parse.Error
     , typeCastErr
     , typeMismatchOpErr
     , typeMismatchOpErrT
+    , typeExpectClassErr
+    , typeClassWrongReturnErr
+    , typeAnnWrongErr
     , nameNotDefinedErr
-    , nameNotFunctionErr
-    , nameNotValueErr
+    , nameNotDefinedFunErr
+    , nameNotDefinedLitErr
+    , nameNotDefinedClassErr
     , nameNotOpErr
     , assignToBuiltinErr
     , wrongNumberOfArgumentsErr
@@ -168,6 +172,9 @@ data TypeError = TypeMismatch   LangType LangType
                | TypeNotValid   LangType
                | TypeCast LangType LangType
                | TypeMismatchOp LangType LangType
+               | TypeExpectClass LangLit LangIdent
+               | TypeClassWrongReturn LangIdent LangType
+               | TypeAnnWrong AnnType AnnType
 
                  
 typeMismatchErr :: LangType -> LangType -> ParserError
@@ -196,6 +203,17 @@ typeMismatchOpErr t1 = typeErr . TypeMismatchOp t1
 
 typeMismatchOpErrT :: LangLit -> LangLit -> ParserError
 typeMismatchOpErrT = typeMismatchOpErr `on` typeOf
+                     
+
+typeExpectClassErr :: LangLit -> LangIdent -> ParserError
+typeExpectClassErr n = typeErr . TypeExpectClass n
+                         
+
+typeClassWrongReturnErr :: LangIdent -> LangType -> ParserError
+typeClassWrongReturnErr n = typeErr . TypeClassWrongReturn n
+                            
+
+typeAnnWrongErr t1 = typeErr . TypeAnnWrong t1
 
                
 instance Show TypeError where
@@ -204,12 +222,16 @@ instance Show TypeError where
     show (TypeNotValid l)     = "type not valid for scenario: " ++ show l
     show (TypeCast l r) = "cannot convert " ++ show l ++ " to " ++ show r
     show (TypeMismatchOp l r) = "cannot perform operation on types " ++ show l ++ " and " ++ show r
+    show (TypeExpectClass v c) = "expecting value that satisfies class '" ++ showSyn c ++ "' but got: " ++ showSyn v
+    show (TypeClassWrongReturn c t) = "bad class: " ++ showSyn c ++ ", expecting return value of type bool, but got " ++ show t
+    show (TypeAnnWrong t1 t2) = "bad type in function call, expecting " ++ show t1 ++ " but got " ++ show t2
     -- show (TypeMismatchOp op l r) = "cannot perform operation (" ++ showSyn op ++ ") on types " ++ show l ++ " and " ++ show r
                             
 
 data NameError = NameNotDefined LangIdent 
-               | NameNotFunction LangIdent
-               | NameNotValue LangIdent
+               | NameNotDefinedClass LangIdent
+               | NameNotDefinedFun LangIdent
+               | NameNotDefinedLit LangIdent
                | NameNotOp LangIdent
                | AssignToBuiltin LangIdent
 
@@ -218,12 +240,16 @@ nameNotDefinedErr :: LangIdent -> ParserError
 nameNotDefinedErr  = nameErr . NameNotDefined
 
 
-nameNotFunctionErr :: LangIdent -> ParserError
-nameNotFunctionErr = nameErr . NameNotFunction
+nameNotDefinedFunErr :: LangIdent -> ParserError
+nameNotDefinedFunErr = nameErr . NameNotDefinedFun
 
 
-nameNotValueErr :: LangIdent -> ParserError
-nameNotValueErr    = nameErr . NameNotValue
+nameNotDefinedLitErr :: LangIdent -> ParserError
+nameNotDefinedLitErr = nameErr . NameNotDefinedLit
+                       
+
+nameNotDefinedClassErr :: LangIdent -> ParserError
+nameNotDefinedClassErr = nameErr . NameNotDefinedClass
 
 
 nameNotOpErr :: LangIdent -> ParserError
@@ -236,8 +262,9 @@ assignToBuiltinErr = nameErr . AssignToBuiltin
 
 instance Show NameError where
     show (NameNotDefined  (LangIdent name)) = "not in scope: "         ++ name
-    show (NameNotFunction (LangIdent name)) = "not a valid function: " ++ name
-    show (NameNotValue    (LangIdent name)) = "no value assigned: "    ++ name
+    show (NameNotDefinedFun (LangIdent name)) = "not a valid function: " ++ name
+    show (NameNotDefinedLit (LangIdent name)) = "no value assigned: "    ++ name
+    show (NameNotDefinedClass (LangIdent name)) = "not a valid class " ++ name
     show (NameNotOp       (LangIdent name)) = "not a valid operator: " ++ name
     show (AssignToBuiltin (LangIdent name)) = "cannot assign to builtin: " ++ name
                                   
