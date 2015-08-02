@@ -150,7 +150,7 @@ structIf = StructIf
 structDefun :: Scanner LangStruct
 structDefun = StructDefun
               <$> (string "defun " *> identName)
-              <*> (CallSig 
+              <*> (Lambda
                    <$> callList <* tokStmtBetween
                    <*> stmt)
 
@@ -274,7 +274,7 @@ exprLambda :: Scanner Expr
 exprLambda = liftM ExprLambda . parens $ do
     args <- callList <* tokSpace
     body <- stmt
-    return $ CallSig args body
+    return $ Lambda args body
 
 
 -- | Set of arguments for a function 
@@ -286,11 +286,11 @@ exprParamExpand :: Scanner Expr
 exprParamExpand = liftM ExprParamExpand $ string ".." >> langIdent
 
 
-callList :: Scanner ArgSig
-callList = parens $ do
-    params  <- sepWith tokEltSep identName
-    catcher <- optional (string ".." *> identName)
-    return $ ArgSig params catcher
+-- callList :: Scanner ArgSig
+-- callList = parens $ do
+--     params  <- sepWith tokEltSep identName
+--     catcher <- optional (string ".." *> identName)
+--     return $ ArgSig params catcher
   
 
 exprFunCall :: Scanner Expr
@@ -391,51 +391,30 @@ multOp sc = MultiOp
 --   foo($((x) (+ x 1))) -> lambda: $((x) (+ x 1)) passed as arg.
 
 
-data ClassDef = ClassDef LangIdent LangIdent Stmt
-              deriving (Show, Eq)
-              
-newtype ClassRef = ClassRef { getClassRef :: LangIdent }
-    deriving (Show, Eq)
-
 classRef :: Scanner ClassRef
 classRef = liftM ClassRef $ char '@' >> langIdent
            
-classDef :: Scanner ClassDef
+
+classDef :: Scanner ClassLambda
 classDef = do
   string "defclass "
   name <- langIdent
   arg <- parens langIdent
   body <- stmt
-  return $ ClassDef name arg body
+  return $ ClassLambda name arg body
+
 
 classRefArgSig :: Scanner ClassRef
 classRefArgSig = tryScan (char ':' >> classRef)
 
-callList' :: Scanner ArgSigt
-callList' = parens $ do
+callList :: Scanner ArgSig
+callList = parens $ do
     params  <- sepWith tokEltSep argElt
     catcher <- optional (string ".." *> identName)
-    return $ ArgSigt params catcher
+    return $ ArgSig params catcher
 
 
-
--- | Argument signature.
-data ArgSigt = ArgSigt 
-    { argParams :: [ArgElt] 
-    , argCatchElt :: Maybe LangIdent
-    } deriving (Show, Eq)
-
-data ArgElt = ArgElt 
-    { argEltType :: Maybe AnnType
-    , argEltName :: LangIdent
-    , argEltClass :: Maybe ClassRef
-    } deriving (Show, Eq)
-            
-isAnnotated :: ArgElt -> Bool
-isAnnotated (ArgElt {argEltType=x}) = isJust x
-                                     
-data AnnType = AnnClass | AnnFun
-               deriving (Show, Eq)
+argElt :: Scanner ArgElt
 argElt = do
   typ <- optional argSigType
   name <- identName
@@ -443,5 +422,6 @@ argElt = do
   return $ ArgElt typ name cls
 
 
+argSigType :: Scanner AnnType
 argSigType = char '@' *> return AnnClass
              <|> char '$' *> return AnnFun

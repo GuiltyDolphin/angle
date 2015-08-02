@@ -1,8 +1,6 @@
 module Angle.Parse.Var
     ( VarVal(..)
     , emptyVar
-    , setVarLit
-    , setVarFun
     ) where
 
 import Angle.Types.Lang
@@ -36,25 +34,17 @@ import Angle.Types.Lang
 
 
 -- | Represents a variable definition.
-data VarVal = VarVal 
-    { varLitDef :: Maybe LangLit
-    , varFunDef :: Maybe CallSig
+data VarVal a = VarVal 
+    { varDef :: Maybe a
     , varBuiltin :: Bool
     } deriving (Show, Eq)
             
 
 -- | Variable with no definitions.
-emptyVar :: VarVal
-emptyVar = VarVal { varLitDef = Nothing
-                  , varFunDef = Nothing 
+emptyVar :: VarVal a
+emptyVar = VarVal { varDef = Nothing
                   , varBuiltin = False }
+
            
- 
--- | Set the literal definition of a VarVal.
-setVarLit :: VarVal -> LangLit -> VarVal
-setVarLit var val = var { varLitDef = Just val }
-
-
--- | Set the function definition of a VarVal.
-setVarFun :: VarVal -> CallSig -> VarVal                    
-setVarFun var fd = var { varFunDef = Just fd }
+setVarDef :: VarVal a -> a -> VarVal a
+setVarDef var val = var { varDef = Just val }

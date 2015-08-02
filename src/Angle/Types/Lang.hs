@@ -23,6 +23,12 @@ module Angle.Types.Lang
     , ShowSyn(..)
     , SourceRef(..)
     , startRef
+    , ClassRef(..)
+    , ClassLambda(..)
+    , AnnType(..)
+    , ArgElt(..)
+    , argNoAnn
+    , Lambda(..)
     ) where
 
 import Numeric (showFFloat)
@@ -101,7 +107,7 @@ data SingStmt = StmtAssign LangIdent Expr
 data LangStruct = StructFor LangIdent Expr Stmt
                 | StructWhile Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)
-                | StructDefun LangIdent CallSig
+                | StructDefun LangIdent Lambda
                   deriving (Show, Eq)
                            
 
@@ -148,17 +154,66 @@ showSynOpList :: (ShowSyn a) => [a] -> String
 showSynOpList = showSynSep " " ")" " "
 
 
--- | A function.
+data ParamList = ParamList { parListParams :: [Expr] }
+               deriving (Show, Eq)
+
 data CallSig = CallSig 
     { callArgs :: ArgSig -- ^ The argument list that is accepted by the function.
     , callBody :: Stmt -- ^ The function body.
     } deriving (Show, Eq)
              
 
+data Lambda = Lambda { lambdaArgs :: ArgSig
+                     , lambdaBody :: Stmt
+                     } deriving (Show, Eq)
+            
+instance ShowSyn Lambda where
+    showSyn (Lambda args body) = concat ["(", showSyn args, " ", showSyn body, ")"]
+
 -- | An argument signature.
-data ArgSig = ArgSig { stdArgs :: [LangIdent] -- ^ Standard positional arguments.
+data ArgSig = ArgSig { stdArgs :: [ArgElt] -- ^ Standard positional arguments.
                      , catchAllArg :: Maybe LangIdent -- ^ Argument that catches any remaining arguments after the positional arguments have been filled.
                      } deriving (Show, Eq)
+
+
+data ArgElt = ArgElt 
+    { argEltType :: Maybe AnnType
+    , argEltName :: LangIdent
+    , argEltClass :: Maybe ClassRef
+    } deriving (Show, Eq)
+            
+argNoAnn :: LangIdent -> ArgElt
+argNoAnn name = ArgElt { argEltType = Nothing
+                       , argEltName = name
+                       , argEltClass = Nothing }
+            
+
+instance ShowSyn ArgElt where
+    showSyn (ArgElt {argEltType=typ
+                    , argEltName=name
+                    , argEltClass=cls })
+        = case typ of
+            Just AnnFun -> "$"
+            Just AnnClass -> "@"
+            Nothing -> ""
+          ++ showSyn name ++ case cls of 
+                               Just c -> ':' : showSyn c
+                               Nothing -> ""
+
+
+data ClassLambda = ClassLambda LangIdent LangIdent Stmt
+              deriving (Show, Eq)
+              
+
+newtype ClassRef = ClassRef { getClassRef :: LangIdent }
+    deriving (Show, Eq)
+             
+instance ShowSyn ClassRef where
+    showSyn (ClassRef {getClassRef = name}) = '@' : showSyn name
+                                     
+
+data AnnType = AnnClass | AnnFun
+               deriving (Show, Eq)
 
 
 -- | @True@ if `catchAllArg` is @Just@ something.
@@ -179,7 +234,7 @@ data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
                        -- returned from any expression 
                        -- that fails to return a value 
                        -- explicitly.
-             | LitLambda { getLitLambda :: CallSig } -- ^ A function without a name.
+             | LitLambda { getLitLambda :: Lambda } -- ^ A function without a name.
                deriving (Show, Eq)
                    
 
@@ -191,7 +246,7 @@ instance ShowSyn LangLit where
     showSyn (LitBool x) = if x then "true" else "false"
     showSyn (LitRange x y z) = showRange x y z
     showSyn LitNull = "null"
-    showSyn (LitLambda x@(CallSig _ (SingleStmt _ _))) = init $ showSyn x
+    showSyn (LitLambda x@(Lambda _ (SingleStmt _ _))) = init $ showSyn x
     showSyn (LitLambda x) = showSyn x
                             
 
@@ -235,10 +290,10 @@ instance Show LangType where
 
 data Expr = ExprIdent LangIdent
           | ExprFunIdent LangIdent
-          | ExprLambda CallSig
+          | ExprLambda Lambda
           | ExprLit LangLit
           | ExprFunCall LangIdent [Expr]
-          | ExprLambdaCall CallSig [Expr]
+          | ExprLambdaCall Lambda [Expr]
           | ExprOp LangOp
           | ExprList [Expr]
           | ExprRange Expr Expr (Maybe Expr)

@@ -4,26 +4,31 @@ module Angle.Parse.Scope
     , VarVal(..)
     , emptyVar
     , BindEnv
-    , setVarInScope
     , resolve
     , outermostScope
     , isOutermostScope
-    , onBindings
     , isDefinedIn
     , mergeScope
-    , deleteFromScope
+    , setVarFunInScope
+    , setVarLitInScope
+    , deleteLitFromScope
+    , deleteFunFromScope
+    , resolveLit
+    , resolveFun
     ) where
 
 import Control.Monad
 import qualified Data.Map as M    
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isJust)
+import Data.Function (on)
 
 import Angle.Parse.Var
 import Angle.Types.Lang
 
 
 -- | Mapping from variables to values.
-type BindEnv = M.Map LangIdent VarVal
+-- type BindEnv = M.Map LangIdent VarVal
+type BindEnv a = M.Map LangIdent (VarVal a)
 
     
 -- Scope API:
@@ -58,7 +63,10 @@ type BindEnv = M.Map LangIdent VarVal
 -- to a parent scope.
 data Scope = Scope 
     { outerScope :: Maybe Scope -- ^ Parent scope, if any.
-    , bindings   :: BindEnv
+--    , bindings   :: BindEnv
+    , valueBindings :: BindEnv LangLit
+    , lambdaBindings :: BindEnv Lambda
+    , classBindings :: BindEnv ClassLambda
     } deriving (Show, Eq)
 
 
@@ -71,10 +79,15 @@ isOutermostScope s = case outerScope s of
 
 -- | True if the scope contains a defition for the given
 -- identifier.
-isDefinedIn :: LangIdent -> Scope -> Bool
-isDefinedIn name scope = case M.lookup name (bindings scope) of
-                         Nothing -> False
-                         Just _ -> True
+
+isDefinedIn binds name scope = isJust $ M.lookup name $ binds scope 
+
+isLitIn :: LangIdent -> Scope -> Bool
+isLitIn = isDefinedIn valueBindings
+          
+isFunIn = isDefinedIn lambdaBindings
+          
+isClassIn = isDefinedIn classBindings
                                    
 
 -- | Runs a function in the outer scope of that provided.
@@ -100,49 +113,53 @@ outermostScope scope =
 
 -- | Finds the local-most Scope that contains a definition
 -- for the specified identifier.
-innerScopeDefining :: LangIdent -> Scope -> Maybe Scope
-innerScopeDefining name scope = 
-    if name `isDefinedIn` scope
-    then Just scope
-    else join $ withOuterScope scope (innerScopeDefining name)
+innerScopeDefining binds name scope
+    = if isDefinedIn binds name scope
+      then Just scope
+      else join $ withOuterScope scope (innerScopeDefining binds name)
+           
+innerScopeDefiningLit = innerScopeDefining valueBindings
+innerScopeDefiningFun = innerScopeDefining lambdaBindings
+innerScopeDefiningClass = innerScopeDefining classBindings
     
 
 -- | Retrieves the variable's value from the local-most
 -- scope in which it is defined.
 -- 
 -- Returns Nothing if no definition is found.
-resolve :: LangIdent -> Scope -> Maybe VarVal
-resolve name scope = case innerScopeDefining name scope of
-                       Nothing -> Nothing
-                       Just scope' -> fromCurrentScope scope'
-    where fromCurrentScope s = M.lookup name (bindings s)
+resolveLit = resolve valueBindings
+             
+resolveFun = resolve lambdaBindings
+                               
+resolve binds name scope = case innerScopeDefining binds name scope of
+                             Nothing -> Nothing
+                             Just scope' -> fromCurrentScope binds scope'
+                                                                    where fromCurrentScope b s = M.lookup name (b s)
                                  
 
 -- | A scope with no parent or bindings.
 emptyScope :: Scope
 emptyScope = Scope { 
                outerScope = Nothing
-             , bindings = M.empty
+             , valueBindings = M.empty
+             , lambdaBindings = M.empty
+             , classBindings = M.empty
              }
 
 
 -- | Run a function over the bindings of a scope.
-onBindings :: (BindEnv -> BindEnv) -> Scope -> Scope
-onBindings f scope = scope { bindings = f $ bindings scope }
+
+onLitBindings f scope = scope { valueBindings = f $ valueBindings scope }
+                        
+onFunBindings f scope = scope { lambdaBindings = f $ lambdaBindings scope }
+                        
+onClassBindings f scope = scope { classBindings = f $ classBindings scope }
 
 
-setVarInScope 
-    :: LangIdent 
-    -> VarVal 
-    -> Scope 
-    -> Bool  -- ^ Overwrite var if it already exists.
-    -> Scope
-setVarInScope name val scope@(Scope{bindings=binds}) overwrite
-    = if name `isDefinedIn` scope 
-      then if overwrite
-           then scope {bindings=M.alter (\_ -> Just val) name binds}
-           else scope
-      else scope {bindings=M.alter (\_ -> Just val) name binds}
+setVarLitInScope name val = onLitBindings (M.insert name val)
+      
+setVarFunInScope name val = onFunBindings (M.insert name val)
+                                         
 
 
 -- | Merge the binding values of the scopes,
@@ -150,17 +167,20 @@ setVarInScope name val scope@(Scope{bindings=binds}) overwrite
 -- in both, but always favouring a definition
 -- over no definition.
 mergeScope :: Scope -> Scope -> Scope
-mergeScope x@(Scope {bindings=xs}) (Scope {bindings=ys})
-    = x { bindings=M.union xs ys }
-      
+mergeScope sc1 sc2
+    = let nLits = M.union `on` valueBindings
+          nFuns = M.union `on` lambdaBindings
+          nClss = M.union `on` classBindings
+      in sc1 { valueBindings = nLits sc1 sc2
+             , lambdaBindings = nFuns sc1 sc2
+             , classBindings = nClss sc1 sc2
+             } 
 
--- | Remove the identifier's definition from the given scope.
-deleteFromScope :: LangIdent -> Scope -> Scope
-deleteFromScope name scope@(Scope {bindings=binds})
-    = scope { bindings = M.delete name binds } 
 
+deleteLitFromScope :: LangIdent -> Scope -> Scope
+deleteLitFromScope name =  onLitBindings (M.delete name)
 
-
+deleteFunFromScope name = onFunBindings (M.delete name)
 
 
 
