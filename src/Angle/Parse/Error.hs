@@ -274,8 +274,8 @@ instance Error LError where
 -- langError e = throwError noMsg { errorErr = e }
 -- langError :: (CanError m) => ParserError -> m a
 -- langError e = throwError ParserError { parserErrErr = e }
-langError ::  (CanError m) => ParserError -> m a
-langError e = throwAE ParserError { parserErrErr = e }
+langError ::  (CanErrorWithPos m) => ParserError -> m a
+langError = throwParserError -- throwAE ParserError { parserErrErr = e }
 
 
 throwParserError :: (CanErrorWithPos m, Monad m) => ParserError -> m a

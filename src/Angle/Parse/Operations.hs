@@ -212,15 +212,15 @@ numOp _ _ x y                         = langError $ typeMismatchOpErrT x y
 type CompFunc       = forall a. (Ord a) => a -> a -> Bool          
 
 -- | Synonym for standard operators that act on a list of values.
-type MultiOperator  = (CanError m) => [LangLit] -> m LangLit
+type MultiOperator  = (CanErrorWithPos m) => [LangLit] -> m LangLit
 
 
 -- | Synonym for an operator that acts upon only two values.
-type BinaryOperator = (CanError m) => LangLit -> LangLit -> m LangLit
+type BinaryOperator = (CanErrorWithPos m) => LangLit -> LangLit -> m LangLit
 
 
 -- | Synonym for an operator that acts upon one value.
-type UnaryOperator  = (CanError m) => LangLit -> m LangLit
+type UnaryOperator  = (CanErrorWithPos m) => LangLit -> m LangLit
 
 
 -- | Synonym for a binary function.
@@ -259,7 +259,7 @@ onNumBool i f = numOpLit i f LitBool LitBool
 -- act upon numeric types.
 -- 
 -- Throws a `TypeNotValidError' if invalid literals are passed.
-onlyNumOp :: (CanError m) => (LangLit -> LangLit -> m LangLit) -> [LangLit] -> m LangLit
+onlyNumOp :: (CanErrorWithPos m) => (LangLit -> LangLit -> m LangLit) -> [LangLit] -> m LangLit
 onlyNumOp f (x@(LitInt _):xs) = foldM f x xs
 onlyNumOp f (x@(LitFloat _):xs) = foldM f x xs
 onlyNumOp _ (x:_)              = langError $ typeNotValidErrT x

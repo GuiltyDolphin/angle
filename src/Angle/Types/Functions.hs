@@ -27,7 +27,7 @@ canCast x y | x == y    = True
              
 
 -- | Change the type of the given literal.
-cast :: (CanError m) => LangLit -> LangType -> m LangLit
+cast :: (CanErrorWithPos m) => LangLit -> LangType -> m LangLit
 cast (LitInt x) LTFloat  = return $ LitFloat (fromIntegral x)
 cast x y | typeOf x == y = return x
 cast x y = langError $ typeCastErr (typeOf x) y
@@ -51,25 +51,25 @@ shareCast :: LangType -> LangType -> Bool
 shareCast x y = mostGeneral x == mostGeneral y
              
 
-reqType :: (CanError m) => LangType -> LangType -> m LangType
+reqType :: (CanErrorWithPos m) => LangType -> LangType -> m LangType
 reqType x y | x `canCast` y = return y
             | y `canCast` x = return x
             | otherwise = langError $ typeCastErr x y
                           
 
-reqTypeList :: (CanError m) => [LangType] -> m LangType
+reqTypeList :: (CanErrorWithPos m) => [LangType] -> m LangType
 reqTypeList (x:xs) = foldM reqType x xs
 reqTypeList [] = undefined
              
 
 -- | Cast all the values in a list to the same type.
-castAll :: (CanError m) => [LangLit] -> m [LangLit]
+castAll :: (CanErrorWithPos m) => [LangLit] -> m [LangLit]
 castAll xs = do
   t <- reqTypeList (map typeOf xs)
   mapM (`cast` t) xs
                              
 
-withCast :: (CanError m) => (LangLit -> LangLit -> LangLit) -> LangLit -> LangLit -> m LangLit
+withCast :: (CanErrorWithPos m) => (LangLit -> LangLit -> LangLit) -> LangLit -> LangLit -> m LangLit
 withCast f x y = do
   t <- reqType (typeOf x) (typeOf y)
   x' <- cast x t
@@ -77,7 +77,7 @@ withCast f x y = do
   return $ f x' y'
          
 
-withCast' :: (CanError m) => (LangLit -> LangLit -> m LangLit) -> LangLit -> LangLit -> m LangLit
+withCast' :: (CanErrorWithPos m) => (LangLit -> LangLit -> m LangLit) -> LangLit -> LangLit -> m LangLit
 withCast' f x y = do
   t <- reqType (typeOf x) (typeOf y)
   x' <- cast x t
