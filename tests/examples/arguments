@@ -1,0 +1,3 @@
+print("The initialized args: ", args);
+
+print("From getArgs: ", getArgs());

@@ -1,0 +1,43 @@
+print("Tests for function composition");
+
+
+defun add1(x) (+ 1 x);
+
+
+print("Setting 'add2' to compose($add1, $add1)");
+add2 = compose($add1, $add1);
+print("add2(1)");
+print("Should equal 3");
+print(add2(1));
+
+defun map(f, xs) {
+  res = [];
+  for elt in xs do {
+    res = (+ res f(elt));
+  }
+  res;
+}
+
+defun filter(f, xs) {
+  res = [];
+  for elt in xs do {
+    if f(elt) then res = (+ res elt);
+  }
+  res;
+}
+
+defun less5(x) (< x 5);
+
+filterLess5 = partial($filter, $less5);
+
+print("Setting 'testList' to [1, 8, 7, 2, 1, 6]");
+testList = [1, 8, 7, 2, 1, 6];
+# print("Setting 'mAdd2' to compose($map, $add2)");
+# print("mAdd2(testList)");
+# print("Should equal [3, 10, 9, 4, 3, 8]");
+# print(mAdd2(testList));
+mAdd2 = partial($map, $add2);
+
+f = compose($mAdd2, $filterLess5);
+print("Should equal [3, 4, 3]");
+print(f(testList));

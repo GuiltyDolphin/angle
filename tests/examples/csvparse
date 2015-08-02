@@ -1,0 +1,76 @@
+defun takeWhile (f, xs) {
+  idx = 0;
+  for elt in xs do {
+    if f(elt) then return index(0, idx, xs);
+              else idx = (+ 1 idx);
+  }
+}
+
+defun indexSat(f, xs) {
+  idx = 0;
+  for elt in xs do {
+    if f(elt) then return idx;
+              else idx = (+ 1 idx);
+  }
+  return ();
+}
+
+defun break(f, xs) {
+  idx = indexSat($f, xs);
+  first = index(0, idx, xs);
+  rest = index(idx,-1, xs);
+  return [first, rest];
+}
+
+defun null(xs) (== length(xs) 0);
+
+defun notEq(x, y) ^(== x y);
+
+defun eq(x,y) (== x y);
+
+defun splitAt(xs, sep) {
+  if null(xs) then return xs;
+  res = [];
+  snd = [];
+  head = xs;
+  while true do {
+    first = break($partial($eq, sep), head);
+    if null(index(0,first)) then return res;
+    res = (+ res index(0, first));
+    head = index(1,first);
+  }
+}
+
+toSplit = input("Comma sep list: ");
+print("Result: ", splitAt(",", xs);
+
+(| xs
+  (-> [] { print("one"); })
+  (-> _  { print("other"); })
+)
+
+
+defun add(x:@num, y:@num) {
+  (+ x y);
+}
+
+
+defun fromOp(!OP) {
+  ((..x) (!OP ..x))
+}
+
+defclass num(x) {
+  (|| @int(x) @float(x));
+}
+
+defclass int(x) {
+  (== asType(1, x) x);
+}
+
+defclass float(x) {
+  (== asType(1.0, x) x);
+}
+
+defclass name(arg) opt:string {
+  body:bool
+}
