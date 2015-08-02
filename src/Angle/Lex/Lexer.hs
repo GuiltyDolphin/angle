@@ -26,6 +26,7 @@ module Angle.Lex.Lexer
 
 import Control.Applicative
 import Control.Monad.State
+import Data.Maybe (isJust)
 
 import Angle.Lex.Helpers
 import Angle.Lex.Token
@@ -388,3 +389,59 @@ multOp sc = MultiOp
 --   ((x,y,z) (+ x y z)) -> x y z arguments, then body
 --   Can pass as arguments:
 --   foo($((x) (+ x 1))) -> lambda: $((x) (+ x 1)) passed as arg.
+
+
+data ClassDef = ClassDef LangIdent LangIdent Stmt
+              deriving (Show, Eq)
+              
+newtype ClassRef = ClassRef { getClassRef :: LangIdent }
+    deriving (Show, Eq)
+
+classRef :: Scanner ClassRef
+classRef = liftM ClassRef $ char '@' >> langIdent
+           
+classDef :: Scanner ClassDef
+classDef = do
+  string "defclass "
+  name <- langIdent
+  arg <- parens langIdent
+  body <- stmt
+  return $ ClassDef name arg body
+
+classRefArgSig :: Scanner ClassRef
+classRefArgSig = tryScan (char ':' >> classRef)
+
+callList' :: Scanner ArgSigt
+callList' = parens $ do
+    params  <- sepWith tokEltSep argElt
+    catcher <- optional (string ".." *> identName)
+    return $ ArgSigt params catcher
+
+
+
+-- | Argument signature.
+data ArgSigt = ArgSigt 
+    { argParams :: [ArgElt] 
+    , argCatchElt :: Maybe LangIdent
+    } deriving (Show, Eq)
+
+data ArgElt = ArgElt 
+    { argEltType :: Maybe AnnType
+    , argEltName :: LangIdent
+    , argEltClass :: Maybe ClassRef
+    } deriving (Show, Eq)
+            
+isAnnotated :: ArgElt -> Bool
+isAnnotated (ArgElt {argEltType=x}) = isJust x
+                                     
+data AnnType = AnnClass | AnnFun
+               deriving (Show, Eq)
+argElt = do
+  typ <- optional argSigType
+  name <- identName
+  cls <- optional classRefArgSig
+  return $ ArgElt typ name cls
+
+
+argSigType = char '@' *> return AnnClass
+             <|> char '$' *> return AnnFun
