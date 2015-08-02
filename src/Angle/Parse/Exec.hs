@@ -577,14 +577,41 @@ execStructIf if' thn els = do
                     
 
 
-toIter :: LangLit -> ExecIO [LangLit]                        
-toIter (LitList xs) = return xs
-toIter _ = throwParserError $ defaultErr "toIter: TODO: define this!"
+fromIter :: LangLit -> ExecIO [LangLit]                        
+fromIter (LitList xs) = return xs
+fromIter (LitRange x Nothing Nothing) = iterFrom x
+fromIter (LitRange x (Just y) Nothing) = iterFromTo x y
+fromIter (LitRange x (Just y) (Just z)) = iterFromThenTo x y z
+fromIter _ = throwImplementationErr "fromIter: TODO: define this!"
+
+
+iterToLit :: LangLit -> ExecIO LangLit
+iterToLit = liftM LitList . fromIter
+
+
+iterFromThenTo :: LangLit -> LangLit -> LangLit -> ExecIO [LangLit]
+iterFromThenTo (LitInt x) (LitInt y) (LitInt z) = return $ map LitInt $ enumFromThenTo x z y
+iterFromThenTo (LitFloat x) (LitFloat y) (LitFloat z) = return $ map LitFloat $ enumFromThenTo x z y
+iterFromThenTo (LitChar x) (LitChar y) (LitChar z) = return $ map LitChar $ enumFromThenTo x z y
+iterFromThenTo _ _ _ = throwImplementationErr "iterFromThenTo: define failure"
+                                                     
+iterFrom :: LangLit -> ExecIO [LangLit]
+iterFrom (LitInt x) = return $ map LitInt $ enumFrom x
+iterFrom (LitChar x) = return $ map LitChar $ enumFrom x
+iterFrom (LitFloat x) = return $ map LitFloat $ enumFrom x
+iterFrom _ = throwImplementationErr "iterFrom: define failure"
+             
+
+iterFromTo :: LangLit -> LangLit -> ExecIO [LangLit]
+iterFromTo (LitInt x) (LitInt y) = return $ map LitInt $ enumFromTo x y
+iterFromTo (LitChar x) (LitChar y) = return $ map LitChar $ enumFromTo x y
+iterFromTo (LitFloat x) (LitFloat y) = return $ map LitFloat $ enumFromTo x y
+iterFromTo _ _ = throwImplementationErr "iterFromTo: define failure"
 
 
 execStructFor :: LangIdent -> Expr -> Stmt -> ExecIO LangLit
 execStructFor name e s = do
-  iterable <- execExpr e >>= toIter
+  iterable <- execExpr e >>= fromIter
   outScope <- liftM currentScope get
   res <- forM iterable (\v -> do
                    assignVarLit name v
@@ -606,9 +633,47 @@ execStructFor name e s = do
 -- deleteVar name = modifyScope (deleteFromScope name)
 
 execStructWhile :: Expr -> Stmt -> ExecIO LangLit
-execStructWhile = undefined
-                  
+execStructWhile ex s = do
+  pos <- liftM envSourceRef get
+  execStructFor (LangIdent "_") 
+                    (ExprLit 
+                     (LitRange (LitInt 1) Nothing Nothing)) 
+                     (SingleStmt 
+                     (StmtStruct 
+                      (StructIf ex s (Just (SingleStmt (StmtBreak Nothing False) pos)))) pos)
+--   return $! trace "in while" ()
+--   b <- execExpr ex
+--   cond <- case b of
+--             LitBool b' -> return b'
+--             x -> throwParserError $ typeUnexpectedErr LTBool (typeOf x)
+--   if cond
+--   then execStmt s `seq` execStructWhile ex s
+--   else getEnvValue
+--   whileM (do 
+--            cond <- execExpr ex 
+--            case cond of
+--              LitBool b -> return b
+--              x -> throwParserError $ typeUnexpectedErr LTBool (typeOf x)) LitNull (\_ -> execStmt s)
+                 
 
+untilM :: (Monad m) => m Bool -> a -> (a -> m a) -> m a
+untilM b d f = do
+  cond <- b
+  if cond
+  then return d
+  else do
+    res <- f d
+    untilM b res f
+           
+whileM :: (Monad m) => m Bool -> a -> (a -> m a) -> m a
+whileM b d f = do
+  cond <- b
+  if cond
+  then do
+    res <- f d
+    whileM b res f
+  else return d
+       
 -- instance CanErrorWithPos ExecIO where
 --     getErrorPos = liftM envSourceRef get
 --     getErrorText = liftM envSynRep get
