@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 module Angle.Parse.Exec
@@ -8,9 +7,8 @@ module Angle.Parse.Exec
 
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Error
 import Control.Monad.State
-import Data.Maybe (fromJust, fromMaybe, maybeToList)
+import Data.Maybe (fromJust, fromMaybe)
     
 import Debug.Trace (trace)
 
@@ -91,14 +89,6 @@ updatePos pos = modify (\e -> e { envSourceRef = pos })
               
 setEnvSynRep :: String -> ExecIO ()
 setEnvSynRep x = modify (\e -> e { envSynRep = x })
-         
-
-data OptionSet = OS { printName :: Bool }
-                 deriving (Show, Eq)
-                          
-
-defaultOptions :: OptionSet
-defaultOptions = OS { printName = False }
 
                
 -- | Create a new scope with the current scope as its

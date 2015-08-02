@@ -7,15 +7,21 @@ module TestHelper
     , Scanner
     , evalScan
     , monadicEither
+--    , monadicExec
+    , monadicIO
     , assertQC
     , assertEqualQC
     , run
     , maxSized
+    , runExecIOBasic
+    , runExec
     ) where
 
     
 import Control.Applicative ((<*>), (<$>))
 import Control.Monad (liftM, liftM2, liftM3)
+import Control.Monad.Trans.Except
+import Control.Monad.State
 import Data.Char (isAlpha, isAlphaNum)
 import Data.List (isInfixOf)
 import qualified Data.Map as M
@@ -30,15 +36,17 @@ import Test.Tasty.QuickCheck
 import Angle.Lex.Helpers (evalScan, Scanner)
 import Angle.Lex.Token (keywords)
 import Angle.Parse.Scope
+import Angle.Parse.Error
+import Angle.Parse.Types
 import Angle.Scanner (SourcePos(..))
 import Angle.Types.Lang
 
 
 instance Arbitrary LangLit where
     arbitrary = frequency 
-                [ (4, liftArby (LitStr . getValidLitStr))
-                , (6, liftArby LitInt)
-                , (6, liftArby LitFloat)
+                [ (7, liftArby (LitStr . getValidLitStr))
+                , (9, liftArby LitInt)
+                , (9, liftArby LitFloat)
                 , (1, liftM LitList (liftArby getSmallList))
                 , (9, liftArby LitBool)
                 --, (1, liftArby3 LitRange)
@@ -91,8 +99,8 @@ instance Arbitrary CallSig where
     
 instance Arbitrary Expr where
     arbitrary = frequency 
-                [ (9, liftArby ExprIdent)
-                , (6, liftArby  ExprLit)
+                [ (15, liftArby ExprIdent)
+                , (9, liftArby  ExprLit)
                 , (1, liftM2 ExprFunCall arbitrary (liftArby getTinyList))
                 , (4, liftArby  ExprOp)
                 , (4, liftArby ExprLambda)
@@ -279,7 +287,23 @@ monadicEither :: PropertyM (Either e) a -> Property
 monadicEither = monadic (\e -> case e of
                                  Left _ -> property False
                                  Right r -> r)
+ 
 
+runExec :: ExecIO a -> IO a 
+runExec e = do
+  x <- runExecIOBasic e
+  case x of
+    Left _ -> fail "meh"
+    Right r -> return r
+
+-- monadicExec :: PropertyM ExecIO a -> PropertyM ExecIO (IO (Either AngleError a))
+-- monadicExec e = do
+--  x <- e
+--  return (runExecIOBasic x)
+  
+  
+                    
+                  
 
 instance Arbitrary LangType where
     arbitrary = elements [LTStr, LTInt, LTFloat, LTList

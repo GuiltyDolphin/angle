@@ -50,11 +50,13 @@ builtinVar name = (name, VarVal
                    , varBuiltin = True})
 
 
+builtinsVars :: M.Map LangIdent VarVal
 builtinsVars = M.fromList $ 
                map (builtinVar . LangIdent) builtins
 
 
 -- | Starting environment with builtin functions defined.
+startEnv :: Env
 startEnv = basicEnv 
            { currentScope = emptyScope 
                             { bindings = builtinsVars } }
