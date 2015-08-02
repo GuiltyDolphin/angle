@@ -108,11 +108,11 @@ asType (LitBool _) (LitStr y) =
     case y of
       "true" -> return $ LitBool True
       "false" -> return $ LitBool False
-      _ -> undefined
+      _ -> throwParserError . callBuiltinErr $ "asType: could not convert string literal to boolean"
                                     
 fromStr :: (Read a) => String -> (a -> LangLit) -> ExecIO LangLit
 fromStr s f = case reads s of
-              [] -> undefined
+              [] -> throwParserError . callBuiltinErr $ "asType: could not convert string literal to " ++ show (typeOf $ f undefined)
               [(r,"")] -> return $ f r
                               
 
