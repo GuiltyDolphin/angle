@@ -13,6 +13,7 @@ module Angle.Parse.Error
     , nameNotFunctionErr
     , nameNotValueErr
     , nameNotOpErr
+    , assignToBuiltinErr
     , wrongNumberOfArgumentsErr
     , ParserError
     , CanError(..)
@@ -29,6 +30,7 @@ module Angle.Parse.Error
     , returnFromGlobalErr
     , callBuiltinErr
     , implementationErr
+    , malformedSignatureErr
     , throwImplementationErr
     , throwReturn
     , catchReturn
@@ -36,9 +38,7 @@ module Angle.Parse.Error
 
 
 import Control.Monad.Error
-import Control.Monad.Trans.Except
 import Data.Function (on)
-import Data.Monoid
    
 import Angle.Scanner
 import Angle.Types.Lang
@@ -57,6 +57,14 @@ import Angle.Types.Lang
 class (Monad m) => CanError (m :: * -> *) where
     throwAE :: AngleError -> m a
     catchAE :: m a -> (AngleError -> m a) -> m a
+               
+
+instance CanError (Either AngleError) where
+    throwAE = Left
+    catchAE e f = case e of
+                    r@(Right _) -> r
+                    Left l -> f l
+
                
 
 -- | General error structure.
@@ -98,6 +106,7 @@ instance Show AngleError where
                     = let ln = show $ lineNo sp
                           cn = show $ colNo sp
                       in concat ["(", ln, ",", cn, ")"]
+    show (ControlException _) = error "show: control exception made it to show"
 
 
 data ParserError = TypeError TypeError
@@ -202,6 +211,7 @@ data NameError = NameNotDefined LangIdent
                | NameNotFunction LangIdent
                | NameNotValue LangIdent
                | NameNotOp LangIdent
+               | AssignToBuiltin LangIdent
 
 
 nameNotDefinedErr :: LangIdent -> ParserError
@@ -218,17 +228,23 @@ nameNotValueErr    = nameErr . NameNotValue
 
 nameNotOpErr :: LangIdent -> ParserError
 nameNotOpErr       = nameErr . NameNotOp
+                     
+
+assignToBuiltinErr :: LangIdent -> ParserError
+assignToBuiltinErr = nameErr . AssignToBuiltin
 
 
 instance Show NameError where
     show (NameNotDefined  (LangIdent name)) = "not in scope: "         ++ name
     show (NameNotFunction (LangIdent name)) = "not a valid function: " ++ name
     show (NameNotValue    (LangIdent name)) = "no value assigned: "    ++ name
-    show (NameNotOp       (LangIdent name)) = "non-existant operator: " ++ name
+    show (NameNotOp       (LangIdent name)) = "not a valid operator: " ++ name
+    show (AssignToBuiltin (LangIdent name)) = "cannot assign to builtin: " ++ name
                                   
 
 data CallError = WrongNumberOfArguments Int Int
                | BuiltIn String
+               | MalformedSignature String
     deriving (Eq)
              
 
@@ -238,17 +254,21 @@ wrongNumberOfArgumentsErr expect = callErr . WrongNumberOfArguments expect
 
 callBuiltinErr :: String -> ParserError
 callBuiltinErr = callErr . BuiltIn
+                 
+
+malformedSignatureErr :: String -> ParserError
+malformedSignatureErr = callErr . MalformedSignature
              
              
 instance Show CallError where
     show (WrongNumberOfArguments x y) = "wrong number of arguments: expected " ++ show x ++ " but got " ++ show y
     show (BuiltIn x) = "builtin: " ++ x
+    show (MalformedSignature x) = "malformed signature: " ++ x
 
 
 data LError = LError { errorErr    :: ParserError  -- The actual error
                      , errorSource :: String
                      , errorPos    :: SourceRef -- Position at which the error occurred
-                     , errorText :: String -- Additonal text representing the error
                      }
             
 
@@ -265,7 +285,7 @@ instance Show KeywordError where
 
 
 instance Error LError where
-    noMsg = LError {errorErr=noMsg, errorPos=SourceRef (beginningOfFile, beginningOfFile), errorSource="", errorText=""}
+    noMsg = LError {errorErr=noMsg, errorPos=SourceRef (beginningOfFile, beginningOfFile), errorSource=""}
     strMsg m = noMsg {errorErr=strMsg m}
                
 
