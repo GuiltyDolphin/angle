@@ -39,12 +39,15 @@ import Angle.Types.Lang
 data VarVal = VarVal 
     { varLitDef :: Maybe LangLit
     , varFunDef :: Maybe CallSig
+    , varBuiltin :: Bool
     } deriving (Show, Eq)
             
 
 -- | Variable with no definitions.
 emptyVar :: VarVal
-emptyVar = VarVal { varLitDef = Nothing, varFunDef = Nothing }
+emptyVar = VarVal { varLitDef = Nothing
+                  , varFunDef = Nothing 
+                  , varBuiltin = False }
            
  
 -- | Set the literal definition of a VarVal.

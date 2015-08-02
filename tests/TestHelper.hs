@@ -263,7 +263,7 @@ instance Arbitrary VarVal where
       valDef <- arbitrary
       funDef <- arbitrary
       return $ emptyVar { varLitDef = valDef, varFunDef = funDef }
-    shrink (VarVal x y) = zipWith VarVal (shrink x) (shrink y) 
+    shrink (VarVal x y z) = zipWith3 VarVal (shrink x) (shrink y) (shrink z)
 
 
 instance Arbitrary Scope where
