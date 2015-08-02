@@ -412,6 +412,18 @@ execFunCall :: LangIdent -> [Expr] -> ExecIO LangLit
 execFunCall = callFun
                       
 
+returnVal :: LangLit -> ExecIO LangLit
+returnVal v = putEnvValue v >> return v
+    
+
+getEnvValue :: ExecIO LangLit
+getEnvValue = liftM envValue get
+
+
+putEnvValue :: LangLit -> ExecIO ()
+putEnvValue v = modify (\e -> e {envValue=v})
+
+
 execOp :: LangOp -> ExecIO LangLit
 execOp (SpecOp op expr) = execSpecOp op expr
 execOp (MultiOp op exprs) = execMultiOp op exprs
@@ -517,6 +529,11 @@ execSingStmt (StmtReturn x) = do
   if isGlob
       then throwParserError returnFromGlobalErr
       else execExpr x >>= throwReturn
+execSingStmt (StmtBreak x False) = do
+  case x of
+    Nothing -> throwBreak Nothing
+    Just v -> execExpr v >>= returnVal >>= (throwBreak . Just)
+execSingStmt (StmtBreak _ True) = throwContinue
 
 
 traceShowMsg :: (Show a) => String -> a -> a
@@ -541,8 +558,8 @@ traceShowMsg msg x = trace (msg ++ show x) x
                             
 
 execLangStruct :: LangStruct -> ExecIO LangLit
-execLangStruct (StructFor name e s) = execStructFor name e s
-execLangStruct (StructWhile e s) = execStructWhile e s
+execLangStruct (StructFor name e s) = execStructFor name e s `catchBreak` maybe getEnvValue returnVal
+execLangStruct (StructWhile e s) = execStructWhile e s `catchBreak` maybe getEnvValue returnVal
 execLangStruct (StructIf if' thn els) = execStructIf if' thn els
 execLangStruct (StructDefun name cs) = assignVarLambda name cs *> return LitNull
 execLangStruct (StructDefClass name cs) = assignVarClass name cs *> return LitNull
@@ -571,7 +588,7 @@ execStructFor name e s = do
   outScope <- liftM currentScope get
   res <- forM iterable (\v -> do
                    assignVarLit name v
-                   execStmt s)
+                   execStmt s `catchContinue` getEnvValue)
   newS <- liftM currentScope get
   let newS' = deleteLitFromScope name newS
   modifyScope (const $ mergeScope newS' outScope)

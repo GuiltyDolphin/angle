@@ -37,7 +37,11 @@ module Angle.Parse.Error
     , malformedSignatureErr
     , throwImplementationErr
     , throwReturn
+    , throwBreak
+    , throwContinue
     , catchReturn
+    , catchBreak
+    , catchContinue
     ) where
 
 
@@ -360,15 +364,31 @@ instance Show LitError where
 
 
 data ControlException = ControlReturn LangLit
+                      | ControlBreak (Maybe LangLit)
+                      | ControlContinue
                       deriving (Show, Eq)
                                
 
 controlReturn :: LangLit -> AngleError
 controlReturn = controlException . ControlReturn
+                
+
+controlBreak = controlException . ControlBreak
+               
+
+controlContinue = controlException ControlContinue
 
 
 throwReturn :: (CanError m) => LangLit -> m a
 throwReturn = throwAE . controlReturn
+              
+
+throwBreak :: (CanError m) => (Maybe LangLit) -> m a
+throwBreak = throwAE . controlBreak
+
+             
+throwContinue :: (CanError m) => m a
+throwContinue = throwAE controlContinue
 
 
 catchReturn :: (CanError m) => m a -> (LangLit -> m a) -> m a
@@ -376,3 +396,15 @@ catchReturn ex h = ex `catchAE`
                    (\e -> case e of
                             ControlException (ControlReturn v) -> h v
                             err -> throwAE err)
+                                 
+
+catchBreak ex h = ex `catchAE`
+                  (\e -> case e of
+                           ControlException (ControlBreak v) -> h v
+                           err -> throwAE err)
+                                
+
+catchContinue ex v = ex `catchAE`
+                     (\e -> case e of
+                              ControlException ControlContinue -> v
+                              err -> throwAE err)

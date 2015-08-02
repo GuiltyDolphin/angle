@@ -216,7 +216,9 @@ exprSep = lookAhead (charFrom sepChar) <?> "expression boundary"
 
                 
 keywords :: [String]
-keywords = [ "defun"
+keywords = [ "break"
+           , "continue"
+           , "defun"
            , "do"
            , "else"
            , "false"

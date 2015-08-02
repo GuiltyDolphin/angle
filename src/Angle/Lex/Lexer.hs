@@ -72,6 +72,7 @@ singStmt :: Scanner SingStmt
 singStmt = many (surrounded whitespace stmtComment) >>
            stmtStruct 
            <|> stmtReturn <* singStmtEnd
+           <|> stmtBreak <* singStmtEnd
            <|> stmtAssign <* singStmtEnd
            <|> stmtExpr   <* singStmtEnd
            <?> "statement"
@@ -89,6 +90,16 @@ stmtAssign :: Scanner SingStmt
 stmtAssign = StmtAssign 
              <$> tryScan (langIdent <* tokAssign) 
              <*> expr
+                 
+
+stmtBreak :: Scanner SingStmt
+stmtBreak = do
+  n <- string "break" <|> string "continue"
+  case n of
+    "continue" -> return StmtBreak { breakValue=Nothing, breakContinue=True}
+    "break" -> do
+              retV <- optional (tryScan (tokNSpaced *> expr))
+              return StmtBreak { breakValue=retV, breakContinue=False}
 
 
 stmtComment :: Scanner SingStmt

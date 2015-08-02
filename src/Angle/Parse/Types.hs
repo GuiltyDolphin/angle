@@ -70,6 +70,7 @@ data Env = Env { currentScope :: Scope
                , sourceText :: String
                , envSourceRef :: SourceRef
                , envSynRep :: String
+               , envValue :: LangLit
                } deriving (Show, Eq)
 
 -- Stack API

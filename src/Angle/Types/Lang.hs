@@ -92,6 +92,9 @@ instance ShowSyn SingStmt where
     showSyn (StmtExpr e) = showSyn e ++ ";\n"
     showSyn (StmtComment x) = "#" ++ x ++ "\n"
     showSyn (StmtReturn x) = "return " ++ showSyn x ++ ";\n"
+    showSyn (StmtBreak x False) = "break" ++ maybe "" ((" "++) . showSyn) x
+    showSyn (StmtBreak Nothing True) = "continue"
+    showSyn (StmtBreak _ _) = error "showSyn: StmtBreak not a valid combination!"
 
 
 -- | A single statement.
@@ -100,6 +103,8 @@ data SingStmt = StmtAssign LangIdent Expr
               | StmtStruct LangStruct
               | StmtExpr Expr -- ^ Expression. Evaluates to a literal.
               | StmtReturn Expr
+              | StmtBreak { breakValue :: Maybe Expr
+                          , breakContinue :: Bool }
                 deriving (Show, Eq)
 
 
