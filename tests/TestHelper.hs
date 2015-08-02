@@ -40,16 +40,16 @@ instance Arbitrary LangLit where
                 , (6, liftArby LitInt)
                 , (6, liftArby LitFloat)
                 , (1, liftM LitList (liftArby getSmallList))
-                , (6, liftArby LitBool)
-                , (1, liftArby2 LitRange)
-                , (6, return LitNull)
+                , (9, liftArby LitBool)
+                --, (1, liftArby3 LitRange)
+                , (9, return LitNull)
                 ]
     shrink (LitList xs) = map LitList (shrink xs)
     shrink (LitInt x) = map LitInt (shrink x)
     shrink (LitStr x) = map LitStr (shrink x)
     shrink (LitFloat x) = map LitFloat (shrink x)
     shrink (LitBool x) = map LitBool (shrink x)
-    shrink (LitRange x y) = zipWith LitRange (shrink x) (shrink y)
+    --shrink (LitRange x y z) = zipWith3 LitRange (shrink x) (shrink y) (shrink z)
     shrink LitNull = [LitNull]
                             
                 
