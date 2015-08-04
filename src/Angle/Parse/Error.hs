@@ -42,11 +42,13 @@ module Angle.Parse.Error
     , catchReturn
     , catchBreak
     , catchContinue
+    , badRangeErr
     ) where
 
 
 import Control.Monad.Error
 import Data.Function (on)
+import Data.Maybe (catMaybes)
    
 import Angle.Scanner
 import Angle.Types.Lang
@@ -83,10 +85,6 @@ data AngleError = ParserError
     }
                 | ImplementationError String
                 | ControlException ControlException
-
-
-parserErr :: SourceRef -> ParserError -> String -> AngleError
-parserErr = ParserError
 
 
 implementationErr :: String -> AngleError
@@ -179,6 +177,7 @@ data TypeError = TypeMismatch   LangType LangType
                | TypeExpectClass LangLit LangIdent
                | TypeClassWrongReturn LangIdent LangType
                | TypeAnnWrong AnnType AnnType
+               | TypeNotEnum LangType
 
                  
 typeMismatchErr :: LangType -> LangType -> ParserError
@@ -198,7 +197,7 @@ typeNotValidErrT     = typeNotValidErr . typeOf
 
 
 typeCastErr :: LangType -> LangType -> ParserError
-typeCastErr       t1 = typeErr . TypeCast       t1
+typeCastErr       from = typeErr . TypeCast from
 
 
 typeMismatchOpErr :: LangType -> LangType -> ParserError
@@ -210,14 +209,18 @@ typeMismatchOpErrT = typeMismatchOpErr `on` typeOf
                      
 
 typeExpectClassErr :: LangLit -> LangIdent -> ParserError
-typeExpectClassErr n = typeErr . TypeExpectClass n
+typeExpectClassErr cls = typeErr . TypeExpectClass cls
                          
 
 typeClassWrongReturnErr :: LangIdent -> LangType -> ParserError
-typeClassWrongReturnErr n = typeErr . TypeClassWrongReturn n
+typeClassWrongReturnErr cls = typeErr . TypeClassWrongReturn cls 
                             
 
-typeAnnWrongErr t1 = typeErr . TypeAnnWrong t1
+typeAnnWrongErr :: AnnType -> AnnType -> ParserError
+typeAnnWrongErr e = typeErr . TypeAnnWrong e
+                    
+
+typeNotEnumErr = typeErr . TypeNotEnum
 
                
 instance Show TypeError where
@@ -351,6 +354,7 @@ class (CanError m) => CanErrorWithPos m where
 
 
 data LitError = IndexOutOfBoundsError Int
+              | BadRange LangType (Maybe LangType) (Maybe LangType)
               deriving (Eq)
                        
 
@@ -358,8 +362,13 @@ indexOutOfBoundsErr :: Int -> ParserError
 indexOutOfBoundsErr = litErr . IndexOutOfBoundsError
 
 
+badRangeErr :: LangType -> Maybe LangType -> Maybe LangType -> ParserError
+badRangeErr t1 t2 = litErr . BadRange t1 t2
+
+
 instance Show LitError where
     show (IndexOutOfBoundsError x) = "index out of bounds: " ++ show x
+    show (BadRange t1 t2 t3) = "bad range: all types should be same, but got: " ++ show t1 ++ concatMap ((", "++) . show) (catMaybes [t2,t3])
 
 
 
@@ -373,9 +382,11 @@ controlReturn :: LangLit -> AngleError
 controlReturn = controlException . ControlReturn
                 
 
+controlBreak :: Maybe LangLit -> AngleError
 controlBreak = controlException . ControlBreak
                
 
+controlContinue :: AngleError
 controlContinue = controlException ControlContinue
 
 
@@ -383,7 +394,7 @@ throwReturn :: (CanError m) => LangLit -> m a
 throwReturn = throwAE . controlReturn
               
 
-throwBreak :: (CanError m) => (Maybe LangLit) -> m a
+throwBreak :: (CanError m) => Maybe LangLit -> m a
 throwBreak = throwAE . controlBreak
 
              
@@ -398,12 +409,14 @@ catchReturn ex h = ex `catchAE`
                             err -> throwAE err)
                                  
 
+catchBreak :: (CanError m) => m a -> (Maybe LangLit -> m a) -> m a
 catchBreak ex h = ex `catchAE`
                   (\e -> case e of
                            ControlException (ControlBreak v) -> h v
                            err -> throwAE err)
                                 
 
+catchContinue :: (CanError m) => m a -> m a -> m a
 catchContinue ex v = ex `catchAE`
                      (\e -> case e of
                               ControlException ControlContinue -> v
