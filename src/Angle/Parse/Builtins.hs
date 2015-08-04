@@ -25,6 +25,8 @@ import Control.Monad.State
 import qualified Data.Map as M
 import Data.Maybe (maybeToList)
 import System.Environment
+    
+import Debug.Trace (trace)
 
 import Angle.Parse.Error
 import Angle.Parse.Scope
@@ -32,6 +34,9 @@ import Angle.Parse.Types
 import Angle.Types.Lang
 import Angle.Lex.Lexer (litList, evalScan)
 
+traceShowMsg :: (Show a) => String -> a -> a
+traceShowMsg msg x = trace (msg ++ show x) x
+                    
            
 builtinCallSig :: LangIdent -> Lambda
 builtinCallSig name = 
