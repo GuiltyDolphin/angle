@@ -4,6 +4,7 @@ module Angle.Parse.Scope
     , VarVal(..)
     , emptyVar
     , BindEnv
+    , bindEnvFromList
     , resolve
     , outermostScope
     , isOutermostScope
@@ -18,6 +19,7 @@ module Angle.Parse.Scope
     , resolveFun
     ) where
 
+import Control.Applicative
 import Control.Monad
 import qualified Data.Map as M    
 import Data.Maybe (fromJust, isJust)
@@ -29,10 +31,23 @@ import Angle.Types.Lang
 
 -- | Mapping from variables to values.
 -- type BindEnv = M.Map LangIdent VarVal
-type BindEnv a = M.Map LangIdent (VarVal a)
+-- type BindEnv a = M.Map LangIdent (VarVal a)
     
---newtype BindEnv a = BindEnv { unBindEnv :: M.Map LangIdent (VarVal a) }
 
+bindEnvFromList :: [(LangIdent, VarVal a)] -> BindEnv a
+bindEnvFromList = BindEnv . M.fromList
+                  
+
+emptyBindEnv :: BindEnv a
+emptyBindEnv = BindEnv M.empty
+
+    
+newtype BindEnv a = BindEnv 
+    { unBindEnv :: M.Map LangIdent (VarVal a) }
+    deriving (Show, Eq)
+
+
+type BindMap a = M.Map LangIdent (VarVal a)
     
 -- Scope API:
 -- - changing scope
@@ -82,8 +97,27 @@ isOutermostScope s = case outerScope s of
 
 -- | True if the scope contains a defition for the given
 -- identifier.
-isDefinedIn :: Ord k => (t -> M.Map k a) -> k -> t -> Bool
-isDefinedIn binds name scope = isJust $ M.lookup name $ binds scope 
+isDefinedIn :: (Scope -> BindEnv a) -> LangIdent -> Scope -> Bool
+isDefinedIn binds name scope = isJust $ lookupBind name $ binds scope 
+                               
+
+onBind :: (BindMap a -> b) -> BindEnv a -> b
+onBind f = f . unBindEnv
+           
+
+withBind :: (BindMap a -> BindMap a) -> BindEnv a -> BindEnv a
+withBind f = toBind . onBind f
+           
+
+toBind :: BindMap a -> BindEnv a
+toBind = BindEnv
+
+
+-- onBinds :: (BindMap a -> BindMap a) -> BindEnv a -> BindEnv a
+-- onBinds f = toBind . onBind f
+
+onBinds :: (BindMap a -> BindMap a -> BindMap a) -> BindEnv a -> BindEnv a -> BindEnv a
+onBinds f x = toBind . (f `on` unBindEnv) x
 
 
 isLitIn :: LangIdent -> Scope -> Bool
@@ -155,16 +189,16 @@ resolve :: (Scope -> BindEnv a) -> LangIdent -> Scope -> Maybe (VarVal a)
 resolve binds name scope = case innerScopeDefining binds name scope of
                              Nothing -> Nothing
                              Just scope' -> fromCurrentScope binds scope'
-                                                                    where fromCurrentScope b s = M.lookup name (b s)
+                                                                    where fromCurrentScope b = lookupBind name . b
                                  
 
 -- | A scope with no parent or bindings.
 emptyScope :: Scope
 emptyScope = Scope { 
                outerScope = Nothing
-             , valueBindings = M.empty
-             , lambdaBindings = M.empty
-             , classBindings = M.empty
+             , valueBindings = emptyBindEnv
+             , lambdaBindings = emptyBindEnv
+             , classBindings = emptyBindEnv
              }
 
 
@@ -185,16 +219,20 @@ onClassBindings
 onClassBindings f scope = scope { classBindings = f $ classBindings scope }
 
 
+insertVar :: LangIdent -> VarVal a -> BindEnv a -> BindEnv a
+insertVar = insertBind
+
+
 setVarLitInScope :: LangIdent -> VarVal LangLit -> Scope -> Scope
-setVarLitInScope name val = onLitBindings (M.insert name val)
+setVarLitInScope name val = onLitBindings (insertVar name val)
       
 
 setVarFunInScope :: LangIdent -> VarVal Lambda -> Scope -> Scope
-setVarFunInScope name val = onFunBindings (M.insert name val)
+setVarFunInScope name val = onFunBindings (insertVar name val)
                             
 
 setVarClassInScope :: LangIdent -> VarVal Lambda -> Scope -> Scope
-setVarClassInScope name val = onClassBindings (M.insert name val)
+setVarClassInScope name val = onClassBindings (insertVar name val)
                                          
 
 
@@ -204,9 +242,9 @@ setVarClassInScope name val = onClassBindings (M.insert name val)
 -- over no definition.
 mergeScope :: Scope -> Scope -> Scope
 mergeScope sc1 sc2
-    = let nLits = M.union `on` valueBindings
-          nFuns = M.union `on` lambdaBindings
-          nClss = M.union `on` classBindings
+    = let nLits = mergeBinds `on` valueBindings
+          nFuns = mergeBinds `on` lambdaBindings
+          nClss = mergeBinds `on` classBindings
       in sc1 { valueBindings = nLits sc1 sc2
              , lambdaBindings = nFuns sc1 sc2
              , classBindings = nClss sc1 sc2
@@ -214,14 +252,26 @@ mergeScope sc1 sc2
 
 
 deleteLitFromScope :: LangIdent -> Scope -> Scope
-deleteLitFromScope name =  onLitBindings (M.delete name)
+deleteLitFromScope =  onLitBindings . deleteBind
 
 
 deleteFunFromScope :: LangIdent -> Scope -> Scope
-deleteFunFromScope name = onFunBindings (M.delete name)
+deleteFunFromScope = onFunBindings . deleteBind
 
 
 
+deleteBind :: LangIdent -> BindEnv a -> BindEnv a
+deleteBind = withBind . M.delete
+
+             
+mergeBinds :: BindEnv a -> BindEnv a -> BindEnv a
+mergeBinds = onBinds M.union
+             
+
+lookupBind :: LangIdent -> BindEnv a -> Maybe (VarVal a)
+lookupBind = onBind . M.lookup
 
 
+insertBind :: LangIdent -> VarVal a -> BindEnv a -> BindEnv a
+insertBind n = withBind . M.insert n
 

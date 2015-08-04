@@ -53,8 +53,8 @@ builtinVar name = (name, VarVal { varDef = Just $ builtinCallSig name
                                 , varBuiltin = True })
 
 
-builtinsVars :: M.Map LangIdent (VarVal Lambda)
-builtinsVars = M.fromList $ 
+builtinsVars :: BindEnv Lambda
+builtinsVars = bindEnvFromList $ 
                map (builtinVar . LangIdent) builtins
 
 
