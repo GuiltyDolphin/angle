@@ -260,6 +260,14 @@ data LambdaType = FunLambda | ClassLambda
                   deriving (Show, Eq)
                   
 
+data LitSize = FiniteLit Int | InfiniteLit 
+               deriving (Show, Eq, Ord)
+
+litSize :: LangLit -> LitSize
+litSize (LitRange _ Nothing _) = InfiniteLit
+litSize (LitList xs) = FiniteLit $ length xs
+litSize _ = FiniteLit 1
+ 
 
 instance ShowSyn LangLit where
     showSyn (LitStr x) = show x -- '\"' : x ++ "\""
@@ -290,17 +298,19 @@ data LangType = LTStr
 
 
 typeOf :: LangLit -> LangType
-typeOf (LitStr{})   = LTStr
-typeOf (LitInt{})   = LTInt
-typeOf (LitFloat{})   = LTFloat
-typeOf (LitList{})   = LTList
-typeOf (LitBool{})   = LTBool
-typeOf (LitRange{}) = LTRange
-typeOf LitNull        = LTNull
+typeOf (LitStr _)    = LTStr
+typeOf (LitChar _)   = LTChar
+typeOf (LitInt _)    = LTInt
+typeOf (LitFloat _)  = LTFloat
+typeOf (LitList _)   = LTList
+typeOf (LitBool _)   = LTBool
+typeOf (LitRange{})  = LTRange
+typeOf LitNull       = LTNull
 typeOf (LitLambda{}) = LTLambda
                        
 
 -- TODO: Check this - can't identify classes
+typeAnnOf :: LangLit -> AnnType
 typeAnnOf (LitLambda{}) = AnnFun
 typeAnnOf _ = AnnLit
               

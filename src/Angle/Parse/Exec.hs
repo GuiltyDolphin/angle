@@ -344,6 +344,21 @@ execExpr (ExprFunCall name args) = execFunCall name args
 execExpr (ExprList xs) = liftM LitList $ mapM execExpr xs
 execExpr (ExprLambda x) = returnVal (LitLambda x)
 execExpr (ExprLambdaCall f xs) = callLambda f xs
+execExpr x@(ExprRange{}) = do
+  r <- execExprRange x
+  checkLitRange r
+  returnVal r
+                           
+
+execExprRange (ExprRange x Nothing Nothing) 
+    = liftM3 LitRange (execExpr x) (return Nothing) (return Nothing)
+execExprRange (ExprRange x (Just y) Nothing)
+    = liftM3 LitRange (execExpr x) (liftM Just $ execExpr y) (return Nothing)
+execExprRange (ExprRange x Nothing (Just z))
+    = liftM3 LitRange (execExpr x) (return Nothing) (liftM Just $ execExpr z)
+execExprRange (ExprRange x (Just y) (Just z))
+    = liftM3 LitRange (execExpr x) (liftM Just $ execExpr y) (liftM Just $ execExpr z)
+  
                                    
 
 execFunCall :: LangIdent -> [Expr] -> ExecIO LangLit
@@ -508,6 +523,11 @@ iterToLit :: LangLit -> ExecIO LangLit
 iterToLit = liftM LitList . fromIter
 
 
+isInfiniteRange :: LangLit -> Bool
+isInfiniteRange (LitRange _ Nothing _) = True
+isInfiniteRange (LitRange{}) = False
+
+
 iterFromThenTo :: LangLit -> LangLit -> LangLit -> ExecIO [LangLit]
 iterFromThenTo (LitInt x) (LitInt y) (LitInt z) = return $ map LitInt $ enumFromThenTo x z y
 iterFromThenTo (LitFloat x) (LitFloat y) (LitFloat z) = return $ map LitFloat $ enumFromThenTo x z y
@@ -643,3 +663,29 @@ builtinEval xs = do
     Left _ -> throwParserError . callBuiltinErr $ "eval: no parse"
     Right res -> execStmt res
     where st = argsToString xs
+               
+
+enumType :: LangLit -> Bool
+enumType (LitInt _) = True
+enumType (LitChar _) = True
+enumType (LitFloat _) = True
+enumType _ = False
+
+
+validRangeLit :: LangLit -> Bool
+validRangeLit (LitRange x Nothing Nothing) 
+    = enumType x
+validRangeLit (LitRange x (Just y) Nothing)
+    = enumType x && typeOf x == typeOf y
+validRangeLit (LitRange x (Just y) (Just z))
+    = enumType x && all ((== typeOf x) . typeOf) [y, z]
+validRangeLit (LitRange x Nothing (Just z))
+    = enumType x && typeOf x == typeOf z
+
+      
+checkLitRange :: LangLit -> ExecIO ()
+checkLitRange r@(LitRange x y z)
+    = unless (validRangeLit r)
+      (if enumType x
+       then throwParserError $ badRangeErr (typeOf x) (fmap typeOf y) (fmap typeOf z)
+       else throwParserError $ typeExpectClassErr x (LangIdent "enum"))
