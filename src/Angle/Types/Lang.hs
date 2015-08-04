@@ -278,6 +278,7 @@ showRange x y z = "(" ++ showSyn x ++ ".." ++ maybe "" showSyn y ++ maybe "" (("
                    
 
 data LangType = LTStr
+              | LTChar
               | LTInt
               | LTFloat
               | LTList

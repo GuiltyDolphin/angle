@@ -497,6 +497,7 @@ execStructIf if' thn els = do
 
 fromIter :: LangLit -> ExecIO [LangLit]                        
 fromIter (LitList xs) = return xs
+fromIter (LitStr xs) = return $ map LitChar xs
 fromIter (LitRange x Nothing Nothing) = iterFrom x
 fromIter (LitRange x (Just y) Nothing) = iterFromTo x y
 fromIter (LitRange x (Just y) (Just z)) = iterFromThenTo x y z
