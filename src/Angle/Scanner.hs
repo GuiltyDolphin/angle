@@ -1,4 +1,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- Change imports
 module Angle.Scanner
   ( runScanner
@@ -17,9 +22,13 @@ module Angle.Scanner
 
 import Control.Applicative
 import Control.Monad.Error
+-- import Control.Monad.Trans.State
+-- import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Except
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.List (genericIndex, genericLength)
+import Data.Monoid
 
 
 -- | Represents a position in source.
@@ -84,6 +93,48 @@ newtype Scanner a = Scanner
            , MonadState ScanState
            , MonadReader ScanEnv, MonadError ScanError)
 
+newtype Scanner' a = Scanner'
+    { unScanner :: ExceptT ScanError (StateT ScanState (Reader ScanEnv)) a }
+    deriving (Functor, Applicative
+             , Monad)
+
+-- deriving instance MonadState ScanState Scanner' => MonadState ScanState Scanner'
+         
+
+instance MonadError ScanError Scanner' where
+    throwError = Scanner' . throwE
+    catchError (Scanner' e) h = Scanner' (lift $ runExceptT e) >>= either h return
+            
+-- deriving instance MonadState ScanState Scanner'
+         
+instance MonadState ScanState Scanner' where
+    get = Scanner' $ lift get
+    put x = Scanner' $ lift $ put x
+                         
+instance MonadPlus Scanner' where
+    mzero = do
+      s <- get
+      emptyErrh $ UnknownError (sourcePos s)
+    mplus x y = x `catchError` const y
+         
+
+instance Alternative Scanner' where
+    empty = mzero
+    (<|>) = mplus
+
+
+instance MonadReader ScanEnv Scanner' where
+    ask = Scanner' $ lift ask
+    local f (Scanner' (ExceptT e)) = Scanner' $ ExceptT $ local f e
+                
+
+evalScan' str sc = runReader (evalStateT (runExceptT (unScanner sc)) defaultState) env
+    where defaultState = ScanState { sourcePos = beginningOfFile }
+          env = ScanEnv { sourceText = str }
+     
+
+emptyErrh :: ScanError -> Scanner' a
+emptyErrh = throwError 
 
 data ScanError = ScanError 
     { expectedMsg :: String -- ^Human readable statement of 
@@ -95,7 +146,7 @@ data ScanError = ScanError
     , errPos :: SourcePos  -- ^The position in source 
                            -- where the error occurred
     , scanErrText :: String -- Reference to the source text
-    } deriving (Eq)
+    } | UnknownError SourcePos deriving (Eq)
 
 
 instance Error ScanError where
@@ -128,12 +179,23 @@ unexpectedErr msg = do
   txt <- liftM sourceText ask
   throwError (noMsg { unexpectedMsg=msg, errPos=pos, scanErrText=txt })
              
+unexpectedErr' :: String -> Scanner' a
+unexpectedErr' msg = do
+  pos <- liftM sourcePos get
+  txt <- liftM sourceText ask
+  throwError (noMsg { unexpectedMsg=msg, errPos=pos, scanErrText=txt })
 
 expectedErr :: String -> Scanner a
 expectedErr msg = do
   pos <- liftM sourcePos get
   txt <- liftM sourceText ask
   throwError (noMsg { expectedMsg=msg, errPos=pos, scanErrText=txt})
+             
+
+-- generalErr msg = do
+--   pos <- liftM sourcePos get
+--   txt <- liftM sourceText ask
+--   throwError (strMsg msg { errPos=pos, scanErrText=txt })
 
 
 -- | Retrieves the next character from the
@@ -148,6 +210,22 @@ scanChar = do
       indx = sourceIndex pos
   if indx >= genericLength sourceString
   then unexpectedErr "end of stream"
+  else do
+    let chr = sourceString `genericIndex` indx
+    put st{sourcePos=if chr == '\n'
+                     then incNL pos
+                     else incCol pos}
+    return chr
+
+
+scanChar' :: Scanner' Char
+scanChar' = do
+  st <- get
+  sourceString <- liftM sourceText ask
+  let pos  = sourcePos st
+      indx = sourceIndex pos
+  if indx >= genericLength sourceString
+  then unexpectedErr' "end of stream"
   else do
     let chr = sourceString `genericIndex` indx
     put st{sourcePos=if chr == '\n'
