@@ -262,7 +262,7 @@ data LambdaType = FunLambda | ClassLambda
 
 
 instance ShowSyn LangLit where
-    showSyn (LitStr x) = '\"' : x ++ "\""
+    showSyn (LitStr x) = show x -- '\"' : x ++ "\""
     showSyn (LitChar x) = show x
     showSyn (LitInt x) = show x
     showSyn (LitFloat x) = showFFloat Nothing x ""

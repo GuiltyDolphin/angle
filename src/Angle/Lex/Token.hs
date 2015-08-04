@@ -17,6 +17,7 @@ module Angle.Lex.Token
     , tokAssign
     , tokRangeSep
     , tokSpace
+    , escString
     , tokWhitespace
     , tokNSpaced
     , tokPeriod
@@ -250,6 +251,11 @@ parens sc = within tokParenL tokParenR sc
 tokString :: Scanner String
 tokString = within tokStringStart tokStringEnd 
             (many tokStringBodyChar) <?> "string"
+
+escString :: Scanner String
+escString = do
+  s <- tokString
+  return $ read $ '"' : s ++ "\""
 
 
 tuple :: Scanner b -> Scanner [b]
