@@ -335,6 +335,7 @@ expandParams (x:xs)
                          
 
 execExpr :: Expr -> ExecIO LangLit
+execExpr (ExprLit x@(LitRange{})) = checkLitRange x >> returnVal x
 execExpr (ExprLit x) = returnVal x
 execExpr (ExprIdent x) = lookupVarLitF x
 execExpr (ExprFunIdent x) = liftM LitLambda $ lookupVarLambdaF x
@@ -347,18 +348,6 @@ execExpr (ExprLambdaCall f xs) = callLambda f xs
 
 execFunCall :: LangIdent -> [Expr] -> ExecIO LangLit
 execFunCall = callFun
-                      
-
-returnVal :: LangLit -> ExecIO LangLit
-returnVal v = putEnvValue v >> return v
-    
-
-getEnvValue :: ExecIO LangLit
-getEnvValue = liftM envValue get
-
-
-putEnvValue :: LangLit -> ExecIO ()
-putEnvValue v = modify (\e -> e {envValue=v})
 
 
 execOp :: LangOp -> ExecIO LangLit

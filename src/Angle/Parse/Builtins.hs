@@ -79,15 +79,17 @@ builtins = [ "print", "str"
            --, "compose", "partial"
            , "input", "eval"
            , "asType", "getArgs"]
-         
 
+         
+-- TODO:
+-- * Currently ignores '\n' characters in strings.
 builtinPrint :: [LangLit] -> ExecIO LangLit
-builtinPrint xs = liftIO $ putStrLn res >> return (LitStr res)
+builtinPrint xs = liftIO (putStrLn res) >> returnVal (LitStr res)
     where res = argsToString xs
                                             
 
 builtinInput :: [LangLit] -> ExecIO LangLit
-builtinInput xs = liftM LitStr (liftIO $ putStr res >> liftIO getLine) 
+builtinInput xs = liftM LitStr (liftIO $ putStr res >> liftIO getLine) >>= returnVal
     where res = argsToString xs
                               
 

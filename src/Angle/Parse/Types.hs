@@ -11,6 +11,9 @@ module Angle.Parse.Types
     , runExecIOEnv
     , Env(..)
     , basicEnv
+    , returnVal
+    , getEnvValue
+    , putEnvValue
     ) where
 
 
@@ -42,7 +45,7 @@ newtype ExecEnv a = ExecEnv { runExecEnv :: StateT Env IO a }
 newtype ExecIO a = ExecIO 
     { runExecIO :: ExceptT AngleError (StateT Env IO) a }
     deriving ( Functor, Applicative, Monad
-             , MonadIO, MonadState Env)
+             , MonadIO)
     
 
 -- type ExecIO = ExceptT AngleError ExecEnv
@@ -69,11 +72,10 @@ instance CanErrorWithPos ExecIO where
 instance CanError ExecIO where
     throwAE = ExecIO . throwE
     catchAE (ExecIO e) h = ExecIO (lift $ runExceptT e) >>= either h return
-                           
-instance (MonadState Env m) => MonadState Env (ExceptT AngleError m) where
-    get = lift get
-    put x = lift (put x)
-            
+           
+instance MonadState Env ExecIO where
+    get = ExecIO $ lift get
+    put x = ExecIO $ lift $ put x
               
 
 -- instance MonadState Env ExecIO where
@@ -208,6 +210,7 @@ basicEnv = Env { currentScope = emptyScope
                , sourceText = ""
                , envSourceRef = startRef
                , envSynRep = ""
+               , envValue = LitNull
                }
 
 
@@ -229,3 +232,14 @@ data StackFrame = StackFrame
 -- For this,
 -- Throw the 'error' in the return statement,
 -- then catch it in the calling expression.
+
+returnVal :: LangLit -> ExecIO LangLit
+returnVal v = putEnvValue v >> return v
+    
+
+getEnvValue :: ExecIO LangLit
+getEnvValue = liftM envValue get
+
+
+putEnvValue :: LangLit -> ExecIO ()
+putEnvValue v = modify (\e -> e {envValue=v})
