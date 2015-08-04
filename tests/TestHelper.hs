@@ -276,25 +276,17 @@ instance (Arbitrary a) => Arbitrary (TinyList a) where
     shrink (TinyList xs) = map TinyList (shrink xs)
              
 
-instance Arbitrary BindEnv where
-    arbitrary = do
-      res <- arbitrary
-      return $ M.fromList res
+instance (Arbitrary a) => Arbitrary (BindEnv a) where
+    arbitrary = liftArby bindEnvFromList
     
 
-instance Arbitrary VarVal where
-    arbitrary = do
-      valDef <- arbitrary
-      funDef <- arbitrary
-      return $ emptyVar { varLitDef = valDef, varFunDef = funDef }
-    shrink (VarVal x y z) = zipWith3 VarVal (shrink x) (shrink y) (shrink z)
+instance (Arbitrary a) => Arbitrary (VarVal a) where
+    arbitrary = liftArby2 VarVal
+    shrink (VarVal x y) = zipWith VarVal (shrink x) (shrink y)
 
 
 instance Arbitrary Scope where
-    arbitrary = do
-      outer <- arbitrary
-      vars <- arbitrary
-      return $ emptyScope { outerScope = outer, bindings = vars } 
+    arbitrary = liftArby4 Scope
 
 
 -- Extracts a property from monadic Either code, giving
