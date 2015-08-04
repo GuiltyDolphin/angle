@@ -91,9 +91,9 @@ printSyn = putStrLn . showSyn
 
 
 withSource :: String -> ExecIO ()
-withSource s = do              
+withSource s =
   case evalScan ('{':s++"}") stmt of
-    Left err -> (liftIO $ print err) >> mainProg
+    Left err -> liftIO (print err) >> mainProg
     Right res -> do
                  toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
                  liftIO $ printSyn toPrint
@@ -107,16 +107,17 @@ mainProg = do
   userInput <- liftIO getLine
   unless (userInput=="exit")
            (do 
-             runLine userInput `catchError` (\_ -> mainProg)
+             runLine userInput `catchError` const mainProg
              mainProg)
                  
 
 runMain :: ReplOptions -> IO ()
 runMain opts = undefined
                
+
 runWithSource :: String -> IO ()
 runWithSource s = do
-  x <- runExecIOEnv startEnv $ withSource s
+  runExecIOEnv startEnv $ withSource s
   return ()
 
 main = do 

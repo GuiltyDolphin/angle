@@ -3,7 +3,7 @@ module Angle.Parse.Scope
     , emptyScope
     , VarVal(..)
     , emptyVar
-    , BindEnv
+    , BindEnv(..)
     , bindEnvFromList
     , resolve
     , outermostScope

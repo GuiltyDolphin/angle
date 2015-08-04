@@ -19,12 +19,12 @@ testOutermostScopeParent :: Scope -> Property
 testOutermostScopeParent s = not (isOutermostScope s) ==> outermostScope s == outermostScope (fromJust $ outerScope s)
                              
 
-testResolveDefinedInCurrent :: LangIdent -> VarVal -> Scope -> Bool
-testResolveDefinedInCurrent n v s = let s' = setVarInScope n v s True in resolve n s' == Just v
+testResolveDefinedInCurrent :: LangIdent -> VarVal LangLit -> Scope -> Bool
+testResolveDefinedInCurrent n v s = let s' = setVarLitInScope n v s in resolveLit n s' == Just v
                                              
 
-testOnBindingsId :: Scope -> Bool
-testOnBindingsId s = onBindings id s == s
+-- testOnBindingsId :: Scope -> Bool
+-- testOnBindingsId s = onBindings id s == s
                              
                      
 tests :: [TestTree]
@@ -35,7 +35,7 @@ tests = [ testGroup "outermostScope"
         , testGroup "resolve"
           [ testProperty "defined in current" testResolveDefinedInCurrent
           ]
-        , testGroup "onBindings"
-          [ testProperty "same with id" testOnBindingsId
-          ]
+        --, testGroup "onBindings"
+          --[ testProperty "same with id" testOnBindingsId
+          --]
         ]

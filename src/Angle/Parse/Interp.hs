@@ -30,8 +30,9 @@ stringToStmt s = evalScan s program
 
 runStmt :: String -> Stmt -> [String] -> IO (Either AngleError LangLit)
 runStmt source s args = do 
-  let env' = initializeEnv args
-      env = env' { sourceText=source }
+  --let env' = initializeEnv args
+  --    env = env' { sourceText=source }
+  let env = basicEnv { sourceText = source }
   runExecIOEnv env (execStmt s)
 
             
@@ -79,13 +80,13 @@ interpWithArgs :: [String] -> IO ()
 interpWithArgs = interp . argsToOpts
 
 
-initializeEnv :: [String] -> Env
-initializeEnv args =
-    startEnv {currentScope = startScope { bindings = M.insert 
-                                          (LangIdent "args") 
-                                          (emptyVar {varLitDef = Just (LitList (map LitStr args))}) startBinds}}
-        where startBinds = bindings startScope
-              startScope = currentScope startEnv
+-- initializeEnv :: [String] -> Env
+-- initializeEnv args =
+--     startEnv {currentScope = startScope { valueBindings = M.insert 
+--                                           (LangIdent "args") 
+--                                           (emptyVar {varDef = Just (LitList (map LitStr args))}) startBinds}}
+--         where startBinds = valueBindings startScope
+--               startScope = currentScope startEnv
 
 
 

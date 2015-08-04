@@ -4,6 +4,12 @@ module Angle.Parse.Exec
     ( execStmt
     , Env(..)
     ) where
+    
+
+-- TODO:
+-- * For loops produce values, are they not expressions?
+--   - Should be able to have for loops etc in places
+--     where expressions can be placed.
 
 import Control.Applicative
 import Control.Monad
