@@ -23,11 +23,13 @@ module Angle.Types.Lang
     , SourceRef(..)
     , startRef
     , ClassRef(..)
-    , ClassLambda(..)
+--    , ClassLambda(..)
+    , LangClass(..)
     , AnnType(..)
     , ArgElt(..)
     , argNoAnn
     , Lambda(..)
+    , LambdaType(..)
     , typeAnnOf
     ) where
     
@@ -36,7 +38,7 @@ module Angle.Types.Lang
 -- * AnnType
 --   - Add AnnAny - a type that allows any 
 --     type to be passed (as in, function, literal etc..)
-
+import Data.Maybe (isJust)
 import Numeric (showFFloat)
     
 import Angle.Scanner (SourcePos, beginningOfFile)
@@ -174,10 +176,13 @@ data ParamList = ParamList { parListParams :: [Expr] }
 
 data Lambda = Lambda { lambdaArgs :: ArgSig
                      , lambdaBody :: Stmt
+                     , lambdaType :: LambdaType
                      } deriving (Show, Eq)
             
 instance ShowSyn Lambda where
-    showSyn (Lambda args body) = concat ["(", showSyn args, " ", showSyn body, ")"]
+    showSyn (Lambda args body@(SingleStmt _ _) _)
+        = concat ["(", showSyn args, " ", init $ showSyn body, ")"]
+    showSyn (Lambda args body _) = concat ["(", showSyn args, " ", showSyn body, ")"]
 
 -- | An argument signature.
 data ArgSig = ArgSig { stdArgs :: [ArgElt] -- ^ Standard positional arguments.
@@ -208,10 +213,9 @@ instance ShowSyn ArgElt where
           ++ showSyn name ++ case cls of 
                                Just c -> ':' : showSyn c
                                Nothing -> ""
+                       
 
-
-data ClassLambda = ClassLambda LangIdent Lambda
-              deriving (Show, Eq)
+data LangClass = LangClass LangIdent Lambda
               
 
 newtype ClassRef = ClassRef { getClassRef :: LangIdent }
@@ -224,17 +228,16 @@ instance ShowSyn ClassRef where
 data AnnType = AnnClass | AnnFun | AnnLit
                deriving (Eq)
                         
+
 instance Show AnnType where
     show AnnClass = "class"
     show AnnFun = "function"
     show AnnLit = "literal"
 
 
--- | @True@ if `catchAllArg` is @Just@ something.
+-- | @True@ if `catchAllArg` is  a @Just@ value.
 hasCatchAllArg :: ArgSig -> Bool
-hasCatchAllArg x = case catchAllArg x of
-                     Nothing -> False
-                     Just _ -> True
+hasCatchAllArg = isJust . catchAllArg 
 
 
 -- | Language literal values.
@@ -251,7 +254,12 @@ data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
                        -- explicitly.
              | LitLambda { getLitLambda :: Lambda } -- ^ A function without a name.
                deriving (Show, Eq)
-                   
+                        
+
+data LambdaType = FunLambda | ClassLambda
+                  deriving (Show, Eq)
+                  
+
 
 instance ShowSyn LangLit where
     showSyn (LitStr x) = '\"' : x ++ "\""
@@ -262,7 +270,6 @@ instance ShowSyn LangLit where
     showSyn (LitBool x) = if x then "true" else "false"
     showSyn (LitRange x y z) = showRange x y z
     showSyn LitNull = "null"
-    showSyn (LitLambda x@(Lambda _ (SingleStmt _ _))) = init $ showSyn x
     showSyn (LitLambda x) = showSyn x
                             
 
@@ -326,7 +333,7 @@ instance ShowSyn Expr where
     showSyn (ExprLit x) = showSyn x
     showSyn (ExprFunCall n es) = showSyn n ++ showSynArgs es
     showSyn (ExprOp x) = showSyn x
-    showSyn (ExprLambda x) = "(" ++ showSyn (LitLambda x) ++ ")"
+    showSyn (ExprLambda x) = "(" ++ showSyn x ++ ")"
     showSyn (ExprFunIdent x) = "$" ++ showSyn x
     showSyn (ExprList _) = error "showSyn - cannot show unevaluated list"
     showSyn (ExprRange{}) = error "showSyn - cannot show unevaluated range"

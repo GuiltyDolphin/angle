@@ -89,12 +89,13 @@ instance Arbitrary LangStruct where
     shrink (StructDefun x y) = zipWith StructDefun (shrink x) (shrink y)
 
 
-instance Arbitrary CallSig where
+instance Arbitrary Lambda where
     arbitrary = do
       args <- arbitrary
       body <- arbitrary
-      return CallSig { callArgs=args, callBody=body }
-    shrink (CallSig x y) = zipWith CallSig (shrink x) (shrink y)
+      typ <- arbitrary
+      return Lambda { lambdaArgs=args, lambdaBody=body, lambdaType=typ }
+    shrink (Lambda x y z) = zipWith3 Lambda (shrink x) (shrink y) (shrink z)
              
     
 instance Arbitrary Expr where
@@ -103,7 +104,7 @@ instance Arbitrary Expr where
                 , (9, liftArby  ExprLit)
                 , (1, liftM2 ExprFunCall arbitrary (liftArby getTinyList))
                 , (4, liftArby  ExprOp)
-                , (4, liftArby ExprLambda)
+                --, (4, liftArby ExprLambda)
                 , (4, liftArby ExprFunIdent)
                 ]
     shrink (ExprIdent x) = map ExprIdent (shrink x)
@@ -122,7 +123,19 @@ instance Arbitrary ArgSig where
       return ArgSig { Angle.Types.Lang.stdArgs = args, catchAllArg = catchArg }
     shrink (ArgSig x y) = zipWith ArgSig (shrink x) (shrink y)
              
-    
+   
+instance Arbitrary ArgElt where
+    arbitrary = liftArby3 ArgElt
+                
+instance Arbitrary ClassRef where
+    arbitrary = liftArby ClassRef
+                
+instance Arbitrary AnnType where
+    arbitrary = elements [AnnFun, AnnClass, AnnLit]
+                
+instance Arbitrary LambdaType where
+    arbitrary = elements [FunLambda, ClassLambda]
+
 instance Arbitrary Stmt where
     arbitrary = frequency
                 [ (9, liftArby2 SingleStmt)
@@ -164,6 +177,9 @@ liftArby2 f = liftM2 f arbitrary arbitrary
 
 liftArby3 :: (Arbitrary a, Arbitrary b, Arbitrary c) => (a -> b -> c -> d) -> Gen d
 liftArby3 f = liftM3 f arbitrary arbitrary arbitrary
+              
+
+liftArby4 f = liftM4 f arbitrary arbitrary arbitrary arbitrary
              
 
 newtype ValidLitStr =

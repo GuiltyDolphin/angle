@@ -190,7 +190,8 @@ structDefun = StructDefun
               <$> (string "defun " *> identName)
               <*> (Lambda
                    <$> callList <* tokStmtBetween
-                   <*> stmt)
+                   <*> stmt
+                   <*> pure FunLambda)
 
 
 program :: Scanner Stmt
@@ -317,7 +318,7 @@ exprLambda :: Scanner Expr
 exprLambda = liftM ExprLambda . parens $ do
     args <- callList <* tokSpace
     body <- stmt
-    return $ Lambda args body
+    return $ Lambda args body FunLambda
 
 
 -- | Set of arguments for a function 
@@ -444,7 +445,7 @@ structDefClass = do
   name <- langIdent
   arg <- callList
   body <- stmt
-  return $ StructDefClass name (Lambda arg body)
+  return $ StructDefClass name (Lambda arg body ClassLambda)
 
 
 classRefArgSig :: Scanner ClassRef

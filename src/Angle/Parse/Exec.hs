@@ -293,18 +293,24 @@ execClass val clsName = do
          $ typeClassWrongReturnErr clsName (typeOf y)
 
 
+-- | True if the literal is of the specified annotation type.
+satType :: LangLit -> AnnType -> Bool
 satType (LitLambda _) AnnFun = True
 satType (LitLambda _) AnnClass = True -- TODO: Check this!
 satType (LitLambda _) AnnLit = False
 satType _ AnnLit = True
 satType _ _ = False
 
-              
+
+-- | Fails if @satType@ returns false with the same arguments.              
+checkSatType :: CanErrorWithPos m => LangLit -> AnnType -> m ()
 checkSatType val typ = do
   let res = satType val typ
   unless res $ throwParserError $ typeAnnWrongErr typ $ typeAnnOf val
 
 
+-- | True if the literal 
+satClass :: LangLit -> LangIdent -> ExecIO Bool
 satClass val clsName = do
   (LitBool res) <- execClass val clsName
   return res
@@ -404,14 +410,6 @@ callLambda (Lambda
             { lambdaArgs=params
             , lambdaBody=body}) args
     = do
-  bindArgs args params
-  res <- execStmt body `catchReturn` return
-  upScope
-  return res
-           
-
-callFunCallSig :: Lambda -> [Expr] -> ExecIO LangLit
-callFunCallSig (Lambda {lambdaArgs=params, lambdaBody=body}) args = do
   bindArgs args params
   res <- execStmt body `catchReturn` return
   upScope
