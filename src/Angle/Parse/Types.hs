@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Angle.Parse.Types
     ( ExecIO
     , runExecIO
@@ -38,17 +39,26 @@ newtype ExecEnv a = ExecEnv { runExecEnv :: StateT Env IO a }
     deriving (Functor, Applicative, Monad
              , MonadState Env, MonadIO)
     
-
-type ExecIO = ExceptT AngleError ExecEnv
+newtype ExecIO a = ExecIO 
+    { runExecIO :: ExceptT AngleError (StateT Env IO) a }
+    deriving ( Functor, Applicative, Monad
+             , MonadIO, MonadState Env)
     
 
-runExecIO :: ExecIO a -> StateT Env IO (Either AngleError a)
-runExecIO = runExecEnv . runExceptT
+-- type ExecIO = ExceptT AngleError ExecEnv
     
+
+-- runExecIO :: ExecIO a -> StateT Env IO (Either AngleError a)
+-- runExecIO = runExecEnv . runExceptT
+    
+
+-- instance MonadError AngleError ExecIO where
+--     throwError = throwE
+--     catchError = catchE
 
 instance MonadError AngleError ExecIO where
-    throwError = throwE
-    catchError = catchE
+    throwError = throwAE
+    catchError = catchAE
                  
 
 instance CanErrorWithPos ExecIO where
@@ -57,13 +67,18 @@ instance CanErrorWithPos ExecIO where
 
 
 instance CanError ExecIO where
-    throwAE = throwE
-    catchAE = catchE
-              
-
-instance MonadState Env ExecIO where
+    throwAE = ExecIO . throwE
+    catchAE (ExecIO e) h = ExecIO (lift $ runExceptT e) >>= either h return
+                           
+instance (MonadState Env m) => MonadState Env (ExceptT AngleError m) where
     get = lift get
     put x = lift (put x)
+            
+              
+
+-- instance MonadState Env ExecIO where
+--     get = lift get
+--     put x = lift (put x)
 
 
 data Env = Env { currentScope :: Scope
@@ -178,8 +193,10 @@ data Env = Env { currentScope :: Scope
 --     Just x  -> modifyStack (const x)
 
 
+-- runExecIOEnv :: Env -> ExecIO a -> IO (Either AngleError a)
+-- runExecIOEnv e x = evalStateT (runExecIO x) e
 runExecIOEnv :: Env -> ExecIO a -> IO (Either AngleError a)
-runExecIOEnv e x = evalStateT (runExecIO x) e
+runExecIOEnv e x = evalStateT (runExceptT $ runExecIO x) e
                        
 
 runExecIOBasic :: ExecIO a -> IO (Either AngleError a)

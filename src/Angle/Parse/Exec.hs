@@ -100,24 +100,13 @@ newScope = do
   let oldScope = currentScope env
       newScope' = emptyScope { outerScope = Just oldScope }
   put env { currentScope = newScope' }
-
-
--- lookupVar :: LangIdent -> ExecIO (Maybe VarVal)
--- lookupVar name = do
---   env <- get
---   let res = resolve name (currentScope env)
---   return res
-         
--- lookupVarLit :: LangIdent -> ExecIO (Maybe LangLit)
--- lookupVarLit name = do
---   currScope <- getScope
---   case resolveLit name currScope of 
---     Nothing -> return Nothing
---     Just x -> return $ varDef x
               
+
+lookupVarLit :: LangIdent -> ExecIO (Maybe LangLit)
 lookupVarLit = lookupVar valueBindings
               
 
+lookupVar :: (Scope -> BindEnv a) -> LangIdent -> ExecIO (Maybe a)
 lookupVar binds name = do
   currScope <- getScope
   case resolve binds name currScope of
@@ -125,69 +114,30 @@ lookupVar binds name = do
     Just x -> return $ varDef x
               
 
+lookupVarF :: (Scope -> BindEnv a) -> (LangIdent -> ParserError) -> LangIdent -> ExecIO a
 lookupVarF binds err name = lookupVar binds name
                         >>= maybe (throwParserError $ err name)
                             return
                             
+
+lookupClassF :: LangIdent -> ExecIO Lambda
 lookupClassF = lookupVarF classBindings nameNotDefinedClassErr
  
+
+getScope :: ExecIO Scope
 getScope = liftM currentScope get 
            
 
+lookupVarLitF :: LangIdent -> ExecIO LangLit
 lookupVarLitF = (returnVal =<<) . lookupVarF valueBindings nameNotDefinedLitErr
-
--- lookupVarLitF :: LangIdent -> ExecIO LangLit
--- lookupVarLitF name = do
---   res <- lookupVarLit name
---   case res of
---     Nothing -> throwParserError $ nameNotValueErr name
---     Just x -> return x
               
 
 lookupVarLambda :: LangIdent -> ExecIO (Maybe Lambda)
-lookupVarLambda name = do
-  currScope <- getScope
-  case resolveFun name currScope of 
-    Nothing -> return Nothing
-    Just x -> return $ varDef x
+lookupVarLambda = lookupVar lambdaBindings
               
   
+lookupVarLambdaF :: LangIdent -> ExecIO Lambda
 lookupVarLambdaF = lookupVarF lambdaBindings nameNotDefinedFunErr            
--- lookupVarLambdaF :: LangIdent -> ExecIO Lambda
--- lookupVarLambdaF name = lookupVarLambda name >>= (maybe tError return) 
---     where tError = throwParserError . nameNotFunctionErr $ name
-
-
--- lookupVarLambdaF :: LangIdent -> ExecIO CallSig
--- lookupVarLambdaF name = do
---   res <- lookupVarLambda name
---   case res of
---     Nothing -> throwParserError $ nameNotFunctionErr name
---     Just x -> return x
-
-         
--- lookupVarF :: LangIdent -> ExecIO VarVal
--- lookupVarF name = do
---   res <- lookupVar name
---   case res of
---     Just x -> return x
---     Nothing -> throwParserError $ nameNotDefinedErr name
-               
-
---lookupOp :: LangIdent -> ExecIO (Maybe CallSig)
---lookupOp opName = do
---  res <- lookupVar opName
---  case res of
---    Nothing -> return Nothing
---    Just x -> return $ varFunDef x
-              
-
--- lookupOpF :: LangIdent -> ExecIO CallSig
--- lookupOpF opName = do
---   res <- lookupOp opName
---   case res of
---     Nothing -> throwParserError $ nameNotOpErr opName
---     Just x -> return x
   
 
 -- | Modify the current scope using the given function.
@@ -197,63 +147,42 @@ modifyScope f = do
   let oldScope = currentScope env
       newScope' = f oldScope
   put env {currentScope=newScope'}
-
-
--- assignVarLit :: LangIdent -> LangLit -> ExecIO LangLit
--- assignVarLit name (LitLambda x) = assignVarLambda name x >> return LitNull
--- assignVarLit name val = do
---   current <- lookupVarCurrentScope name
---   when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
---   modifyScope $ flip (setVarInScope name $ setVarLit
---                       (fromMaybe emptyVar current)
---                       val) True
---   return val
          
 
-assignVarLit name val = do
-  current <- lookupVarLitCurrentScope name
-  when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
-  modifyScope $ setVarLitInScope name (emptyVar {varDef = Just val})
-  return val
+assignVarLit :: LangIdent -> LangLit -> ExecIO LangLit
+assignVarLit n v = assignVar valueBindings setVarLitInScope n v >> returnVal v
+
          
+lookupVarCurrentScope :: (Scope -> BindEnv a) -> LangIdent -> ExecIO (Maybe (VarVal a))
 lookupVarCurrentScope binds name = do
   currScope <- liftM currentScope get
   if isDefinedIn binds name currScope
      then return $ resolve binds name currScope
      else return Nothing
-          
-lookupVarLitCurrentScope = lookupVarCurrentScope valueBindings
-                                
-lookupVarFunCurrentScope = lookupVarCurrentScope lambdaBindings
-         
 
--- assignVar :: LangIdent -> VarVal -> ExecIO ()
--- assignVar name val = modifyScope $ flip (setVarInScope name val) True
+          
+lookupVarLitCurrentScope :: LangIdent -> ExecIO (Maybe (VarVal LangLit))
+lookupVarLitCurrentScope = lookupVarCurrentScope valueBindings
+
+                                
+lookupVarFunCurrentScope :: LangIdent -> ExecIO (Maybe (VarVal Lambda))
+lookupVarFunCurrentScope = lookupVarCurrentScope lambdaBindings
                      
 
-
 assignVarLambda :: LangIdent -> Lambda -> ExecIO ()
--- assignVarLambda name val = do
---   current <- lookupVarCurrentScope name
---   when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
---   modifyScope $ flip (setVarLit
-  -- modifyScope $ flip (setVarInScope name $ setVarFun 
-  --                     (fromMaybe emptyVar current) val) True
-                      
+assignVarLambda = assignVar lambdaBindings setVarFunInScope
+              
 
-assignVarLambda name val = do
-  current <- lookupVarFunCurrentScope name
-  when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
-  modifyScope $ setVarFunInScope name emptyVar {varDef=Just val}
-              
--- assignVarClass name val = do
---   current <- lookupVarFunCurrentScope name
---   when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
---   modifyScope $ setVarFunInScope name emptyVar {varDef=Just val}
-              
+assignVarClass :: LangIdent -> Lambda -> ExecIO ()
 assignVarClass = assignVar classBindings setVarClassInScope
               
 
+assignVar
+  :: (Scope -> BindEnv a)
+     -> (LangIdent -> VarVal b -> Scope -> Scope)
+     -> LangIdent
+     -> b -- ^ Value to assign.
+     -> ExecIO ()
 assignVar binds setf name val = do
   current <- lookupVarCurrentScope binds name
   when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
@@ -634,6 +563,13 @@ execStructFor name e s = do
 -- deleteVar :: LangIdent -> ExecIO () 
 -- deleteVar name = modifyScope (deleteFromScope name)
 
+
+-- TODO:
+-- * This is a bit... Verbose
+--   Might be better way?
+-- * For loop will always loop once with empty list,
+--   meaning that the while loop will always excute one too
+--   many times.
 execStructWhile :: Expr -> Stmt -> ExecIO LangLit
 execStructWhile ex s = do
   pos <- liftM envSourceRef get
@@ -656,25 +592,6 @@ execStructWhile ex s = do
 --            case cond of
 --              LitBool b -> return b
 --              x -> throwParserError $ typeUnexpectedErr LTBool (typeOf x)) LitNull (\_ -> execStmt s)
-                 
-
-untilM :: (Monad m) => m Bool -> a -> (a -> m a) -> m a
-untilM b d f = do
-  cond <- b
-  if cond
-  then return d
-  else do
-    res <- f d
-    untilM b res f
-           
-whileM :: (Monad m) => m Bool -> a -> (a -> m a) -> m a
-whileM b d f = do
-  cond <- b
-  if cond
-  then do
-    res <- f d
-    whileM b res f
-  else return d
        
 -- instance CanErrorWithPos ExecIO where
 --     getErrorPos = liftM envSourceRef get
@@ -715,6 +632,7 @@ whileM b d f = do
 
 builtinArgs :: [Expr] -> ExecIO [LangLit]
 builtinArgs xs = expandParams xs >>= mapM execExpr
+
 
 callBuiltin :: LangIdent -> [Expr] -> ExecIO LangLit 
 callBuiltin (LangIdent "print") xs = builtinArgs xs >>= builtinPrint

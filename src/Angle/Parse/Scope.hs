@@ -30,6 +30,8 @@ import Angle.Types.Lang
 -- | Mapping from variables to values.
 -- type BindEnv = M.Map LangIdent VarVal
 type BindEnv a = M.Map LangIdent (VarVal a)
+    
+--newtype BindEnv a = BindEnv { unBindEnv :: M.Map LangIdent (VarVal a) }
 
     
 -- Scope API:
@@ -80,14 +82,19 @@ isOutermostScope s = case outerScope s of
 
 -- | True if the scope contains a defition for the given
 -- identifier.
-
+isDefinedIn :: Ord k => (t -> M.Map k a) -> k -> t -> Bool
 isDefinedIn binds name scope = isJust $ M.lookup name $ binds scope 
+
 
 isLitIn :: LangIdent -> Scope -> Bool
 isLitIn = isDefinedIn valueBindings
+
           
+isFunIn :: LangIdent -> Scope -> Bool
 isFunIn = isDefinedIn lambdaBindings
           
+
+isClassIn :: LangIdent -> Scope -> Bool
 isClassIn = isDefinedIn classBindings
                                    
 
@@ -118,9 +125,17 @@ innerScopeDefining binds name scope
     = if isDefinedIn binds name scope
       then Just scope
       else join $ withOuterScope scope (innerScopeDefining binds name)
+
            
+innerScopeDefiningLit :: LangIdent -> Scope -> Maybe Scope
 innerScopeDefiningLit = innerScopeDefining valueBindings
+
+
+innerScopeDefiningFun :: LangIdent -> Scope -> Maybe Scope
 innerScopeDefiningFun = innerScopeDefining lambdaBindings
+
+
+innerScopeDefiningClass :: LangIdent -> Scope -> Maybe Scope
 innerScopeDefiningClass = innerScopeDefining classBindings
     
 
@@ -128,10 +143,15 @@ innerScopeDefiningClass = innerScopeDefining classBindings
 -- scope in which it is defined.
 -- 
 -- Returns Nothing if no definition is found.
+resolveLit :: LangIdent -> Scope -> Maybe (VarVal LangLit)
 resolveLit = resolve valueBindings
              
+
+resolveFun :: LangIdent -> Scope -> Maybe (VarVal Lambda)
 resolveFun = resolve lambdaBindings
                                
+
+resolve :: (Scope -> BindEnv a) -> LangIdent -> Scope -> Maybe (VarVal a)
 resolve binds name scope = case innerScopeDefining binds name scope of
                              Nothing -> Nothing
                              Just scope' -> fromCurrentScope binds scope'
@@ -150,17 +170,30 @@ emptyScope = Scope {
 
 -- | Run a function over the bindings of a scope.
 
+onLitBindings
+  :: (BindEnv LangLit -> BindEnv LangLit) -> Scope -> Scope
 onLitBindings f scope = scope { valueBindings = f $ valueBindings scope }
+
                         
+onFunBindings
+  :: (BindEnv Lambda -> BindEnv Lambda) -> Scope -> Scope
 onFunBindings f scope = scope { lambdaBindings = f $ lambdaBindings scope }
                         
+
+onClassBindings
+  :: (BindEnv Lambda -> BindEnv Lambda) -> Scope -> Scope
 onClassBindings f scope = scope { classBindings = f $ classBindings scope }
 
 
+setVarLitInScope :: LangIdent -> VarVal LangLit -> Scope -> Scope
 setVarLitInScope name val = onLitBindings (M.insert name val)
       
+
+setVarFunInScope :: LangIdent -> VarVal Lambda -> Scope -> Scope
 setVarFunInScope name val = onFunBindings (M.insert name val)
                             
+
+setVarClassInScope :: LangIdent -> VarVal Lambda -> Scope -> Scope
 setVarClassInScope name val = onClassBindings (M.insert name val)
                                          
 
@@ -183,6 +216,8 @@ mergeScope sc1 sc2
 deleteLitFromScope :: LangIdent -> Scope -> Scope
 deleteLitFromScope name =  onLitBindings (M.delete name)
 
+
+deleteFunFromScope :: LangIdent -> Scope -> Scope
 deleteFunFromScope name = onFunBindings (M.delete name)
 
 
