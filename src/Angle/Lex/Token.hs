@@ -18,6 +18,7 @@ module Angle.Lex.Token
     , tokRangeSep
     , tokSpace
     , escString
+    , bsString
     , tokWhitespace
     , tokNSpaced
     , tokPeriod
@@ -45,7 +46,8 @@ module Angle.Lex.Token
 
 import Control.Applicative
 import Control.Monad
-import Data.Char (isDigit, isSpace, isAlpha, isAlphaNum, readLitChar)
+import Data.Char --(isDigit, isSpace, isAlpha, isAlphaNum, readLitChar)
+import Numeric
 
 import Angle.Lex.Helpers
 
@@ -251,12 +253,23 @@ parens sc = within tokParenL tokParenR sc
 tokString :: Scanner String
 tokString = within tokStringStart tokStringEnd 
             (many tokStringBodyChar) <?> "string"
+
 escString :: Scanner String
+-- escString = surrounded (char '"') (liftM concat $ some stringChar) 
 escString = do
   char '"'
-  r <- manyTill (char '"') escChar
+  r <- manyTill (char '"') (escChar False)
   char '"'
   return (concat r)
+         
+
+bsString :: Scanner String
+bsString = do
+  string "e\""
+  r <- manyTill (char '"') (escChar True)
+  char '"'
+  return (concat r)
+  
   -- s <- tokString
   -- res <- mapM escChar s
   -- return $ concat res
@@ -292,13 +305,173 @@ tokNSpaced = tokSpace <|> tokNewLine >> whitespace
 -- | Parse a single character, escaping it if
 -- it is preceded by a backslash and has no literal
 -- meaning.
-escChar :: Scanner String
-escChar = do
+escChar :: Bool -- ^ Treat backslashes as literal backslashes.
+        -> Scanner String
+escChar b = do
   c <- anyChar
   case c of
-    '\\' -> do
-            n <- anyChar
-            case readLitChar [c,n] of
-              [] -> return [c,n]
-              [(r,"")] -> return [r]
+    '\\' -> if b 
+            then liftM (\x -> [c,x]) anyChar
+            else liftM (:[]) escapeCode
+                 <|> liftM (\x -> [c, x]) anyChar
+            -- n <- anyChar
+            -- case readLitChar [c,n] of
+            --   [] -> return [c,n]
+            --   [(r,"")] -> return $ if b then [c,n] else [r]
     _ -> return [c]
+
+
+characterChar :: Scanner Char
+characterChar   = charLetter <|> charEscape
+               <?> "literal character"
+
+charEscape :: Scanner Char
+charEscape      = char '\\' >> escapeCode
+
+charLetter :: Scanner Char
+charLetter = cond (\x -> (x /= '\\') && readLitChar [x] /= [])
+-- charLetter      = satisfy (\c -> (c /= '\'') && (c /= '\\') && (c > '\026'))
+
+-- stringLiteral   = lexeme (
+--                  do{ str <- between (char '"')
+--                                     (char '"' <?> "end of string")
+--                                     (many stringChar)
+--                    ; return (foldr (maybe id (:)) "" str)
+--                    }
+--                  <?> "literal string")
+
+stringChar = stringLetter <|> stringEscape
+-- do{ c <- stringLetter; return (Just c) }
+--                <|> stringEscape
+--                <?> "string character"
+
+stringLetter :: Scanner String
+stringLetter    = liftM (:[]) $ cond (\c -> (c /= '"') && (c /= '\\') && (c > '\026'))
+
+-- stringEscape    = do{ char '\\'
+--                    ;     do{ escapeGap  ; return Nothing }
+--                      <|> do{ escapeEmpty; return Nothing }
+--                      <|> do{ esc <- escapeCode; return (Just esc) }
+--                    }
+stringEscape :: Scanner String
+stringEscape = char '\\' >> ((escapeGap >> return "")
+                             <|> (escapeEmpty >> return "")
+                                     <|> liftM (:[]) escapeCode)
+
+
+escapeEmpty :: Scanner Char
+escapeEmpty     = char '&'
+
+escapeGap :: Scanner Char
+escapeGap = some tokSpace >> char '\\'
+-- escapeGap       = do{ some tokSpace
+--                    ; char '\\' <?> "end of string gap"
+--                    }
+
+
+
+-- escape codes
+escapeCode :: Scanner Char
+escapeCode      = charEsc <|> charNum <|> charAscii <|> charControl
+               <?> "escape code"
+
+
+upper :: Scanner Char
+upper = cond isUpper
+
+charControl :: Scanner Char
+charControl = do
+  char '^'
+  code <- upper
+  return $ toEnum $ fromEnum code - fromEnum 'A'
+--charControl     = do{ char '^'
+--                   ; code <- upper
+--                   ; return (toEnum (fromEnum code - fromEnum 'A'))
+--                   }
+
+
+octDigit :: Scanner Char
+octDigit = cond isOctDigit
+
+
+hexDigit :: Scanner Char
+hexDigit = cond isHexDigit
+           
+
+toBase :: (Show a, Integral a) => a -> a -> String
+toBase base num = showIntAtBase base intToDigit num ""
+                  
+
+toBase10 :: Int -> String
+toBase10 = toBase 10
+
+
+fromBase :: Int -> String -> Int
+fromBase base = fst . head . readInt base ((<base) . digitToInt) digitToInt
+                
+
+fromHex :: String -> String
+fromHex = toBase10 . fromBase 16
+
+
+fromOct :: String -> String
+fromOct = toBase10 . fromBase 10
+
+fromDec :: String -> String
+fromDec = toBase10 . fromBase 10
+          
+digit :: Scanner Char
+digit = cond isDigit
+          
+numBase :: Int -> Scanner Char -> Scanner Int
+numBase base baseDig = do
+  s <- some baseDig
+  return $ read $ toBase10 $ fromBase base s
+
+
+charNum :: Scanner Char
+charNum = do
+  code <- numBase 10 digit 
+          <|> (char 'o' >> numBase 8 octDigit) 
+          <|> (char 'x' >> numBase 16 hexDigit)
+  return (toEnum (fromIntegral code))
+
+charEsc :: Scanner Char
+charEsc = choice (map parseEsc escMap)
+    where parseEsc (c,code) = char c >> return code
+
+
+charAscii :: Scanner Char
+charAscii = choice (map parseAscii asciiMap)
+    where parseAscii (asc,code) = tryScan (string asc) >> return code
+
+-- escape code tables
+
+escMap :: [(Char, Char)]
+escMap = zip "abfnrtv\\\"\'" "\a\b\f\n\r\t\v\\\"\'"
+
+
+asciiMap :: [(String, Char)]
+asciiMap = zip (ascii3codes ++ ascii2codes) (ascii3 ++ ascii2)
+
+
+ascii2codes :: [String]
+ascii2codes = [ "BS","HT","LF","VT","FF","CR","SO","SI","EM"
+              , "FS","GS","RS","US","SP"]
+
+
+ascii3codes :: [String]
+ascii3codes = [ "NUL","SOH","STX","ETX","EOT","ENQ","ACK","BEL"
+              , "DLE","DC1","DC2","DC3","DC4","NAK","SYN","ETB"
+              , "CAN","SUB","ESC","DEL"]
+
+
+ascii2 :: String
+ascii2 = [ '\BS','\HT','\LF','\VT','\FF','\CR','\SO','\SI'
+         , '\EM','\FS','\GS','\RS','\US','\SP']
+
+
+ascii3 :: String
+ascii3 = [ '\NUL','\SOH','\STX','\ETX','\EOT','\ENQ','\ACK'
+         , '\BEL','\DLE','\DC1','\DC2','\DC3','\DC4','\NAK'
+         , '\SYN','\ETB','\CAN','\SUB','\ESC','\DEL']
