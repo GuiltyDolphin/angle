@@ -45,7 +45,7 @@ module Angle.Lex.Token
 
 import Control.Applicative
 import Control.Monad
-import Data.Char (isDigit, isSpace, isAlpha, isAlphaNum)
+import Data.Char (isDigit, isSpace, isAlpha, isAlphaNum, readLitChar)
 
 import Angle.Lex.Helpers
 
@@ -251,11 +251,19 @@ parens sc = within tokParenL tokParenR sc
 tokString :: Scanner String
 tokString = within tokStringStart tokStringEnd 
             (many tokStringBodyChar) <?> "string"
-
 escString :: Scanner String
 escString = do
-  s <- tokString
-  return $ read $ '"' : s ++ "\""
+  char '"'
+  r <- manyTill (char '"') escChar
+  char '"'
+  return (concat r)
+  -- s <- tokString
+  -- res <- mapM escChar s
+  -- return $ concat res
+  -- case reads ('"':s ++ "\"") of
+  --   [] -> unexpectedErr "escString: Good grief!"
+  --   [(res, "")] -> return res
+  -- return $ read $ '"' : s ++ "\""
 
 
 tuple :: Scanner b -> Scanner [b]
@@ -274,5 +282,23 @@ whitespace = many tokWhitespace
 spaces :: Scanner String
 spaces = many tokSpace
 
-
+-- | Space or newline followed by optional whitespace.
+--
+-- A common separator in Operators and Lambdas.
+tokNSpaced :: Scanner String
 tokNSpaced = tokSpace <|> tokNewLine >> whitespace
+
+
+-- | Parse a single character, escaping it if
+-- it is preceded by a backslash and has no literal
+-- meaning.
+escChar :: Scanner String
+escChar = do
+  c <- anyChar
+  case c of
+    '\\' -> do
+            n <- anyChar
+            case readLitChar [c,n] of
+              [] -> return [c,n]
+              [(r,"")] -> return [r]
+    _ -> return [c]
