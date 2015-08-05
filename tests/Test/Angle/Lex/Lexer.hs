@@ -3,6 +3,7 @@ module Test.Angle.Lex.Lexer
     ) where
 
 import Angle.Lex.Lexer
+import qualified Test.QuickCheck.Property as P
 import Angle.Types.Lang
 import TestHelper
     
@@ -15,24 +16,45 @@ testShowSynSingStmt :: SingStmt -> Bool
 testShowSynSingStmt x = showSynTest x singStmt
                         
 
-testShowSynLangStruct :: LangStruct -> Bool
-testShowSynLangStruct x = showSynTest x langStruct
+testShowSynLangStruct :: LangStruct -> P.Result
+testShowSynLangStruct x = liftShow x langStruct -- showSynTest x langStruct
                           
 
-testShowSynExpr :: Expr -> Bool
-testShowSynExpr x = showSynTest x expr
+testShowSynExpr :: Expr -> P.Result
+testShowSynExpr x = liftShow x expr -- showSynTest x expr
+                    
+
+testShowSynLambda :: Lambda -> P.Result
+testShowSynLambda x = liftShow x lambda -- showSynTest x lambda
                         
 
 showSynTest :: (ShowSyn a, Eq a) => a -> Scanner a -> Bool
 showSynTest x sc = evalScan (showSyn x) sc == Right x
+                   
+
+liftShow :: (ShowSyn a, Eq a) => a -> Scanner a -> P.Result
+liftShow x sc = P.result { P.ok = Just b
+                         , P.reason = if b 
+                                      then "" 
+                                      else "expected:\n" ++ showSyn x ++ "\nbut got:\n" ++ reas}
+    where b = showSynTest x sc
+          reas = either (const "got an error!\n") showSyn (evalScan (showSyn x) sc)
+                  
+                   
+
+-- withShowRes :: (ShowSyn a, Eq a) => a -> Scanner a -> Result
+-- withShowRes x sc = MkResult (Just $ showSynTest x sc) True "bleh!" [] []
+                   
+withFail :: (ShowSyn a) => a -> P.Result
+withFail x = P.failed { P.reason = showSyn x }
                 
                 
 checkFloatStr :: Double -> Bool
 checkFloatStr x = not $ 'e' `elem` (show x) 
               
 
-quoted :: String -> String
-quoted xs = '"':xs ++ "\""
+escapedStr :: String -> String
+escapedStr xs = "e\"" ++ xs ++ "\""
 
 
 testLitStrEmpty :: Assertion
@@ -40,7 +62,7 @@ testLitStrEmpty = evalScan "\"\"" litStr @?= Right (LitStr "")
 
 
 testLitStr :: String -> Property
-testLitStr x = '"' `notElem` x ==> evalScan (quoted x) litStr == Right (LitStr x)
+testLitStr x = '"' `notElem` x ==> evalScan (escapedStr x) litStr == Right (LitStr x)
 
 
 testLitInt :: Int -> Bool
@@ -109,5 +131,6 @@ tests = [ testGroup "literals"
           , localOption (QuickCheckMaxSize 9) $ 
             testProperty "LangStruct" $ testShowSynLangStruct
           , testProperty "Expr" $ testShowSynExpr
+          , testProperty "Lambda" testShowSynLambda
           ]
         ]

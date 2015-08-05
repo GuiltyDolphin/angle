@@ -11,6 +11,7 @@ module Angle.Scanner
   , beginningOfFile
   , unexpectedErr
   , expectedErr
+  , strMsg
   , Scanner
   , SourcePos(..)
   , lineNo
@@ -137,14 +138,6 @@ data ScanError = ScanError
     } | UnknownError SourcePos deriving (Eq)
 
 
-instance Error ScanError where
-  noMsg = ScanError { errMsg = "", expectedMsg=""
-                    , unexpectedMsg="", errPos=beginningOfFile
-                    , scanErrText=""
-                    }
-  strMsg msg = noMsg { errMsg = msg }
-
-
 instance Show ScanError where
   show (ScanError{errPos=ep, expectedMsg=em
                  , unexpectedMsg=um, errMsg=errm
@@ -170,8 +163,12 @@ toErr :: (ScanError -> String -> ScanError) -> String -> Scanner a
 toErr err msg = do
   pos <- liftM sourcePos get
   txt <- liftM sourceText ask
-  let e = noMsg { errPos=pos, scanErrText=txt }
+  let e = basicErr { errPos=pos, scanErrText=txt }
   throwError (err e msg)
+
+
+basicErr :: ScanError
+basicErr = ScanError { errMsg="", unexpectedMsg="", expectedMsg="", errPos=beginningOfFile, scanErrText = ""}
 
 
 expectedErr :: String -> Scanner a

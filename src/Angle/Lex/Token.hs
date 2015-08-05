@@ -312,7 +312,7 @@ escChar b = do
   case c of
     '\\' -> if b 
             then liftM (\x -> [c,x]) anyChar
-            else liftM (:[]) escapeCode
+            else stringEscape -- liftM (:[]) escapeCode
                  <|> liftM (\x -> [c, x]) anyChar
             -- n <- anyChar
             -- case readLitChar [c,n] of
@@ -354,9 +354,9 @@ stringLetter    = liftM (:[]) $ cond (\c -> (c /= '"') && (c /= '\\') && (c > '\
 --                      <|> do{ esc <- escapeCode; return (Just esc) }
 --                    }
 stringEscape :: Scanner String
-stringEscape = char '\\' >> ((escapeGap >> return "")
-                             <|> (escapeEmpty >> return "")
-                                     <|> liftM (:[]) escapeCode)
+stringEscape = (escapeGap >> return "")
+                <|> (escapeEmpty >> return "")
+                <|> liftM (:[]) escapeCode
 
 
 escapeEmpty :: Scanner Char
@@ -372,8 +372,11 @@ escapeGap = some tokSpace >> char '\\'
 
 -- escape codes
 escapeCode :: Scanner Char
-escapeCode      = charEsc <|> charNum <|> charAscii <|> charControl
-               <?> "escape code"
+escapeCode = charEsc 
+             <|> charNum 
+             <|> charAscii 
+             <|> charControl
+             <?> "escape code"
 
 
 upper :: Scanner Char
@@ -408,21 +411,8 @@ toBase10 = toBase 10
 
 fromBase :: Int -> String -> Int
 fromBase base = fst . head . readInt base ((<base) . digitToInt) digitToInt
-                
-
-fromHex :: String -> String
-fromHex = toBase10 . fromBase 16
-
-
-fromOct :: String -> String
-fromOct = toBase10 . fromBase 10
-
-fromDec :: String -> String
-fromDec = toBase10 . fromBase 10
           
-digit :: Scanner Char
-digit = cond isDigit
-          
+
 numBase :: Int -> Scanner Char -> Scanner Int
 numBase base baseDig = do
   s <- some baseDig
@@ -431,10 +421,11 @@ numBase base baseDig = do
 
 charNum :: Scanner Char
 charNum = do
-  code <- numBase 10 digit 
+  code <- numBase 10 tokDenaryDigit
           <|> (char 'o' >> numBase 8 octDigit) 
           <|> (char 'x' >> numBase 16 hexDigit)
   return (toEnum (fromIntegral code))
+
 
 charEsc :: Scanner Char
 charEsc = choice (map parseEsc escMap)
@@ -442,17 +433,23 @@ charEsc = choice (map parseEsc escMap)
 
 
 charAscii :: Scanner Char
-charAscii = choice (map parseAscii asciiMap)
-    where parseAscii (asc,code) = tryScan (string asc) >> return code
+charAscii = choice (map parseAscii asciis) -- (map parseAscii asciiMap)
+    where parseAscii asc = tryScan (string asc) >> return (codeToChar asc)
+      --parseAscii (asc,code) = tryScan (string asc) >> return code
 
 -- escape code tables
 
 escMap :: [(Char, Char)]
 escMap = zip "abfnrtv\\\"\'" "\a\b\f\n\r\t\v\\\"\'"
+         
+escs = "abfnrtv\\\"\'"
 
 
 asciiMap :: [(String, Char)]
 asciiMap = zip (ascii3codes ++ ascii2codes) (ascii3 ++ ascii2)
+           
+
+asciis = ascii3codes ++ ascii2codes
 
 
 ascii2codes :: [String]
@@ -464,6 +461,13 @@ ascii3codes :: [String]
 ascii3codes = [ "NUL","SOH","STX","ETX","EOT","ENQ","ACK","BEL"
               , "DLE","DC1","DC2","DC3","DC4","NAK","SYN","ETB"
               , "CAN","SUB","ESC","DEL"]
+
+
+codeToChar :: String -> Char
+codeToChar s = case readLitChar ('\\':s) of
+                 [(r,"")] -> r
+                 [] -> error "codeToChar: not a valid code"
+
 
 
 ascii2 :: String

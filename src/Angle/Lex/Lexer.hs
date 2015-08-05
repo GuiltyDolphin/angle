@@ -14,6 +14,7 @@ module Angle.Lex.Lexer
     , exprIdent
     , exprLit
     , exprFunCall
+    , lambda
     , exprOp
     , langLit
     , langStruct
@@ -190,8 +191,8 @@ structDefun = StructDefun
               <$> (string "defun " *> identName)
               <*> (Lambda
                    <$> callList <* tokStmtBetween
-                   <*> stmt
-                   <*> pure FunLambda)
+                   <*> stmt)
+                   -- <*> pure FunLambda)
 
 
 program :: Scanner Stmt
@@ -217,7 +218,7 @@ langLit = litStr
 
 -- | A literal string.
 litStr :: Scanner LangLit
-litStr = liftM LitStr escString -- liftM LitStr tokString <?> "string literal"
+litStr = liftM LitStr (bsString <|> escString)-- liftM LitStr tokString <?> "string literal"
 
 
 -- | Denary integer.
@@ -315,10 +316,17 @@ exprFunIdent = liftM ExprFunIdent funIdent
          
 
 exprLambda :: Scanner Expr
-exprLambda = liftM ExprLambda . parens $ do
-    args <- callList <* tokSpace
+exprLambda = liftM ExprLambda lambda
+           
+
+lambda :: Scanner Lambda
+lambda = do
+    -- typ <- lambdaTyp
+    tokParenL
+    args <- callList <* tokNSpaced
     body <- stmt
-    return $ Lambda args body FunLambda
+    tokParenR
+    return $ Lambda args body --typ
 
 
 -- | Set of arguments for a function 
@@ -445,7 +453,7 @@ structDefClass = do
   name <- langIdent
   arg <- callList
   body <- stmt
-  return $ StructDefClass name (Lambda arg body ClassLambda)
+  return $ StructDefClass name (Lambda arg body) --ClassLambda)
 
 
 classRefArgSig :: Scanner ClassRef
@@ -470,3 +478,8 @@ argSigType :: Scanner AnnType
 argSigType = char '@' *> return AnnClass
              <|> char '$' *> return AnnFun
              <|> return AnnLit
+
+                 
+lambdaTyp :: Scanner LambdaType
+lambdaTyp = (char '$' >> return FunLambda)
+            <|> (char '@' >> return ClassLambda)

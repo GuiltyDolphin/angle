@@ -50,7 +50,6 @@ builtinCallSig name =
                   (ExprFunCall name 
                    [ExprParamExpand 
                     (LangIdent "x")])) startRef 
-    , lambdaType = FunLambda
     }
 
 

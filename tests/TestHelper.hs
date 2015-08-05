@@ -23,7 +23,7 @@ import Control.Monad (liftM, liftM2, liftM3)
 import Control.Monad.Trans.Except
 import Control.Monad.State
 import Data.Char (isAlpha, isAlphaNum)
-import Data.List (isInfixOf)
+import Data.List (isInfixOf, zipWith4)
 import qualified Data.Map as M
 
 import Test.QuickCheck
@@ -52,12 +52,13 @@ instance Arbitrary LangLit where
                 --, (1, liftArby3 LitRange)
                 , (9, return LitNull)
                 ]
-    shrink (LitList xs) = map LitList (shrink xs)
-    shrink (LitInt x) = map LitInt (shrink x)
-    shrink (LitStr x) = map LitStr (shrink x)
-    shrink (LitFloat x) = map LitFloat (shrink x)
-    shrink (LitBool x) = map LitBool (shrink x)
-    --shrink (LitRange x y z) = zipWith3 LitRange (shrink x) (shrink y) (shrink z)
+    shrink (LitList xs) = shrink1 LitList xs
+    shrink (LitInt x) = shrink1 LitInt x
+    shrink (LitStr x) = shrink1 LitStr x
+    shrink (LitFloat x) = shrink1 LitFloat x
+    shrink (LitBool x) = shrink1 LitBool x
+    shrink (LitRange x y z) = shrink3 LitRange x y z
+    shrink (LitLambda x) = shrink1 LitLambda x
     shrink LitNull = [LitNull]
                             
                 
@@ -69,10 +70,10 @@ instance Arbitrary SingStmt where
                 , (8, liftArby StmtReturn)
                 ]
     shrink (StmtAssign x y) = 
-        zipWith StmtAssign (shrink x) (shrink y)
-    shrink (StmtStruct x) = map StmtStruct (shrink x)
-    shrink (StmtExpr x) = map StmtExpr (shrink x)
-    shrink (StmtReturn x) = map StmtReturn (shrink x)
+        shrink2 StmtAssign x y
+    shrink (StmtStruct x) = shrink1 StmtStruct x
+    shrink (StmtExpr x) = shrink1 StmtExpr x
+    shrink (StmtReturn x) = shrink1 StmtReturn x
 
     
 instance Arbitrary LangStruct where
@@ -83,19 +84,18 @@ instance Arbitrary LangStruct where
                 , (1, liftArby2 StructDefun)
                 -- , liftArby StructReturn -- Not using atm
                 ]
-    shrink (StructFor x y z) = zipWith3 StructFor (shrink x) (shrink y) (shrink z)
-    shrink (StructWhile x y) = zipWith StructWhile (shrink x) (shrink y)
-    shrink (StructIf x y z) = zipWith3 StructIf (shrink x) (shrink y) (shrink z)
-    shrink (StructDefun x y) = zipWith StructDefun (shrink x) (shrink y)
+    shrink (StructFor x y z) = shrink3 StructFor x y z
+    shrink (StructWhile x y) = shrink2 StructWhile x y
+    shrink (StructIf x y z) = shrink3 StructIf x y z
+    shrink (StructDefun x y) = shrink2 StructDefun x y
 
 
 instance Arbitrary Lambda where
     arbitrary = do
       args <- arbitrary
       body <- arbitrary
-      typ <- arbitrary
-      return Lambda { lambdaArgs=args, lambdaBody=body, lambdaType=typ }
-    shrink (Lambda x y z) = zipWith3 Lambda (shrink x) (shrink y) (shrink z)
+      return Lambda { lambdaArgs=args, lambdaBody=body}
+    shrink (Lambda x y) = shrink2 Lambda x y
              
     
 instance Arbitrary Expr where
@@ -107,12 +107,12 @@ instance Arbitrary Expr where
                 --, (4, liftArby ExprLambda)
                 , (4, liftArby ExprFunIdent)
                 ]
-    shrink (ExprIdent x) = map ExprIdent (shrink x)
-    shrink (ExprLit x) = map ExprLit (shrink x)
-    shrink (ExprFunCall x y) = zipWith ExprFunCall (shrink x) (shrink y)
-    shrink (ExprOp x) = map ExprOp (shrink x)
-    shrink (ExprLambda x) = map ExprLambda (shrink x)
-    shrink (ExprFunIdent x) = map ExprFunIdent (shrink x)
+    shrink (ExprIdent x) = shrink1 ExprIdent x
+    shrink (ExprLit x) = shrink1 ExprLit x
+    shrink (ExprFunCall x y) = shrink2 ExprFunCall x y
+    shrink (ExprOp x) = shrink1 ExprOp x
+    shrink (ExprLambda x) = shrink1 ExprLambda x
+    shrink (ExprFunIdent x) = shrink1 ExprFunIdent x
     shrink (ExprList x) = map ExprList $ shrink x
 
 
@@ -121,28 +121,56 @@ instance Arbitrary ArgSig where
       args <- liftArby getTinyList
       catchArg <- arbitrary
       return ArgSig { Angle.Types.Lang.stdArgs = args, catchAllArg = catchArg }
-    shrink (ArgSig x y) = zipWith ArgSig (shrink x) (shrink y)
+    shrink (ArgSig x y) = shrink2 ArgSig x y
              
    
 instance Arbitrary ArgElt where
     arbitrary = liftArby3 ArgElt
+    shrink (ArgElt x y z) = shrink3 ArgElt x y z
+                            
+
+shrink1 :: Arbitrary a => (a -> b) -> a -> [b]
+shrink1 f x = map f (shrink x)
+
+
+shrink2 :: (Arbitrary a, Arbitrary b) => (a -> b -> c) -> a -> b -> [c]
+shrink2 f x y = zipWith f (shrink x) (shrink y)
+                
+
+shrink3 :: (Arbitrary c, Arbitrary b, Arbitrary a) =>
+     (a -> b -> c -> d) -> a -> b -> c -> [d]
+shrink3 f x y z = zipWith3 f (shrink x) (shrink y) (shrink z)
+                  
+
+shrink4
+  :: (Arbitrary d, Arbitrary c, Arbitrary b, Arbitrary a) =>
+     (a -> b -> c -> d -> e) -> a -> b -> c -> d -> [e]
+shrink4 f w x y z = zipWith4 f (shrink w) (shrink x) (shrink y) (shrink z)
+
                 
 instance Arbitrary ClassRef where
     arbitrary = liftArby ClassRef
+    shrink (ClassRef x) = shrink1 ClassRef x
                 
 instance Arbitrary AnnType where
     arbitrary = elements [AnnFun, AnnClass, AnnLit]
+    shrink AnnFun = [AnnClass, AnnLit]
+    shrink AnnClass = [AnnFun, AnnLit]
+    shrink AnnLit = [AnnFun, AnnClass]
                 
 instance Arbitrary LambdaType where
     arbitrary = elements [FunLambda, ClassLambda]
+    shrink FunLambda = [ClassLambda]
+    shrink ClassLambda = [FunLambda]
+
 
 instance Arbitrary Stmt where
     arbitrary = frequency
                 [ (9, liftArby2 SingleStmt)
                 , (1, liftM MultiStmt (liftArby getTinyList))
                 ]
-    shrink (SingleStmt x p) = zipWith SingleStmt (shrink x) (shrink p)
-    shrink (MultiStmt xs) = map MultiStmt (shrink xs)
+    shrink (SingleStmt x p) = shrink2 SingleStmt x p
+    shrink (MultiStmt xs) = shrink1 MultiStmt xs
 
 
 instance Arbitrary LangOp where
@@ -157,8 +185,8 @@ instance Arbitrary LangOp where
                   (SpecOp OpNeg (ExprLit (LitFloat _))) -> arbitrary
                   r -> return r
                   
-    shrink (SpecOp x y) = zipWith SpecOp (shrink x) (shrink y)
-    shrink (MultiOp x ys) = zipWith MultiOp (shrink x) (shrink ys)
+    shrink (SpecOp x y) = shrink2 SpecOp x y
+    shrink (MultiOp x ys) = shrink2 MultiOp x ys
 
 
 instance Arbitrary Op where
@@ -265,7 +293,7 @@ instance (Arbitrary a) => Arbitrary (SmallList a) where
                   n <- choose (0,s`min`maxSmallListLength)
                   xs <- vector n
                   return (SmallList xs)
-    shrink (SmallList xs) = map SmallList (shrink xs)
+    shrink (SmallList xs) = shrink1 SmallList xs
 
 
 instance (Arbitrary a) => Arbitrary (TinyList a) where
@@ -273,20 +301,22 @@ instance (Arbitrary a) => Arbitrary (TinyList a) where
                   n <- choose (0,s`min`maxTinyListLength)
                   xs <- vector n
                   return (TinyList xs)
-    shrink (TinyList xs) = map TinyList (shrink xs)
+    shrink (TinyList xs) = shrink1 TinyList xs
              
 
 instance (Arbitrary a) => Arbitrary (BindEnv a) where
     arbitrary = liftArby bindEnvFromList
+    shrink (BindEnv x) = shrink1 bindEnvFromList (M.toList x)
     
 
 instance (Arbitrary a) => Arbitrary (VarVal a) where
     arbitrary = liftArby2 VarVal
-    shrink (VarVal x y) = zipWith VarVal (shrink x) (shrink y)
+    shrink (VarVal x y) = shrink2 VarVal x y
 
 
 instance Arbitrary Scope where
     arbitrary = liftArby4 Scope
+    shrink (Scope w x y z) = shrink4 Scope w x y z
 
 
 -- Extracts a property from monadic Either code, giving
@@ -314,8 +344,12 @@ runExec e = do
                   
 
 instance Arbitrary LangType where
-    arbitrary = elements [LTStr, LTInt, LTFloat, LTList
-                         , LTBool, LTRange, LTNull ]
+    arbitrary = elements langTypes
+    shrink x = filter (/=x) langTypes
+                
+
+langTypes = [LTStr, LTInt, LTFloat, LTList
+            , LTBool, LTRange, LTNull ]
                 
 
 instance Arbitrary SourceRef where
@@ -323,6 +357,7 @@ instance Arbitrary SourceRef where
       start <- arbitrary
       end <- arbitrary
       return $ SourceRef (start, end)
+    shrink (SourceRef x) = shrink1 SourceRef x
              
 
 instance Arbitrary SourcePos where
@@ -331,6 +366,7 @@ instance Arbitrary SourcePos where
       s <- liftArby getPositive
       t <- liftArby getPositive
       return $ SourcePos (f, s, t)
+    shrink (SourcePos x) = shrink1 SourcePos x
                 
 
 assertEqualQC :: (Monad m, Eq a) => a -> a -> PropertyM m ()

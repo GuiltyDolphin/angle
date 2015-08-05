@@ -17,8 +17,10 @@ module Angle.Lex.Helpers
     , oneFrom
     , chain
     , chainFlat
+    , strMsg
     , anyChar
     , manyTill
+    , unexpectedErr
     , manyTill'
     , someTill
     , evalScan
@@ -32,6 +34,9 @@ import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Trans.Except
+    
+
+import Data.Char (readLitChar)
     
 import Angle.Scanner
 
@@ -189,6 +194,10 @@ evalScan :: String -> Scanner a -> Either ScanError a
 evalScan str sc = runReader (evalStateT (runExceptT (runScanner sc)) defaultState) env
   where defaultState = ScanState { sourcePos = beginningOfFile }
         env = ScanEnv { sourceText = str }
+
+
+
+
 
 
 

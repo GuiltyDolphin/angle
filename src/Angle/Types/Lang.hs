@@ -139,9 +139,9 @@ instance ShowSyn LangStruct where
             Nothing -> ""
             Just x -> " else " ++ showSyn x
     showSyn (StructDefun n c)
-        = concat ["defun ", showSyn n, showSyn c]
+        = concat ["defun ", showSyn n, showLambdaFun c]
     showSyn (StructDefClass n c)
-        = concat ["defclass ", showSyn n, showSyn c]
+        = concat ["defclass ", showSyn n, showLambdaFun c]
     -- showSyn (StructDefun n c) 
     --     = concat ["defun ", showSyn n, showSynSep "("
     --                           (case catchArg of
@@ -176,13 +176,17 @@ data ParamList = ParamList { parListParams :: [Expr] }
 
 data Lambda = Lambda { lambdaArgs :: ArgSig
                      , lambdaBody :: Stmt
-                     , lambdaType :: LambdaType
+                     -- , lambdaType :: LambdaType
                      } deriving (Show, Eq)
+
             
 instance ShowSyn Lambda where
-    showSyn (Lambda args body@(SingleStmt _ _) _)
-        = concat ["(", showSyn args, " ", init $ showSyn body, ")"]
-    showSyn (Lambda args body _) = concat ["(", showSyn args, " ", showSyn body, ")"]
+    -- showSyn (Lambda args body@(SingleStmt _ _) cls)
+    --     = concat [case cls of FunLambda -> "$"; ClassLambda -> "@", "(", showSyn args, " ", init $ showSyn body, ")"]
+    -- showSyn (Lambda args body cls) = concat [case cls of FunLambda -> "$"; ClassLambda -> "@", "(", showSyn args, " ", showSyn body, ")"]
+    showSyn (Lambda args body@(SingleStmt _ _))
+         = concat ["(", showSyn args, " ", init $ showSyn body, ")"]
+    showSyn (Lambda args body) = concat ["(", showSyn args, " ", showSyn body, ")"]
 
 -- | An argument signature.
 data ArgSig = ArgSig { stdArgs :: [ArgElt] -- ^ Standard positional arguments.
@@ -253,6 +257,7 @@ data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
                        -- that fails to return a value 
                        -- explicitly.
              | LitLambda { getLitLambda :: Lambda } -- ^ A function without a name.
+             | LitClassLambda { getLitClassLambda :: Lambda }
                deriving (Show, Eq)
                         
 
@@ -311,6 +316,8 @@ typeOf (LitLambda{}) = LTLambda
 
 -- TODO: Check this - can't identify classes
 typeAnnOf :: LangLit -> AnnType
+-- typeAnnOf (LitLambda (Lambda {lambdaType=FunLambda})) = AnnFun
+-- typeAnnOf (LitLambda (Lambda {lambdaType=ClassLambda})) = AnnClass
 typeAnnOf (LitLambda{}) = AnnFun
 typeAnnOf _ = AnnLit
               
@@ -417,3 +424,8 @@ instance ShowSyn Op where
     showSyn OpOr = "|"
     showSyn OpSub = "-"
     showSyn (UserOp x) = showSyn x
+
+
+showLambdaFun :: Lambda -> String
+showLambdaFun (Lambda {lambdaArgs=args, lambdaBody=body})
+    = showSyn args ++ " " ++ showSyn body
