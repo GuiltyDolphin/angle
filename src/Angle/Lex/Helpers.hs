@@ -31,6 +31,7 @@ import Control.Applicative
 import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Except
     
 import Angle.Scanner
 
@@ -185,6 +186,14 @@ sc <?> msg = do
 --
 -- Assumes reasonable default state.
 evalScan :: String -> Scanner a -> Either ScanError a
-evalScan str sc = runReader (evalStateT (runErrorT (runScanner sc)) defaultState) env
+evalScan str sc = runReader (evalStateT (runExceptT (runScanner sc)) defaultState) env
   where defaultState = ScanState { sourcePos = beginningOfFile }
         env = ScanEnv { sourceText = str }
+
+
+
+
+
+
+
+
