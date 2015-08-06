@@ -219,7 +219,7 @@ langLit = litStr
 
 -- | A literal string.
 litStr :: Scanner LangLit
-litStr = liftM LitStr (bsString <|> escString)-- liftM LitStr tokString <?> "string literal"
+litStr = liftM LitStr (stringBS <|> stringNorm)-- liftM LitStr tokString <?> "string literal"
 
 
 -- | Denary integer.

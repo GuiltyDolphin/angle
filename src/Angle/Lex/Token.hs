@@ -17,8 +17,8 @@ module Angle.Lex.Token
     , tokAssign
     , tokRangeSep
     , tokSpace
-    , escString
-    , bsString
+    , stringNorm
+    , stringBS
     , tokWhitespace
     , tokNSpaced
     , tokPeriod
@@ -254,29 +254,21 @@ tokString :: Scanner String
 tokString = within tokStringStart tokStringEnd 
             (many tokStringBodyChar) <?> "string"
 
-escString :: Scanner String
--- escString = surrounded (char '"') (liftM concat $ some stringChar) 
-escString = do
+stringNorm :: Scanner String
+-- stringNorm = surrounded (char '"') (liftM concat $ some stringChar) 
+stringNorm = do
   char '"'
-  r <- manyTill (char '"') (escChar False)
+  r <- manyTill (char '"') (withCharEscape False)
   char '"'
   return (concat r)
          
 
-bsString :: Scanner String
-bsString = do
+stringBS :: Scanner String
+stringBS = do
   string "e\""
-  r <- manyTill (char '"') (escChar True)
+  r <- manyTill (char '"') (withCharEscape True)
   char '"'
   return (concat r)
-  
-  -- s <- tokString
-  -- res <- mapM escChar s
-  -- return $ concat res
-  -- case reads ('"':s ++ "\"") of
-  --   [] -> unexpectedErr "escString: Good grief!"
-  --   [(res, "")] -> return res
-  -- return $ read $ '"' : s ++ "\""
 
 
 tuple :: Scanner b -> Scanner [b]
@@ -305,108 +297,46 @@ tokNSpaced = tokSpace <|> tokNewLine >> whitespace
 -- | Parse a single character, escaping it if
 -- it is preceded by a backslash and has no literal
 -- meaning.
-escChar :: Bool -- ^ Treat backslashes as literal backslashes.
+withCharEscape :: Bool -- ^ Treat backslashes as literal backslashes.
         -> Scanner String
-escChar b = do
+withCharEscape b = do
   c <- anyChar
   case c of
     '\\' -> if b 
             then liftM (\x -> [c,x]) anyChar
-            else stringEscape -- liftM (:[]) escapeCode
+            else escString -- liftM (:[]) escChar
                  <|> liftM (\x -> [c, x]) anyChar
-            -- n <- anyChar
-            -- case readLitChar [c,n] of
-            --   [] -> return [c,n]
-            --   [(r,"")] -> return $ if b then [c,n] else [r]
     _ -> return [c]
 
 
-characterChar :: Scanner Char
-characterChar   = charLetter <|> charEscape
-               <?> "literal character"
-
-charEscape :: Scanner Char
-charEscape      = char '\\' >> escapeCode
-
-charLetter :: Scanner Char
-charLetter = cond (\x -> (x /= '\\') && readLitChar [x] /= [])
--- charLetter      = satisfy (\c -> (c /= '\'') && (c /= '\\') && (c > '\026'))
-
--- stringLiteral   = lexeme (
---                  do{ str <- between (char '"')
---                                     (char '"' <?> "end of string")
---                                     (many stringChar)
---                    ; return (foldr (maybe id (:)) "" str)
---                    }
---                  <?> "literal string")
-
-stringChar = stringLetter <|> stringEscape
--- do{ c <- stringLetter; return (Just c) }
---                <|> stringEscape
---                <?> "string character"
-
-stringLetter :: Scanner String
-stringLetter    = liftM (:[]) $ cond (\c -> (c /= '"') && (c /= '\\') && (c > '\026'))
-
--- stringEscape    = do{ char '\\'
---                    ;     do{ escapeGap  ; return Nothing }
---                      <|> do{ escapeEmpty; return Nothing }
---                      <|> do{ esc <- escapeCode; return (Just esc) }
---                    }
-stringEscape :: Scanner String
-stringEscape = (escapeGap >> return "")
-                <|> (escapeEmpty >> return "")
-                <|> liftM (:[]) escapeCode
+escString :: Scanner String
+escString = (escEmpty >> return "")
+            <|> liftM (:[]) escChar
 
 
-escapeEmpty :: Scanner Char
-escapeEmpty     = char '&'
-
-escapeGap :: Scanner Char
-escapeGap = some tokSpace >> char '\\'
--- escapeGap       = do{ some tokSpace
---                    ; char '\\' <?> "end of string gap"
---                    }
+escEmpty :: Scanner Char
+escEmpty = char '&' 
+           <|> (some tokSpace >> char '\\')
 
 
-
--- escape codes
-escapeCode :: Scanner Char
-escapeCode = charEsc 
-             <|> charNum 
-             <|> charAscii 
-             <|> charControl
-             <?> "escape code"
+escChar :: Scanner Char
+escChar = genEsc 
+          <|> escNum 
+          <|> asciiEsc 
+          <|> controlEsc
+          <?> "escape code"
 
 
-upper :: Scanner Char
-upper = cond isUpper
-
-charControl :: Scanner Char
-charControl = do
+controlEsc :: Scanner Char
+controlEsc = do
   char '^'
   code <- upper
   return $ toEnum $ fromEnum code - fromEnum 'A'
---charControl     = do{ char '^'
---                   ; code <- upper
---                   ; return (toEnum (fromEnum code - fromEnum 'A'))
---                   }
-
-
-octDigit :: Scanner Char
-octDigit = cond isOctDigit
-
-
-hexDigit :: Scanner Char
-hexDigit = cond isHexDigit
+    where upper = cond isUpper
            
 
 toBase :: (Show a, Integral a) => a -> a -> String
 toBase base num = showIntAtBase base intToDigit num ""
-                  
-
-toBase10 :: Int -> String
-toBase10 = toBase 10
 
 
 fromBase :: Int -> String -> Int
@@ -417,39 +347,29 @@ numBase :: Int -> Scanner Char -> Scanner Int
 numBase base baseDig = do
   s <- some baseDig
   return $ read $ toBase10 $ fromBase base s
+  where toBase10 = toBase 10
 
 
-charNum :: Scanner Char
-charNum = do
+escNum :: Scanner Char
+escNum = do
   code <- numBase 10 tokDenaryDigit
           <|> (char 'o' >> numBase 8 octDigit) 
           <|> (char 'x' >> numBase 16 hexDigit)
-  return (toEnum (fromIntegral code))
+  return $ toEnum $ fromIntegral code
+      where hexDigit = cond isHexDigit
+            octDigit = cond isOctDigit
 
 
-charEsc :: Scanner Char
-charEsc = choice (map parseEsc escMap)
-    where parseEsc (c,code) = char c >> return code
+genEsc :: Scanner Char
+genEsc = choice (map genEscChar escs)
+    where genEscChar c = char c >> return (codeToChar [c])
+          escs = "abfnrtv\\\"\'"
 
 
-charAscii :: Scanner Char
-charAscii = choice (map parseAscii asciis) -- (map parseAscii asciiMap)
-    where parseAscii asc = tryScan (string asc) >> return (codeToChar asc)
-      --parseAscii (asc,code) = tryScan (string asc) >> return code
-
--- escape code tables
-
-escMap :: [(Char, Char)]
-escMap = zip "abfnrtv\\\"\'" "\a\b\f\n\r\t\v\\\"\'"
-         
-escs = "abfnrtv\\\"\'"
-
-
-asciiMap :: [(String, Char)]
-asciiMap = zip (ascii3codes ++ ascii2codes) (ascii3 ++ ascii2)
-           
-
-asciis = ascii3codes ++ ascii2codes
+asciiEsc :: Scanner Char
+asciiEsc = choice (map asciiEscChar asciis)
+    where asciiEscChar asc = tryScan (string asc) >> return (codeToChar asc)
+          asciis = ascii3codes ++ ascii2codes
 
 
 ascii2codes :: [String]
@@ -466,16 +386,4 @@ ascii3codes = [ "NUL","SOH","STX","ETX","EOT","ENQ","ACK","BEL"
 codeToChar :: String -> Char
 codeToChar s = case readLitChar ('\\':s) of
                  [(r,"")] -> r
-                 [] -> error "codeToChar: not a valid code"
-
-
-
-ascii2 :: String
-ascii2 = [ '\BS','\HT','\LF','\VT','\FF','\CR','\SO','\SI'
-         , '\EM','\FS','\GS','\RS','\US','\SP']
-
-
-ascii3 :: String
-ascii3 = [ '\NUL','\SOH','\STX','\ETX','\EOT','\ENQ','\ACK'
-         , '\BEL','\DLE','\DC1','\DC2','\DC3','\DC4','\NAK'
-         , '\SYN','\ETB','\CAN','\SUB','\ESC','\DEL']
+                 [] -> error $ "codeToChar: not a valid code: " ++ s

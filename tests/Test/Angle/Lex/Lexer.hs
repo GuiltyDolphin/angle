@@ -54,7 +54,7 @@ checkFloatStr x = not $ 'e' `elem` (show x)
               
 
 escapedStr :: String -> String
-escapedStr xs = "e\"" ++ xs ++ "\""
+escapedStr xs = "\"" ++ xs ++ "\""
 
 
 testLitStrEmpty :: Assertion
@@ -62,7 +62,17 @@ testLitStrEmpty = evalScan "\"\"" litStr @?= Right (LitStr "")
 
 
 testLitStr :: String -> Property
-testLitStr x = '"' `notElem` x ==> evalScan (escapedStr x) litStr == Right (LitStr x)
+testLitStr x = "\"\\" `noneElem` x ==> litStrShow x litStr
+-- testLitStr x = '"' `notElem` x ==> evalScan (escapedStr x) litStr == Right (LitStr x)
+
+
+noneElem :: (Eq a) => [a] -> [a] -> Bool
+noneElem xs ys = and $ map (`notElem` ys) xs
+               
+
+litStrShow = withPretty f p
+    where f x sc = evalScan (escapedStr x) sc == Right (LitStr x)
+          p x sc = either (const "got an error!\n") showSyn (evalScan (escapedStr x) sc)
 
 
 testLitInt :: Int -> Bool
