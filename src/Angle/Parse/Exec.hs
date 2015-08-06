@@ -664,6 +664,7 @@ callBuiltin (LangIdent "input") xs = builtinArgs xs >>= builtinInput
 callBuiltin (LangIdent "eval") xs = builtinArgs xs >>= builtinEval
 callBuiltin (LangIdent "asType") xs = builtinArgs xs >>= builtinAsType
 callBuiltin (LangIdent "getArgs") xs = builtinArgs xs >>= builtinGetArgs 
+callBuiltin (LangIdent "isNull") xs = builtinArgs xs >>= builtinIsNull
 callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
 
 

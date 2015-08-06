@@ -10,6 +10,7 @@ module Angle.Parse.Builtins
     , builtinAsType
     , builtinGetArgs
     , builtinInput
+    , builtinIsNull
     , startEnv
     , argsToString
     ) where
@@ -82,6 +83,7 @@ builtins = [ "print", "str"
            , "index", "length"
            --, "compose", "partial"
            , "input", "eval"
+           , "isNull"
            , "asType", "getArgs"]
 
          
@@ -135,7 +137,14 @@ builtinLength :: [LangLit] -> ExecIO LangLit
 builtinLength [LitList xs] = return . LitInt $ length xs
 builtinLength _ = throwParserError $ callBuiltinErr "length: invalid call"
 
--- | Implementation of the built-in str function.
+-- | @isNull(x)@ -> bool: true if @x@ is the null literal.
+-- 
+-- @isNull(..x)@ -> [bool]: list of applying @isNull@ to each argument.
+builtinIsNull :: [LangLit] -> ExecIO LangLit
+builtinIsNull [x] = return . LitBool $ isNull x
+builtinIsNull xs = return . LitList $ map (LitBool . isNull) xs
+
+
 builtinStr :: [LangLit] -> ExecIO LangLit
 builtinStr [] = return $ LitStr ""
 builtinStr xs | length xs > 1 = throwParserError $ wrongNumberOfArgumentsErr 1 (length xs)
