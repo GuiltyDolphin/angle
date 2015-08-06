@@ -1,3 +1,30 @@
+{-|
+Module      : Angle.Parse.Builtins
+Description : Builtin language functions, classes and variables.
+Copyright   : (c) Ben Moon, 2015
+License     : GPL-3
+Maintainer  : guiltydolphin@gmail.com
+Stability   : experimental
+Portability : POSIX
+
+This module defines and exports classes, functions and variables that can be used in Angle.
+
+Minutae:
+A function beginning with @builtin@ (e.g., @builtinPrint@) defines a builtin function accessible through the language by the section following @builtin@ (although the casing may differ). Thus @builtinPrint@ defines the builtin @print@ function.
+
+The builtin @someFunction@ function, the @someFunction@ builtin, all refer to @someFunction@ that is callable from the language.
+
+
+Typically, builtin functions can act upon either a set amount
+of arguments or a list of arguments, wherein the behaviour
+is similar to the standard call, but produces a list of
+results rather than a singleton.
+
+For example, the @isNull@ builtin produces a single boolean
+value when passed one argument, but produces a list of boolean
+values when passed multiple arguments - as is common with
+predicate functions in Angle.
+-}
 module Angle.Parse.Builtins
     ( builtins
     , isBuiltin
@@ -86,14 +113,21 @@ builtins = [ "print", "str"
            , "isNull"
            , "asType", "getArgs"]
 
-         
--- TODO:
--- * Currently ignores '\n' characters in strings.
+
+-- | Builtin print function.
+--
+-- @print(..x)@: converts each element of @..x@ to a string
+-- before printing the concatenated result followed by a newline to STDOUT.
 builtinPrint :: [LangLit] -> ExecIO LangLit
 builtinPrint xs = liftIO (putStrLn res) >> returnVal (LitStr res)
     where res = argsToString xs
                                             
 
+-- | Builtin input function.
+--
+-- @input(..x)@: does the same as @builtinPrint@, but does
+-- not automatically append a newline and returns the result
+-- from STDIN.
 builtinInput :: [LangLit] -> ExecIO LangLit
 builtinInput xs = liftM LitStr (liftIO $ putStr res >> liftIO getLine) >>= returnVal
     where res = argsToString xs
@@ -145,6 +179,7 @@ builtinIsNull [x] = return . LitBool $ isNull x
 builtinIsNull xs = return . LitList $ map (LitBool . isNull) xs
 
 
+-- | @str(x)@
 builtinStr :: [LangLit] -> ExecIO LangLit
 builtinStr [] = return $ LitStr ""
 builtinStr xs | length xs > 1 = throwParserError $ wrongNumberOfArgumentsErr 1 (length xs)
@@ -158,9 +193,9 @@ builtinStr xs | length xs > 1 = throwParserError $ wrongNumberOfArgumentsErr 1 (
 
 -- | Builtin index function.
 --
--- @index(int:x, list:xs)@: retrieve element at index @x@ from @xs@
+-- @index(x:\@int, xs:\@list)@: retrieve element at index @x@ from @xs@
 --
--- @index(int:x, int:y, list:xs)@: return a list of elements that lie between index @x@ and index @y@ of @xs@.
+-- @index(x:\@int, y:\@int, xs:\@list)@: return a list of elements that lie between index @x@ and index @y@ of @xs@.
 --
 -- Negative indices are treated as working backwards from the
 -- end of the list. With @-1@ being the last element.
@@ -220,7 +255,7 @@ splice x y xs = take (1+y-x) $ drop x xs
 -- @partial($f)@: Returns a lambda equivalent to the initial function.
 -- builtinPartial :: [LangLit] -> ExecIO LangLit
 -- builtinPartial [x@(LitLambda _)] = return x
--- builtinPartial (LitLambda x:xs) = liftM LitLambda $ partial x xs
+-- builtinPartial (LitLambda xs:\@x) = liftM LitLambda $ partial x xs
 -- -- builtinCompose (LitLambda x:[]) = return . LitLambda $ x
 -- -- builtinCompose (LitLambda x:LitLambda y:[]) = liftM LitLambda $ compose x y
 -- builtinPartial _ = throwImplementationErr "builtinPartial: better message please!"
@@ -254,7 +289,7 @@ splice x y xs = take (1+y-x) $ drop x xs
 -- @compose($f)@: returns a lambda equivalent to the original function.
 -- builtinCompose :: [LangLit] -> ExecIO LangLit
 -- builtinCompose [x@(LitLambda _)] = return x
--- builtinCompose (x:xs) = foldM composeLambdas x xs
+-- builtinCompose (xs:\@x) = foldM composeLambdas x xs
 -- -- builtinCompose (LitLambda x:[]) = return . LitLambda $ x
 -- -- builtinCompose (LitLambda x:LitLambda y:[]) = liftM LitLambda $ compose x y
 -- builtinCompose _ = throwImplementationErr "builtinCompose: better message please!"
