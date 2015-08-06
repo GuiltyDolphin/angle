@@ -231,17 +231,21 @@ bindArgs args (ArgSig
   vals <- mapM (uncurry checkArg) toCheck
   let toBindFuns = map fst $ filter (isAnnFun . snd)  vals
       toBindClass = map fst $ filter (isAnnClass . snd) vals
-      toBindLits = (map fst $ filter (isAnnLit . snd) vals) ++ catchBind
+      toBindLits = (map fst $ filter (isAnnLit . snd) vals)
+      toBindAny = (map fst $ filter (isAnnAny . snd) vals) ++ catchBind
       isAnnFun AnnFun = True
       isAnnFun _ = False
       isAnnLit AnnLit = True
       isAnnLit _ = False
       isAnnClass AnnClass = True
       isAnnClass _ = False
+      isAnnAny AnnAny = True
+      isAnnAny _ = False
   newScope
   forM_ toBindFuns (\(x, (LitLambda l)) -> assignVarLambda x l)
   forM_ toBindClass (\(x, (LitLambda l)) -> assignVarClass x l)
   forM_ toBindLits (uncurry assignVarLit)
+  forM_ toBindAny (uncurry assignVarLit)
   return ()
 -- bindArgs :: [Expr] -> CallSig -> ExecIO ()
 -- bindArgs args' cs = do
@@ -301,6 +305,7 @@ execClass val clsName = do
 
 -- | True if the literal is of the specified annotation type.
 satType :: LangLit -> AnnType -> Bool
+satType _ AnnAny = True
 satType (LitLambda _) AnnFun = True
 satType (LitLambda _) AnnClass = True -- TODO: Check this!
 satType (LitLambda _) AnnLit = False

@@ -201,7 +201,7 @@ data ArgElt = ArgElt
     } deriving (Show, Eq)
             
 argNoAnn :: LangIdent -> ArgElt
-argNoAnn name = ArgElt { argEltType = AnnLit
+argNoAnn name = ArgElt { argEltType = AnnAny
                        , argEltName = name
                        , argEltClass = Nothing }
             
@@ -229,7 +229,7 @@ instance ShowSyn ClassRef where
     showSyn (ClassRef {getClassRef = name}) = '@' : showSyn name
                                      
 
-data AnnType = AnnClass | AnnFun | AnnLit
+data AnnType = AnnClass | AnnFun | AnnLit | AnnAny
                deriving (Eq)
                         
 
@@ -237,6 +237,7 @@ instance Show AnnType where
     show AnnClass = "class"
     show AnnFun = "function"
     show AnnLit = "literal"
+    show AnnAny = "any"
 
 
 -- | @True@ if `catchAllArg` is  a @Just@ value.

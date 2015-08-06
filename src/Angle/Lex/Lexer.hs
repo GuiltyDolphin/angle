@@ -482,7 +482,8 @@ argElt = do
 argSigType :: Scanner AnnType
 argSigType = char '@' *> return AnnClass
              <|> char '$' *> return AnnFun
-             <|> return AnnLit
+             <|> char '!'*> return AnnLit
+             <|> return AnnAny
 
                  
 lambdaTyp :: Scanner LambdaType
