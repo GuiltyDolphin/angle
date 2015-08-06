@@ -258,6 +258,7 @@ data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
                        -- explicitly.
              | LitLambda { getLitLambda :: Lambda } -- ^ A function without a name.
              | LitClassLambda { getLitClassLambda :: Lambda }
+             | LitKeyword { getLitKeyword :: LangIdent }
                deriving (Show, Eq)
                         
 
@@ -284,6 +285,7 @@ instance ShowSyn LangLit where
     showSyn (LitRange x y z) = showRange x y z
     showSyn LitNull = "null"
     showSyn (LitLambda x) = showSyn x
+    showSyn (LitKeyword x) = ':' : showSyn x
                             
 
 showRange :: (ShowSyn a) => a -> Maybe a -> Maybe a -> String
@@ -298,6 +300,7 @@ data LangType = LTStr
               | LTBool
               | LTRange
               | LTNull
+              | LTKeyword
               | LTLambda
                 deriving (Eq)
 
@@ -312,6 +315,7 @@ typeOf (LitBool _)   = LTBool
 typeOf (LitRange{})  = LTRange
 typeOf LitNull       = LTNull
 typeOf (LitLambda{}) = LTLambda
+typeOf (LitKeyword _) = LTKeyword
                        
 
 -- TODO: Check this - can't identify classes
@@ -331,6 +335,7 @@ instance Show LangType where
     show LTNull = "null"
     show LTRange = "range"
     show LTLambda = "function"
+    show LTKeyword = "keyword"
                    
 
 data Expr = ExprIdent LangIdent

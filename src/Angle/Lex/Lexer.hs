@@ -213,6 +213,7 @@ langLit = litStr
           <|> litList 
           <|> tryScan litFloat 
           <|> litInt 
+          <|> litKeyword
           <?> "literal"
 
 
@@ -236,6 +237,10 @@ litFloat = liftM LitFloat tokFloat
 litList :: Scanner LangLit
 litList = liftM LitList (tokList $ sepWith tokEltSep langLit) 
           <?> "list literal"
+              
+
+litKeyword :: Scanner LangLit
+litKeyword = liftM LitKeyword (char ':' >> identName)
               
 
 exprList :: Scanner Expr
