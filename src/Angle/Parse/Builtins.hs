@@ -307,3 +307,10 @@ toLitStr LitNull = LitStr ""
 
 builtinGetArgs :: [LangLit] -> ExecIO LangLit
 builtinGetArgs _ = liftM (LitList . map LitStr) $ liftIO getArgs
+
+
+fromEnumL :: LangLit -> Int
+fromEnumL (LitInt x) = fromEnum x
+fromEnumL (LitChar x) = fromEnum x
+fromEnumL (LitFloat x) = fromEnum x
+

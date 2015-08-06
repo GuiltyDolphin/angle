@@ -31,6 +31,9 @@ module Angle.Types.Lang
     , Lambda(..)
     , LambdaType(..)
     , typeAnnOf
+    , isValidIdent
+    , isInfiniteRange
+    , isNull
     ) where
     
 
@@ -265,15 +268,6 @@ data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
 
 data LambdaType = FunLambda | ClassLambda
                   deriving (Show, Eq)
-                  
-
-data LitSize = FiniteLit Int | InfiniteLit 
-               deriving (Show, Eq, Ord)
-
-litSize :: LangLit -> LitSize
-litSize (LitRange _ Nothing _) = InfiniteLit
-litSize (LitList xs) = FiniteLit $ length xs
-litSize _ = FiniteLit 1
  
 
 instance ShowSyn LangLit where
@@ -435,3 +429,16 @@ instance ShowSyn Op where
 showLambdaFun :: Lambda -> String
 showLambdaFun (Lambda {lambdaArgs=args, lambdaBody=body})
     = showSyn args ++ " " ++ showSyn body
+
+
+isValidIdent :: String -> Bool
+isValidIdent (x:xs) = isAlpha x && all isAlphaNum xs
+
+
+isInfiniteRange :: LangLit -> Bool
+isInfiniteRange (LitRange _ Nothing _) = True
+isInfiniteRange (LitRange{}) = False
+
+isNull :: LangLit -> Bool
+isNull LitNull = True
+isNull _ = False

@@ -518,45 +518,6 @@ execStructIf if' thn els = do
                          Nothing -> return LitNull
                          Just s  -> execStmt s
     x -> throwParserError $ typeUnexpectedErr (typeOf x) LTBool
-                    
-
-
-fromIter :: LangLit -> ExecIO [LangLit]                        
-fromIter (LitList xs) = return xs
-fromIter (LitStr xs) = return $ map LitChar xs
-fromIter (LitRange x Nothing Nothing) = iterFrom x
-fromIter (LitRange x (Just y) Nothing) = iterFromTo x y
-fromIter (LitRange x (Just y) (Just z)) = iterFromThenTo x y z
-fromIter _ = throwImplementationErr "fromIter: TODO: define this!"
-
-
-iterToLit :: LangLit -> ExecIO LangLit
-iterToLit = liftM LitList . fromIter
-
-
-isInfiniteRange :: LangLit -> Bool
-isInfiniteRange (LitRange _ Nothing _) = True
-isInfiniteRange (LitRange{}) = False
-
-
-iterFromThenTo :: LangLit -> LangLit -> LangLit -> ExecIO [LangLit]
-iterFromThenTo (LitInt x) (LitInt y) (LitInt z) = return $ map LitInt $ enumFromThenTo x z y
-iterFromThenTo (LitFloat x) (LitFloat y) (LitFloat z) = return $ map LitFloat $ enumFromThenTo x z y
-iterFromThenTo (LitChar x) (LitChar y) (LitChar z) = return $ map LitChar $ enumFromThenTo x z y
-iterFromThenTo _ _ _ = throwImplementationErr "iterFromThenTo: define failure"
-                                                     
-iterFrom :: LangLit -> ExecIO [LangLit]
-iterFrom (LitInt x) = return $ map LitInt $ enumFrom x
-iterFrom (LitChar x) = return $ map LitChar $ enumFrom x
-iterFrom (LitFloat x) = return $ map LitFloat $ enumFrom x
-iterFrom _ = throwImplementationErr "iterFrom: define failure"
-             
-
-iterFromTo :: LangLit -> LangLit -> ExecIO [LangLit]
-iterFromTo (LitInt x) (LitInt y) = return $ map LitInt $ enumFromTo x y
-iterFromTo (LitChar x) (LitChar y) = return $ map LitChar $ enumFromTo x y
-iterFromTo (LitFloat x) (LitFloat y) = return $ map LitFloat $ enumFromTo x y
-iterFromTo _ _ = throwImplementationErr "iterFromTo: define failure"
 
 
 execStructFor :: LangIdent -> Expr -> Stmt -> ExecIO LangLit
