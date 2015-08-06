@@ -44,26 +44,20 @@ module Angle.Parse.Builtins
       
 
 -- TODO:
--- * inClass(x,..cls) - builtin function for checking
+-- - inClass(x,..cls) - builtin function for checking
 --    if x satisfies the given classes.
 
 
 import Control.Monad
 import Control.Monad.State
-import qualified Data.Map as M
-import Data.Maybe (maybeToList)
+import Data.Maybe (fromJust)
 import System.Environment
-    
-import Debug.Trace (trace)
 
 import Angle.Parse.Error
 import Angle.Parse.Scope
 import Angle.Parse.Types
 import Angle.Types.Lang
 import Angle.Lex.Lexer (litList, evalScan)
-
-traceShowMsg :: (Show a) => String -> a -> a
-traceShowMsg msg x = trace (msg ++ show x) x
                     
            
 builtinCallSig :: LangIdent -> Lambda
@@ -96,6 +90,7 @@ startEnv :: Env
 startEnv = basicEnv 
            { currentScope = emptyScope 
                             { lambdaBindings = builtinsVars 
+                            , classBindings = builtinClassBinds
                             } }
 
 
@@ -313,4 +308,53 @@ fromEnumL :: LangLit -> Int
 fromEnumL (LitInt x) = fromEnum x
 fromEnumL (LitChar x) = fromEnum x
 fromEnumL (LitFloat x) = fromEnum x
+
+
+-- typClass cls typ = 
+--     Lambda { lambdaArgs = args
+--            , lambdaBody = 
+--                SingleStmt 
+--                ( StmtExpr 
+--                  ( angleEq (angleExprIdent "x")
+--                    ( angleFunCall "asType"
+--                      [ ExprLit typ
+--                      , angleExprIdent "x"]))) 
+--                startRef }
+--     where args = emptyArgs 
+--                  { stdArgs = 
+--                    [ eltClass 
+--                      (ClassRef 
+--                       (LangIdent cls)) 
+--                      (LangIdent "x")] }
+--           angleEq x y = ExprOp $ MultiOp OpEq [x, y]
+--           angleFunCall name args = ExprFunCall (LangIdent name) args
+--           angleExprIdent name = ExprIdent . LangIdent $ name
+
+
+classToFun :: LangLit -> LangLit
+classToFun (LitClassLambda l) = (LitLambda l)
+
+
+typClass cls typ = undefined -- builtinAsType(typ, 
+           
+
+
+builtinClass :: LangIdent -> Lambda -> (LangIdent, VarVal Lambda)
+builtinClass name body = (name, VarVal { varDef = Just body
+                                       , varBuiltin = True })
+
+
+builtinClasses :: [(String, LangLit)]
+builtinClasses = [ ("int", LitInt 1)
+                 , ("float", LitFloat 1)
+                 ]
+
+
+builtinClassBinds :: BindEnv Lambda
+builtinClassBinds = bindEnvFromList $ map toBuiltinClass builtinClasses
+    where toBuiltinClass (name, val) = builtinClass (LangIdent name) (typClass name val)
+
+
+
+
 

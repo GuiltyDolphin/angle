@@ -34,13 +34,15 @@ module Angle.Types.Lang
     , isValidIdent
     , isInfiniteRange
     , isNull
+    , eltClass
     ) where
     
 
 -- TODO:
--- * AnnType
+-- - AnnType
 --   - Add AnnAny - a type that allows any 
 --     type to be passed (as in, function, literal etc..)
+import Data.Char (isAlpha, isAlphaNum)
 import Data.Maybe (isJust)
 import Numeric (showFFloat)
     
@@ -207,7 +209,13 @@ argNoAnn :: LangIdent -> ArgElt
 argNoAnn name = ArgElt { argEltType = AnnAny
                        , argEltName = name
                        , argEltClass = Nothing }
-            
+           
+
+eltClass :: ClassRef -> LangIdent -> ArgElt 
+eltClass cls name = ArgElt { argEltType = AnnAny
+                           , argEltName = name
+                           , argEltClass = Just cls }
+
 
 instance ShowSyn ArgElt where
     showSyn (ArgElt {argEltType=typ

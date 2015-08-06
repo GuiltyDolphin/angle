@@ -280,10 +280,10 @@ checkSatClass :: LangLit -> Maybe LangIdent -> ExecIO ()
 checkSatClass _ Nothing = return ()
 checkSatClass v (Just clsName) = do
   res <- satClass v clsName
-  case res of
-    True -> return ()
-    False -> throwParserError $ typeExpectClassErr v clsName
+  unless res (throwParserError $ typeExpectClassErr v clsName)
                    
+
+lookupClass :: LangIdent -> ExecIO (Maybe Lambda)
 lookupClass = lookupVar classBindings
                    
                
@@ -294,6 +294,7 @@ lookupClass = lookupVar classBindings
 --     y -> throwParserError $ typeClassWrongReturnErr (typeOf y)
 
 
+execClass :: LangLit -> LangIdent -> ExecIO LangLit
 execClass val clsName = do
   cls <- lookupClassF clsName
   res <- callLambda cls [ExprLit val]
