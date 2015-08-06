@@ -59,25 +59,28 @@ import Angle.Parse.Types
 import Angle.Types.Lang
 import Angle.Lex.Lexer (litList, evalScan)
                     
-           
+
+emptyArgs :: ArgSig
+emptyArgs = ArgSig { stdArgs=[], catchAllArg=Nothing }
+
 builtinCallSig :: LangIdent -> Lambda
 builtinCallSig name = 
     Lambda
-    { lambdaArgs = ArgSig 
-                 { stdArgs=[]
-                 , catchAllArg=Just (LangIdent "x")
-                 }
-    , lambdaBody = SingleStmt 
-                 (StmtExpr 
-                  (ExprFunCall name 
-                   [ExprParamExpand 
-                    (LangIdent "x")])) startRef 
+    { lambdaArgs = emptyArgs 
+                   { catchAllArg = Just (LangIdent "x") }
+    , lambdaBody = body
     }
+    where body = SingleStmt
+                 ( StmtExpr
+                   ( ExprFunCall name
+                     [ ExprParamExpand
+                       ( LangIdent "x" )])) startRef
 
 
 builtinVar :: LangIdent -> (LangIdent, VarVal Lambda)
-builtinVar name = (name, VarVal { varDef = Just $ builtinCallSig name
-                                , varBuiltin = True })
+builtinVar name = (name, VarVal 
+                           { varDef = Just $ builtinCallSig name
+                           , varBuiltin = True })
 
 
 builtinsVars :: BindEnv Lambda
@@ -108,6 +111,20 @@ builtins = [ "print", "str"
            , "isNull"
            , "asType", "getArgs"]
 
+builtinFuns :: [(String, [LangLit] -> ExecIO LangLit)]
+builtinFuns = [ ("print", builtinPrint)
+              , ("str", builtinStr)
+              , ("index", builtinIndex)
+              , ("length", builtinLength)
+              , ("input", builtinInput)
+--              , ("eval", builtinEval)
+              , ("isNull", builtinIsNull)
+              , ("asType", builtinAsType)
+              , ("getArgs", builtinGetArgs)
+              ]
+
+getBuiltinFun :: LangIdent -> [LangLit] -> ExecIO LangLit
+getBuiltinFun (LangIdent x) = fromJust $ lookup x builtinFuns
 
 -- | Builtin print function.
 --
@@ -147,24 +164,28 @@ asType (LitFloat _) (LitInt x) = return . LitFloat $ fromIntegral x
 asType (LitFloat _) (LitStr y) = fromStr y LitFloat
 asType (LitInt _) (LitStr y) = fromStr y LitInt
 asType (LitList _) (LitStr y) = case evalScan y litList of
-                                   Left _ -> return LitNull -- throwParserError . callBuiltinErr $ "asType: could not convert string literal to list"
+                                   Left _ -> return LitNull
                                    Right r -> return r
 asType (LitBool _) (LitStr y) = 
     case y of
       "true" -> return $ LitBool True
       "false" -> return $ LitBool False
-      _ -> return LitNull -- throwParserError . callBuiltinErr $ "asType: could not convert string literal to boolean"
+      _ -> return LitNull
+asType (LitList _) x@(LitRange _ (Just _) _) = iterToLit x
 asType _ _ = return LitNull
                                     
 fromStr :: (Read a) => String -> (a -> LangLit) -> ExecIO LangLit
 fromStr s f = case reads s of
-              [] -> return LitNull -- throwParserError . callBuiltinErr $ "asType: could not convert string literal to " ++ show (typeOf $ f undefined)
+              [] -> return LitNull
               [(r,"")] -> return $ f r
                               
 
 builtinLength :: [LangLit] -> ExecIO LangLit
 builtinLength [LitList xs] = return . LitInt $ length xs
+builtinLength [LitRange _ Nothing _] = return $ LitKeyword $ LangIdent "infinite"
+builtinLength [LitRange x (Just y) Nothing] = return . LitInt $ (fromEnumL y + 1) - fromEnumL x
 builtinLength _ = throwParserError $ callBuiltinErr "length: invalid call"
+                  
 
 -- | @isNull(x)@ -> bool: true if @x@ is the null literal.
 -- 

@@ -7,7 +7,7 @@ module Angle.Parse.Exec
     
 
 -- TODO:
--- * For loops produce values, are they not expressions?
+-- - For loops produce values, are they not expressions?
 --   - Should be able to have for loops etc in places
 --     where expressions can be placed.
 
