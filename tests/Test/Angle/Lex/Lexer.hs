@@ -17,28 +17,34 @@ testShowSynSingStmt x = showSynTest x singStmt
                         
 
 testShowSynLangStruct :: LangStruct -> P.Result
-testShowSynLangStruct x = liftShow x langStruct -- showSynTest x langStruct
+testShowSynLangStruct x = prettySyn x langStruct -- showSynTest x langStruct
                           
 
 testShowSynExpr :: Expr -> P.Result
-testShowSynExpr x = liftShow x expr -- showSynTest x expr
+testShowSynExpr x = prettySyn x expr -- showSynTest x expr
                     
 
 testShowSynLambda :: Lambda -> P.Result
-testShowSynLambda x = liftShow x lambda -- showSynTest x lambda
-                        
+testShowSynLambda x = prettySyn x lambda -- showSynTest x lambda
+                      
 
 showSynTest :: (ShowSyn a, Eq a) => a -> Scanner a -> Bool
 showSynTest x sc = evalScan (showSyn x) sc == Right x
                    
 
-liftShow :: (ShowSyn a, Eq a) => a -> Scanner a -> P.Result
-liftShow x sc = P.result { P.ok = Just b
-                         , P.reason = if b 
-                                      then "" 
-                                      else "expected:\n" ++ showSyn x ++ "\nbut got:\n" ++ reas}
-    where b = showSynTest x sc
-          reas = either (const "got an error!\n") showSyn (evalScan (showSyn x) sc)
+prettySyn :: (ShowSyn a, Eq a) => a -> Scanner a -> P.Result
+prettySyn = withPretty f p
+    where p x sc = either (const "got an error!\n") showSyn (evalScan (showSyn x) sc)
+          f = showSynTest 
+
+
+withPretty :: (a -> Scanner b -> Bool) -> (a -> Scanner b -> String) -> a -> Scanner b -> P.Result
+withPretty f pretty x sc = P.result { P.ok = Just b
+                           , P.reason = if b 
+                                        then ""
+                                        else pretty x sc 
+                           }
+    where b = f x sc
                   
                    
 
@@ -141,6 +147,6 @@ tests = [ testGroup "literals"
           , localOption (QuickCheckMaxSize 9) $ 
             testProperty "LangStruct" $ testShowSynLangStruct
           , testProperty "Expr" $ testShowSynExpr
-          , testProperty "Lambda" testShowSynLambda
+          , localOption (QuickCheckMaxSize 10) $ testProperty "Lambda" testShowSynLambda
           ]
         ]
