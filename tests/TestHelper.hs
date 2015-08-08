@@ -230,12 +230,6 @@ validIdent = (:) <$> chooseAlpha <*> listOf chooseAlphaNum
           chooseAlphaNum = oneof [chooseAlpha, chooseDigit]
 
 
-isValidIdent :: String -> Bool
-isValidIdent [] = False
-isValidIdent x | x `elem` keywords = False
-               | otherwise = isAlpha (head x) && all isAlphaNum (drop 1 x)
-
-                 
 newtype SpecOp = ArbySpecOp { getSpecOp :: Op }
 
 

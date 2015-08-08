@@ -2,9 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE OverlappingInstances #-}
 module Angle.Types.Lang
     ( Stmt(..)
@@ -34,6 +32,7 @@ module Angle.Types.Lang
     , isValidIdent
     , isInfiniteRange
     , isNull
+    , enumType
     , eltClass
     ) where
     
@@ -167,10 +166,6 @@ showSynArgs :: (ShowSyn a) => [a] -> String
 showSynArgs = showSynSep "(" ")" ", "
 
 
-showSynList :: (ShowSyn a) => [a] -> String
-showSynList = showSynSep "[" "]" ", "
-              
-
 showSynOpList :: (ShowSyn a) => [a] -> String
 showSynOpList = showSynSep " " ")" " "
 
@@ -224,7 +219,8 @@ instance ShowSyn ArgElt where
         = case typ of
             AnnFun -> "$"
             AnnClass -> "@"
-            AnnLit -> ""
+            AnnLit -> "!"
+            AnnAny -> ""
           ++ showSyn name ++ case cls of 
                                Just c -> ':' : showSyn c
                                Nothing -> ""
@@ -280,19 +276,25 @@ data LambdaType = FunLambda | ClassLambda
 
 instance ShowSyn LangLit where
     showSyn (LitStr x) = show x -- '\"' : x ++ "\""
+    showSyn (LitClassLambda l) = showSyn l
     showSyn (LitChar x) = show x
     showSyn (LitInt x) = show x
     showSyn (LitFloat x) = showFFloat Nothing x ""
     showSyn (LitList xs) = showSynList xs
+        where showSynList = showSynSep "[" "]" ", "
     showSyn (LitBool x) = if x then "true" else "false"
-    showSyn (LitRange x y z) = showRange x y z
+    showSyn (LitRange x y z) = showRange
+        where showRange
+                  = concat [ "("
+                           , showSyn x
+                           , ".."
+                           , maybe "" showSyn y
+                           , maybe "" ((".." ++) . showSyn) z
+                           , ")" ]
+
     showSyn LitNull = "null"
     showSyn (LitLambda x) = showSyn x
     showSyn (LitKeyword x) = ':' : showSyn x
-                            
-
-showRange :: (ShowSyn a) => a -> Maybe a -> Maybe a -> String
-showRange x y z = "(" ++ showSyn x ++ ".." ++ maybe "" showSyn y ++ maybe "" ((".." ++) . showSyn) z ++ ")"
                    
 
 data LangType = LTStr
@@ -305,6 +307,7 @@ data LangType = LTStr
               | LTNull
               | LTKeyword
               | LTLambda
+              | LTClass
                 deriving (Eq)
 
 
@@ -319,6 +322,7 @@ typeOf (LitRange{})  = LTRange
 typeOf LitNull       = LTNull
 typeOf (LitLambda{}) = LTLambda
 typeOf (LitKeyword _) = LTKeyword
+typeOf (LitClassLambda{}) = LTClass
                        
 
 -- TODO: Check this - can't identify classes
@@ -326,6 +330,7 @@ typeAnnOf :: LangLit -> AnnType
 -- typeAnnOf (LitLambda (Lambda {lambdaType=FunLambda})) = AnnFun
 -- typeAnnOf (LitLambda (Lambda {lambdaType=ClassLambda})) = AnnClass
 typeAnnOf (LitLambda{}) = AnnFun
+typeAnnOf (LitClassLambda{}) = AnnClass
 typeAnnOf _ = AnnLit
               
 
@@ -339,6 +344,8 @@ instance Show LangType where
     show LTRange = "range"
     show LTLambda = "function"
     show LTKeyword = "keyword"
+    show LTChar = "char"
+    show LTClass = "class"
                    
 
 data Expr = ExprIdent LangIdent
@@ -440,13 +447,23 @@ showLambdaFun (Lambda {lambdaArgs=args, lambdaBody=body})
 
 
 isValidIdent :: String -> Bool
+isValidIdent [] = False
 isValidIdent (x:xs) = isAlpha x && all isAlphaNum xs
 
 
 isInfiniteRange :: LangLit -> Bool
 isInfiniteRange (LitRange _ Nothing _) = True
 isInfiniteRange (LitRange{}) = False
+isInfiniteRange _ = error "isInfiniteRange: passed non-range"
+
 
 isNull :: LangLit -> Bool
 isNull LitNull = True
 isNull _ = False
+
+
+enumType :: LangLit -> Bool
+enumType (LitInt _) = True
+enumType (LitChar _) = True
+enumType (LitFloat _) = True
+enumType _ = False

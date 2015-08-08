@@ -10,6 +10,7 @@ Portability : POSIX
 This module defines and exports classes, functions and variables that can be used in Angle.
 
 Minutae:
+
 A function beginning with @builtin@ (e.g., @builtinPrint@) defines a builtin function accessible through the language by the section following @builtin@ (although the casing may differ). Thus @builtinPrint@ defines the builtin @print@ function.
 
 The builtin @someFunction@ function, the @someFunction@ builtin, all refer to @someFunction@ that is callable from the language.
@@ -63,6 +64,7 @@ import Angle.Lex.Lexer (litList, evalScan)
 emptyArgs :: ArgSig
 emptyArgs = ArgSig { stdArgs=[], catchAllArg=Nothing }
 
+
 builtinCallSig :: LangIdent -> Lambda
 builtinCallSig name = 
     Lambda
@@ -111,6 +113,7 @@ builtins = [ "print", "str"
            , "isNull"
            , "asType", "getArgs"]
 
+
 builtinFuns :: [(String, [LangLit] -> ExecIO LangLit)]
 builtinFuns = [ ("print", builtinPrint)
               , ("str", builtinStr)
@@ -123,8 +126,10 @@ builtinFuns = [ ("print", builtinPrint)
               , ("getArgs", builtinGetArgs)
               ]
 
+
 getBuiltinFun :: LangIdent -> [LangLit] -> ExecIO LangLit
 getBuiltinFun (LangIdent x) = fromJust $ lookup x builtinFuns
+
 
 -- | Builtin print function.
 --
@@ -151,21 +156,28 @@ argsToString = concatMap
                         (LitStr s) -> s
                         _ -> showSyn x)
                               
+
 builtinAsType :: [LangLit] -> ExecIO LangLit
 builtinAsType [x] = return x
 builtinAsType [x,y] = asType x y
 builtinAsType (x:xs) = liftM LitList $ mapM (asType x) xs
 builtinAsType _ = throwParserError $ callBuiltinErr "asType: invalid call"
                   
+
 asType :: LangLit -> LangLit -> ExecIO LangLit
 asType x y | typeOf x == typeOf y = return y
+asType (LitStr _) (LitList xs) 
+    | all isLitChar xs = return . LitStr $ map (\(LitChar x) -> x) xs
+    where isLitChar (LitChar x) = True
+          isLitChar _ = False
 asType (LitStr _) x = return . toLitStr $ x
 asType (LitFloat _) (LitInt x) = return . LitFloat $ fromIntegral x
 asType (LitFloat _) (LitStr y) = fromStr y LitFloat
 asType (LitInt _) (LitStr y) = fromStr y LitInt
-asType (LitList _) (LitStr y) = case evalScan y litList of
-                                   Left _ -> return LitNull
-                                   Right r -> return r
+asType (LitList _) x@(LitStr xs) = return . LitList $ map LitChar xs
+-- asType (LitList _) (LitStr y) = case evalScan y litList of
+--                                    Left _ -> return LitNull
+--                                    Right r -> return r
 asType (LitBool _) (LitStr y) = 
     case y of
       "true" -> return $ LitBool True
@@ -174,6 +186,7 @@ asType (LitBool _) (LitStr y) =
 asType (LitList _) x@(LitRange _ (Just _) _) = iterToLit x
 asType _ _ = return LitNull
                                     
+
 fromStr :: (Read a) => String -> (a -> LangLit) -> ExecIO LangLit
 fromStr s f = case reads s of
               [] -> return LitNull

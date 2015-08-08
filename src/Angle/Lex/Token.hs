@@ -41,6 +41,7 @@ module Angle.Lex.Token
     , tokFunRefStart
     , tokOpChar
     , tuple
+    , withCharEscape
     ) where
     
 

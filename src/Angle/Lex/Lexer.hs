@@ -27,6 +27,7 @@ module Angle.Lex.Lexer
 
 import Control.Applicative
 import Control.Monad.State
+import Data.Char (readLitChar)
 import Data.Maybe (isJust)
 
 import Angle.Lex.Helpers
@@ -267,7 +268,12 @@ litBool = liftM LitBool (litTrue <|> litFalse)
                      
 
 litChar :: Scanner LangLit
-litChar = liftM LitChar $ surrounded (char '\'') (notChar '\'')
+litChar = liftM LitChar $ surrounded (char '\'') (notScan (char '\'') >> (do
+                                                                           res <- withCharEscape True
+                                                                           case readLitChar res of
+                                                                             [] -> unexpectedErr $ "not a valid character: " ++ res
+                                                                             [(r,"")] -> return r))
+                                                                             
                    
 
 -- TODO: Add additional `step' to ranges (1..7..3)

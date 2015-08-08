@@ -1,8 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 module Angle.Parse.Exec
-    ( execStmt
-    , Env(..)
+    ( execStmt -- ^ The top-most execution.
     ) where
     
 
@@ -14,79 +13,15 @@ module Angle.Parse.Exec
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State
-import Data.Maybe (fromJust, fromMaybe, isJust, isNothing)
-    
-import Debug.Trace (trace)
+import Data.Maybe (isNothing)
 
+import Angle.Lex.Lexer (program, evalScan)
 import Angle.Parse.Builtins
 import Angle.Parse.Error
 import Angle.Parse.Operations    
 import Angle.Parse.Scope
 import Angle.Parse.Types
-import Angle.Parse.Var
 import Angle.Types.Lang
-import Angle.Lex.Lexer (program, evalScan)
-    
--- TODO:
--- - errors:
---    add stack trace?
---    so, calling functions add to stack, maybe as
---    well as operators.
-
-
--- BUGS:
--- - variable not defined in function
---   e.g
---   defun foo(x) {
---     if (== [] x) then return x;
---     bar = print(x);
---   }
---   will result in error: x is not defined (in print)
---   * Appears to be due to leaving scope early.
---     e.g. defun foo(x) {print(x);print(x);}
---     prints inner x, then outer x.
--- * Will not return properly from last statement in function.
---   - Forcing an upScope doesn't work - as multi-statements
---     aren't restricted to functions.
---   - Maybe keep track of whether it has returned?
---     - Would mean more state to keep track of...
-
-
-
--- Exec API
--- - Handling both IO and regular code
---    Have these separated? Could cause issues?
---    But might be unneccessary to have all in IO
--- - Environment in which to run (options etc?) - either
---    State, Reader or both
--- - ErrorT for error handling
-
--- assignVarVal :: Ident -> VarVal -> Exec LangLit
--- assignVarVal name val = do
--- TODO/NOTES
--- - Function assign (other than defun)
-
-
--- TODO:
--- Stacks
--- * For keeping track of statements:
---  - Maybe have nested (i.e multi) statements just execute
---    in same stack, only having to push a new stack
---    when entering a function or loop.
--- * Moving up a stack should FORCE the execution to continue
---   in the new stack, there is no point in the stacks
---   if they cannot track statements.
-
--- * global (initial) stack is passed a multistatement to
---   start the execution process.
---   - the global stack will create new child stacks
---     as required.
---   - but as using a multistatement as a means of wrapping
---     many single statements, perhaps the stacks should
---     work with lists of statements instead?
--- * stacks could also be useful in reporting errors, as the
---   stacks could track their statement position and any
---   function calls / loops that they enter.
 
 
 updatePos :: SourceRef -> ExecIO ()
@@ -106,10 +41,6 @@ newScope = do
   let oldScope = currentScope env
       newScope' = emptyScope { outerScope = Just oldScope }
   put env { currentScope = newScope' }
-              
-
-lookupVarLit :: LangIdent -> ExecIO (Maybe LangLit)
-lookupVarLit = lookupVar valueBindings
               
 
 lookupVar :: (Scope -> BindEnv a) -> LangIdent -> ExecIO (Maybe a)
@@ -137,10 +68,6 @@ getScope = liftM currentScope get
 lookupVarLitF :: LangIdent -> ExecIO LangLit
 lookupVarLitF = (returnVal =<<) . lookupVarF valueBindings nameNotDefinedLitErr
               
-
-lookupVarLambda :: LangIdent -> ExecIO (Maybe Lambda)
-lookupVarLambda = lookupVar lambdaBindings
-              
   
 lookupVarLambdaF :: LangIdent -> ExecIO Lambda
 lookupVarLambdaF = lookupVarF lambdaBindings nameNotDefinedFunErr            
@@ -165,14 +92,6 @@ lookupVarCurrentScope binds name = do
   if isDefinedIn binds name currScope
      then return $ resolve binds name currScope
      else return Nothing
-
-          
-lookupVarLitCurrentScope :: LangIdent -> ExecIO (Maybe (VarVal LangLit))
-lookupVarLitCurrentScope = lookupVarCurrentScope valueBindings
-
-                                
-lookupVarFunCurrentScope :: LangIdent -> ExecIO (Maybe (VarVal Lambda))
-lookupVarFunCurrentScope = lookupVarCurrentScope lambdaBindings
                      
 
 assignVarLambda :: LangIdent -> Lambda -> ExecIO ()
@@ -193,13 +112,6 @@ assignVar binds setf name val = do
   current <- lookupVarCurrentScope binds name
   when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
   modifyScope $ setf name emptyVar {varDef=Just val}
-  
-  
-
-
-infix 4 |=
-(|=) :: LangIdent -> LangLit -> ExecIO LangLit
-(|=) = assignVarLit
 
 
 -- TODO: Should this just stay in the current scope if there
@@ -213,6 +125,7 @@ upScope = do
     Just x -> modifyScope (const x)
   
   
+bindArgs :: [Expr] -> ArgSig -> ExecIO ()
 bindArgs args (ArgSig 
                     { stdArgs=params
                     , catchAllArg=catchParam}) 
@@ -231,8 +144,8 @@ bindArgs args (ArgSig
   vals <- mapM (uncurry checkArg) toCheck
   let toBindFuns = map fst $ filter (isAnnFun . snd)  vals
       toBindClass = map fst $ filter (isAnnClass . snd) vals
-      toBindLits = (map fst $ filter (isAnnLit . snd) vals)
-      toBindAny = (map fst $ filter (isAnnAny . snd) vals) ++ catchBind
+      toBindLits = map fst $ filter (isAnnLit . snd) vals
+      toBindAny = map fst (filter (isAnnAny . snd) vals) ++ catchBind
       isAnnFun AnnFun = True
       isAnnFun _ = False
       isAnnLit AnnLit = True
@@ -242,27 +155,11 @@ bindArgs args (ArgSig
       isAnnAny AnnAny = True
       isAnnAny _ = False
   newScope
-  forM_ toBindFuns (\(x, (LitLambda l)) -> assignVarLambda x l)
-  forM_ toBindClass (\(x, (LitLambda l)) -> assignVarClass x l)
+  forM_ toBindFuns (\(x, LitLambda l) -> assignVarLambda x l)
+  forM_ toBindClass (\(x, LitLambda l) -> assignVarClass x l)
   forM_ toBindLits (uncurry assignVarLit)
   forM_ toBindAny (uncurry assignVarLit)
   return ()
--- bindArgs :: [Expr] -> CallSig -> ExecIO ()
--- bindArgs args' cs = do
---   args <- expandParams args'
---   let params = callArgs cs
---       la = length args
---       lp = length (stdArgs params)
---   when (la > lp && not (hasCatchAllArg params) || la < lp)
---            (throwParserError $ wrongNumberOfArgumentsErr lp la)
---   vals <- mapM execExpr args
---   let toBind = zip (stdArgs params) vals
---       fullBind = toBind ++ [(fromJust $ catchAllArg params, LitList $ drop (length toBind) vals) | hasCatchAllArg params]
---                  -- if length toBind /= la
---                  -- then [(fromJust $ catchAllArg params, LitList $ drop (length toBind) vals)]
---                  -- else [(fromJust $ catchAllArg params, LitList []) | hasCatchAllArg params] 
---   newScope
---   forM_ fullBind (uncurry assignVarLit)
         
 
 -- | Make sure the argument satisfies any
@@ -281,17 +178,6 @@ checkSatClass _ Nothing = return ()
 checkSatClass v (Just clsName) = do
   res <- satClass v clsName
   unless res (throwParserError $ typeExpectClassErr v clsName)
-                   
-
-lookupClass :: LangIdent -> ExecIO (Maybe Lambda)
-lookupClass = lookupVar classBindings
-                   
-               
--- execClass val cls = do
---   res <- callLambda cls [val]
---   case res of
---     LitBool x -> return x
---     y -> throwParserError $ typeClassWrongReturnErr (typeOf y)
 
 
 execClass :: LangLit -> LangIdent -> ExecIO LangLit
@@ -314,23 +200,19 @@ satType _ AnnLit = True
 satType _ _ = False
 
 
--- | Fails if @satType@ returns false with the same arguments.              
+-- | Fails if @satType@ returns false with the same arguments.
 checkSatType :: CanErrorWithPos m => LangLit -> AnnType -> m ()
 checkSatType val typ = do
   let res = satType val typ
   unless res $ throwParserError $ typeAnnWrongErr typ $ typeAnnOf val
 
 
--- | True if the literal 
+-- | True if the given class returns true when
+-- passed the literal.
 satClass :: LangLit -> LangIdent -> ExecIO Bool
 satClass val clsName = do
   (LitBool res) <- execClass val clsName
   return res
-
-  -- cls <- lookupClassF clsName
-  -- execClass val cls
-  
-  
   
 
 -- | Expand any ExprParamExpand expressions in an argument list.
@@ -362,6 +244,7 @@ execExpr x@(ExprRange{}) = do
   returnVal r
                            
 
+execExprRange :: Expr -> ExecIO LangLit
 execExprRange (ExprRange x Nothing Nothing) 
     = liftM3 LitRange (execExpr x) (return Nothing) (return Nothing)
 execExprRange (ExprRange x (Just y) Nothing)
@@ -370,7 +253,6 @@ execExprRange (ExprRange x Nothing (Just z))
     = liftM3 LitRange (execExpr x) (return Nothing) (liftM Just $ execExpr z)
 execExprRange (ExprRange x (Just y) (Just z))
     = liftM3 LitRange (execExpr x) (liftM Just $ execExpr y) (liftM Just $ execExpr z)
-  
                                    
 
 execFunCall :: LangIdent -> [Expr] -> ExecIO LangLit
@@ -402,15 +284,11 @@ execMultiOp OpMult xs      = withMultiOp xs multLit
 execMultiOp OpOr xs        = withMultiOp xs orLit
 execMultiOp OpSub xs       = withMultiOp xs subLit
 execMultiOp (UserOp _) _ = throwImplementationErr "execMultiOp: implement user operators"
--- execMultiOp (UserOp x) xs = do
---   sig <- lookupOpF x
---   callFunCallSig sig xs
 execMultiOp x _ = throwImplementationErr $ "execMultiOp - not a multiOp: " ++ show x
   
          
 withMultiOp :: [Expr] -> ([LangLit] -> ExecIO LangLit) -> ExecIO LangLit
 withMultiOp xs f = mapM execExpr xs >>= f 
-  -- liftIO $ addLit (map execExpr xs)
                    
 
 callFun :: LangIdent -> [Expr] -> ExecIO LangLit
@@ -418,7 +296,6 @@ callFun x args | isBuiltin x = callBuiltin x args
                | otherwise = do
   l <- lookupVarLambdaF x
   callLambda l args
-  -- callFunCallSig callsig args
                  
 
 callLambda :: Lambda -> [Expr] -> ExecIO LangLit
@@ -430,38 +307,14 @@ callLambda (Lambda
   res <- execStmt body `catchReturn` return
   upScope
   return res
-           
-
--- | @withScope ex@ runs @ex@ but will ensure that
--- the initial scope is retained after @ex@ is executed.
-withScope :: ExecIO a -> ExecIO a
-withScope ex = do
-  currScope <- liftM currentScope get
-  res <- ex
-  currScope' <- liftM currentScope get
-  if currScope' == currScope
-     then return res
-     else modifyScope (const currScope) >> return res
                                
 
 execStmt :: Stmt -> ExecIO LangLit
--- execStmt (SingleStmt x@(StmtReturn _) pos)
---     = modify (\s -> s { envSourceRef = pos })
---       >> execSingStmt x
 execStmt (SingleStmt x pos) = updatePos pos >> execSingStmt x
 execStmt (MultiStmt (x@(SingleStmt (StmtReturn _) _):_)) = execStmt x
 execStmt (MultiStmt []) = return LitNull
 execStmt (MultiStmt [x]) = execStmt x
 execStmt (MultiStmt (x:xs)) = execStmt x >> execStmt (MultiStmt xs)
-                              
--- (MultiStmt (x:xs)) -> execStmt x >> execStmt (MultiStmt xs)
---                       (a -> m b)    (a -> m b)
-                          
-
--- { foo(x);
---   bar(y);
---   baz(z);
--- }
                           
 
 execSingStmt :: SingStmt -> ExecIO LangLit
@@ -474,21 +327,14 @@ execSingStmt (StmtReturn x) = do
   if isGlob
       then throwParserError returnFromGlobalErr
       else execExpr x >>= throwReturn
-execSingStmt (StmtBreak x False) = do
-  case x of
-    Nothing -> throwBreak Nothing
-    Just v -> execExpr v >>= returnVal >>= (throwBreak . Just)
+execSingStmt (StmtBreak x False) 
+    = case x of
+        Nothing -> throwBreak Nothing
+        Just v -> execExpr v 
+                  >>= returnVal 
+                  >>= (throwBreak . Just)
 execSingStmt (StmtBreak _ True) = throwContinue
 
-
-traceShowMsg :: (Show a) => String -> a -> a
-traceShowMsg msg x = trace (msg ++ show x) x
-                    
--- TODO: Fix return statement
--- - options
--- - add break/return (boolean?) information to state? then
---   would need to break evaluation early if they are
---   True, then set them to false.
 
 -- Possible:
 -- entering loop construct
@@ -503,11 +349,16 @@ traceShowMsg msg x = trace (msg ++ show x) x
                             
 
 execLangStruct :: LangStruct -> ExecIO LangLit
-execLangStruct (StructFor name e s) = execStructFor name e s `catchBreak` maybe getEnvValue returnVal
-execLangStruct (StructWhile e s) = execStructWhile e s `catchBreak` maybe getEnvValue returnVal
-execLangStruct (StructIf if' thn els) = execStructIf if' thn els
-execLangStruct (StructDefun name cs) = assignVarLambda name cs *> return LitNull
-execLangStruct (StructDefClass name cs) = assignVarClass name cs *> return LitNull
+execLangStruct (StructFor name e s) 
+    = execStructFor name e s `catchBreak` maybe getEnvValue returnVal
+execLangStruct (StructWhile e s) 
+    = execStructWhile e s `catchBreak` maybe getEnvValue returnVal
+execLangStruct (StructIf if' thn els) 
+    = execStructIf if' thn els
+execLangStruct (StructDefun name cs) 
+    = assignVarLambda name cs *> return LitNull
+execLangStruct (StructDefClass name cs) 
+    = assignVarClass name cs *> return LitNull
                                         
 
 execStructIf :: Expr -> Stmt -> Maybe Stmt -> ExecIO LangLit
@@ -532,17 +383,6 @@ execStructFor name e s = do
   let newS' = deleteLitFromScope name newS
   modifyScope (const $ mergeScope newS' outScope)
   return (LitList res)
-  -- forM iterable (\v -> assignVarLit name v $ do
-  --                        execStmt s)
-
-    
--- SCOPE TODO:
--- * Protected variable?
--- * Copying scope, with ability to merge.
- 
-
--- deleteVar :: LangIdent -> ExecIO () 
--- deleteVar name = modifyScope (deleteFromScope name)
 
 
 -- TODO:
@@ -560,56 +400,7 @@ execStructWhile ex s = do
                      (SingleStmt 
                      (StmtStruct 
                       (StructIf ex s (Just (SingleStmt (StmtBreak Nothing False) pos)))) pos)
---   return $! trace "in while" ()
---   b <- execExpr ex
---   cond <- case b of
---             LitBool b' -> return b'
---             x -> throwParserError $ typeUnexpectedErr LTBool (typeOf x)
---   if cond
---   then execStmt s `seq` execStructWhile ex s
---   else getEnvValue
---   whileM (do 
---            cond <- execExpr ex 
---            case cond of
---              LitBool b -> return b
---              x -> throwParserError $ typeUnexpectedErr LTBool (typeOf x)) LitNull (\_ -> execStmt s)
-       
--- instance CanErrorWithPos ExecIO where
---     getErrorPos = liftM envSourceRef get
---     getErrorText = liftM envSynRep get
---     getErrorSource = liftM sourceText get
-    
-                  
 
--- Builtins...                    
-
--- Exec Requirements
--- - Errors
---   - Custom datatype for Errors
---   - Use ErrorT to add error handling
--- - State
---   - Current scope
---   - Current settings
-
-
-
--- TODO:
---  eval and exec
---  - eval for results without side-effects?
---  - exec for results with side-effects?
-
--- execRun :: [SourceRef] -> ExecIO ()
--- execRun [] = return ()
--- execRun xs = do
---   forM_ xs 
---             (\(x,pos) -> 
---              execStmt x `catchError` (\e -> do
---                                        source <- liftM sourceText get
---                                        throwError e { errorPos=pos
---                                                     , errorSource=source
---                                                     }))
-  
-  
 
 builtinArgs :: [Expr] -> ExecIO [LangLit]
 builtinArgs xs = expandParams xs >>= mapM execExpr
@@ -637,13 +428,6 @@ builtinEval xs = do
     Left _ -> throwParserError . callBuiltinErr $ "eval: no parse"
     Right res -> execStmt res
     where st = argsToString xs
-               
-
-enumType :: LangLit -> Bool
-enumType (LitInt _) = True
-enumType (LitChar _) = True
-enumType (LitFloat _) = True
-enumType _ = False
 
 
 validRangeLit :: LangLit -> Bool
@@ -655,6 +439,7 @@ validRangeLit (LitRange x (Just y) (Just z))
     = enumType x && all ((== typeOf x) . typeOf) [y, z]
 validRangeLit (LitRange x Nothing (Just z))
     = enumType x && typeOf x == typeOf z
+validRangeLit _ = error "validRangeLit: Attempting to verify a non-range"
 
       
 checkLitRange :: LangLit -> ExecIO ()
@@ -663,3 +448,4 @@ checkLitRange r@(LitRange x y z)
       (if enumType x
        then throwParserError $ badRangeErr (typeOf x) (fmap typeOf y) (fmap typeOf z)
        else throwParserError $ typeExpectClassErr x (LangIdent "enum"))
+checkLitRange _ = throwImplementationErr "checkLitRange: Attempting to check a non-range"
