@@ -36,8 +36,6 @@ module Angle.Types.Lang
 -- - AnnType
 --   - Add AnnAny - a type that allows any
 --     type to be passed (as in, function, literal etc..)
-import Data.Char (isAlpha, isAlphaNum)
-import Data.Maybe (isJust)
 import Numeric (showFFloat)
 
 import Angle.Scanner (SourcePos, beginningOfFile)
@@ -156,10 +154,6 @@ showSynOpList :: (ShowSyn a) => [a] -> String
 showSynOpList = showSynSep " " ")" " "
 
 
-data ParamList = ParamList { parListParams :: [Expr] }
-               deriving (Show, Eq)
-
-
 data Lambda = Lambda { lambdaArgs :: ArgSig
                      , lambdaBody :: Stmt
                      -- , lambdaType :: LambdaType
@@ -167,9 +161,6 @@ data Lambda = Lambda { lambdaArgs :: ArgSig
 
 
 instance ShowSyn Lambda where
-    -- showSyn (Lambda args body@(SingleStmt _ _) cls)
-    --     = concat [case cls of FunLambda -> "$"; ClassLambda -> "@", "(", showSyn args, " ", init $ showSyn body, ")"]
-    -- showSyn (Lambda args body cls) = concat [case cls of FunLambda -> "$"; ClassLambda -> "@", "(", showSyn args, " ", showSyn body, ")"]
     showSyn (Lambda args body@(SingleStmt _ _))
          = concat ["(", showSyn args, " ", init $ showSyn body, ")"]
     showSyn (Lambda args body) = concat ["(", showSyn args, " ", showSyn body, ")"]
@@ -247,7 +238,7 @@ data LambdaType = FunLambda | ClassLambda
 
 
 instance ShowSyn LangLit where
-    showSyn (LitStr x) = show x -- '\"' : x ++ "\""
+    showSyn (LitStr x) = show x
     showSyn (LitClassLambda l) = showSyn l
     showSyn (LitChar x) = show x
     showSyn (LitInt x) = show x
@@ -299,8 +290,6 @@ typeOf (LitClassLambda{}) = LTClass
 
 -- TODO: Check this - can't identify classes
 typeAnnOf :: LangLit -> AnnType
--- typeAnnOf (LitLambda (Lambda {lambdaType=FunLambda})) = AnnFun
--- typeAnnOf (LitLambda (Lambda {lambdaType=ClassLambda})) = AnnClass
 typeAnnOf (LitLambda{}) = AnnFun
 typeAnnOf (LitClassLambda{}) = AnnClass
 typeAnnOf _ = AnnLit

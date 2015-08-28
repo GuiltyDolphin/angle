@@ -2,12 +2,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 module Angle.Parse.Error
-    ( typeMismatchErr
-    , typeUnexpectedErr
-    , typeNotValidErr
+    ( typeUnexpectedErr
     , typeNotValidErrT
-    , typeCastErr
-    , typeMismatchOpErr
     , typeMismatchOpErrT
     , typeExpectClassErr
     , typeClassWrongReturnErr
@@ -16,7 +12,6 @@ module Angle.Parse.Error
     , nameNotDefinedFunErr
     , nameNotDefinedLitErr
     , nameNotDefinedClassErr
-    , nameNotOpErr
     , assignToBuiltinErr
     , wrongNumberOfArgumentsErr
     , ParserError
@@ -29,11 +24,8 @@ module Angle.Parse.Error
     , AngleError(..)
     , throwParserError
     , indexOutOfBoundsErr
-    , defaultErr
-    , userErr
     , returnFromGlobalErr
     , callBuiltinErr
-    , implementationErr
     , malformedSignatureErr
     , throwImplementationErr
     , throwReturn
@@ -49,25 +41,15 @@ module Angle.Parse.Error
 import Control.Monad.Error
 import Data.Function (on)
 import Data.Maybe (catMaybes)
-   
+
 import Angle.Scanner
 import Angle.Types.Lang
 
 
--- class (MonadError AngleError m) => CanError (m :: * -> *)
-   
--- instance CanError (Either AngleError)
-    
--- class (MonadError AngleError (ExceptT AngleError m)) => CanError m
-
--- type LangError = ExceptT AngleError
--- class (MonadError AngleError m) => CanError m
-   
--- type CanError = ExceptT AngleError
 class (Monad m) => CanError (m :: * -> *) where
     throwAE :: AngleError -> m a
     catchAE :: m a -> (AngleError -> m a) -> m a
-               
+
 
 instance CanError (Either AngleError) where
     throwAE = Left
@@ -75,11 +57,11 @@ instance CanError (Either AngleError) where
                     r@(Right _) -> r
                     Left l -> f l
 
-               
+
 
 -- | General error structure.
-data AngleError = ParserError 
-    { parserErrSourceRef :: SourceRef 
+data AngleError = ParserError
+    { parserErrSourceRef :: SourceRef
     , parserErrErr :: ParserError
     , parserErrSourceText :: String
     }
@@ -92,7 +74,7 @@ implementationErr = ImplementationError
 
 
 controlException :: ControlException -> AngleError
-controlException = ControlException                  
+controlException = ControlException
 
 
 instance Show AngleError where
@@ -108,7 +90,7 @@ instance Show AngleError where
                       then "no source\n"
                       else replicate (colNo start) ' ' ++ "v\n" ++ lns !! lineNo start ++ "\n"
                 cEe = show ee
-                showPos sp 
+                showPos sp
                     = let ln = show $ lineNo sp
                           cn = show $ colNo sp
                       in concat ["(", ln, ",", cn, ")"]
@@ -124,7 +106,7 @@ data ParserError = TypeError TypeError
                  | UserError String -- TODO: Add keyword and
                                   -- structures for allowing
                                   -- the user to throw errors
-                 
+
 
 typeErr :: TypeError -> ParserError
 typeErr    = TypeError
@@ -138,17 +120,9 @@ callErr :: CallError -> ParserError
 callErr    = CallError
 
 
-defaultErr :: String -> ParserError
-defaultErr = DefaultError
-
-
 litErr :: LitError -> ParserError
 litErr     = LitError
-             
 
-userErr :: String -> ParserError
-userErr = UserError
-          
 
 keywordErr :: KeywordError -> ParserError
 keywordErr = KeywordError
@@ -177,11 +151,6 @@ data TypeError = TypeMismatch   LangType LangType
                | TypeExpectClass LangLit LangIdent
                | TypeClassWrongReturn LangIdent LangType
                | TypeAnnWrong AnnType AnnType
-               | TypeNotEnum LangType
-
-                 
-typeMismatchErr :: LangType -> LangType -> ParserError
-typeMismatchErr   t1 = typeErr . TypeMismatch   t1
 
 
 typeUnexpectedErr :: LangType -> LangType -> ParserError
@@ -196,33 +165,26 @@ typeNotValidErrT :: LangLit -> ParserError
 typeNotValidErrT     = typeNotValidErr . typeOf
 
 
-typeCastErr :: LangType -> LangType -> ParserError
-typeCastErr       from = typeErr . TypeCast from
-
-
 typeMismatchOpErr :: LangType -> LangType -> ParserError
 typeMismatchOpErr t1 = typeErr . TypeMismatchOp t1
 
 
 typeMismatchOpErrT :: LangLit -> LangLit -> ParserError
 typeMismatchOpErrT = typeMismatchOpErr `on` typeOf
-                     
+
 
 typeExpectClassErr :: LangLit -> LangIdent -> ParserError
 typeExpectClassErr cls = typeErr . TypeExpectClass cls
-                         
+
 
 typeClassWrongReturnErr :: LangIdent -> LangType -> ParserError
-typeClassWrongReturnErr cls = typeErr . TypeClassWrongReturn cls 
-                            
+typeClassWrongReturnErr cls = typeErr . TypeClassWrongReturn cls
+
 
 typeAnnWrongErr :: AnnType -> AnnType -> ParserError
 typeAnnWrongErr e = typeErr . TypeAnnWrong e
-                    
 
-typeNotEnumErr = typeErr . TypeNotEnum
 
-               
 instance Show TypeError where
     show (TypeMismatch l r)   = "type mismatch: got (" ++ show l ++ ", " ++ show r ++ ") but both types should be the same"
     show (TypeUnexpected l r) = "unexpected type: " ++ show l ++ ", expecting: " ++ show r
@@ -232,10 +194,9 @@ instance Show TypeError where
     show (TypeExpectClass v c) = "expecting value that satisfies class '" ++ showSyn c ++ "' but got: " ++ showSyn v
     show (TypeClassWrongReturn c t) = "bad class: " ++ showSyn c ++ ", expecting return value of type bool, but got " ++ show t
     show (TypeAnnWrong t1 t2) = "bad type in function call, expecting " ++ show t1 ++ " but got " ++ show t2
-    -- show (TypeMismatchOp op l r) = "cannot perform operation (" ++ showSyn op ++ ") on types " ++ show l ++ " and " ++ show r
-                            
 
-data NameError = NameNotDefined LangIdent 
+
+data NameError = NameNotDefined LangIdent
                | NameNotDefinedClass LangIdent
                | NameNotDefinedFun LangIdent
                | NameNotDefinedLit LangIdent
@@ -253,15 +214,11 @@ nameNotDefinedFunErr = nameErr . NameNotDefinedFun
 
 nameNotDefinedLitErr :: LangIdent -> ParserError
 nameNotDefinedLitErr = nameErr . NameNotDefinedLit
-                       
+
 
 nameNotDefinedClassErr :: LangIdent -> ParserError
 nameNotDefinedClassErr = nameErr . NameNotDefinedClass
 
-
-nameNotOpErr :: LangIdent -> ParserError
-nameNotOpErr       = nameErr . NameNotOp
-                     
 
 assignToBuiltinErr :: LangIdent -> ParserError
 assignToBuiltinErr = nameErr . AssignToBuiltin
@@ -274,26 +231,26 @@ instance Show NameError where
     show (NameNotDefinedClass (LangIdent name)) = "not a valid class " ++ name
     show (NameNotOp       (LangIdent name)) = "not a valid operator: " ++ name
     show (AssignToBuiltin (LangIdent name)) = "cannot assign to builtin: " ++ name
-                                  
+
 
 data CallError = WrongNumberOfArguments Int Int
                | BuiltIn String
                | MalformedSignature String
     deriving (Eq)
-             
+
 
 wrongNumberOfArgumentsErr :: Int -> Int -> ParserError
-wrongNumberOfArgumentsErr expect = callErr . WrongNumberOfArguments expect 
-                                   
+wrongNumberOfArgumentsErr expect = callErr . WrongNumberOfArguments expect
+
 
 callBuiltinErr :: String -> ParserError
 callBuiltinErr = callErr . BuiltIn
-                 
+
 
 malformedSignatureErr :: String -> ParserError
 malformedSignatureErr = callErr . MalformedSignature
-             
-             
+
+
 instance Show CallError where
     show (WrongNumberOfArguments x y) = "wrong number of arguments: expected " ++ show x ++ " but got " ++ show y
     show (BuiltIn x) = "builtin: " ++ x
@@ -304,15 +261,15 @@ data LError = LError { errorErr    :: ParserError  -- The actual error
                      , errorSource :: String
                      , errorPos    :: SourceRef -- Position at which the error occurred
                      }
-            
+
 
 data KeywordError = ReturnFromGlobal
                     deriving (Eq)
-        
+
 
 returnFromGlobalErr :: ParserError
 returnFromGlobalErr = keywordErr ReturnFromGlobal
-                      
+
 
 instance Show KeywordError where
     show ReturnFromGlobal = "return from outermost scope"
@@ -321,15 +278,10 @@ instance Show KeywordError where
 instance Error LError where
     noMsg = LError {errorErr=noMsg, errorPos=SourceRef (beginningOfFile, beginningOfFile), errorSource=""}
     strMsg m = noMsg {errorErr=strMsg m}
-               
 
--- langError :: (CanError m) => ParserError -> m a
--- langError e
--- langError e = throwError noMsg { errorErr = e }
--- langError :: (CanError m) => ParserError -> m a
--- langError e = throwError ParserError { parserErrErr = e }
+
 langError ::  (CanErrorWithPos m) => ParserError -> m a
-langError = throwParserError -- throwAE ParserError { parserErrErr = e }
+langError = throwParserError
 
 
 throwParserError :: (CanErrorWithPos m, Monad m) => ParserError -> m a
@@ -342,8 +294,6 @@ throwParserError e = do
                          }
 
 
--- throwImplementationErr :: (CanError m) => String -> m a
--- throwImplementationErr = throwError . implementationErr
 throwImplementationErr :: (CanError m) => String -> m a
 throwImplementationErr = throwAE . implementationErr
 
@@ -356,7 +306,7 @@ class (CanError m) => CanErrorWithPos m where
 data LitError = IndexOutOfBoundsError Int
               | BadRange LangType (Maybe LangType) (Maybe LangType)
               deriving (Eq)
-                       
+
 
 indexOutOfBoundsErr :: Int -> ParserError
 indexOutOfBoundsErr = litErr . IndexOutOfBoundsError
@@ -376,15 +326,15 @@ data ControlException = ControlReturn LangLit
                       | ControlBreak (Maybe LangLit)
                       | ControlContinue
                       deriving (Show, Eq)
-                               
+
 
 controlReturn :: LangLit -> AngleError
 controlReturn = controlException . ControlReturn
-                
+
 
 controlBreak :: Maybe LangLit -> AngleError
 controlBreak = controlException . ControlBreak
-               
+
 
 controlContinue :: AngleError
 controlContinue = controlException ControlContinue
@@ -392,29 +342,29 @@ controlContinue = controlException ControlContinue
 
 throwReturn :: (CanError m) => LangLit -> m a
 throwReturn = throwAE . controlReturn
-              
+
 
 throwBreak :: (CanError m) => Maybe LangLit -> m a
 throwBreak = throwAE . controlBreak
 
-             
+
 throwContinue :: (CanError m) => m a
 throwContinue = throwAE controlContinue
 
 
 catchReturn :: (CanError m) => m a -> (LangLit -> m a) -> m a
-catchReturn ex h = ex `catchAE` 
+catchReturn ex h = ex `catchAE`
                    (\e -> case e of
                             ControlException (ControlReturn v) -> h v
                             err -> throwAE err)
-                                 
+
 
 catchBreak :: (CanError m) => m a -> (Maybe LangLit -> m a) -> m a
 catchBreak ex h = ex `catchAE`
                   (\e -> case e of
                            ControlException (ControlBreak v) -> h v
                            err -> throwAE err)
-                                
+
 
 catchContinue :: (CanError m) => m a -> m a -> m a
 catchContinue ex v = ex `catchAE`

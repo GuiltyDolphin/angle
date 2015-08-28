@@ -27,14 +27,11 @@ values when passed multiple arguments - as is common with
 predicate functions in Angle.
 -}
 module Angle.Parse.Builtins
-    ( builtins
-    , isBuiltin
+    ( isBuiltin
     , builtinPrint
     , builtinStr
     , builtinIndex
     , builtinLength
---    , builtinCompose
---    , builtinPartial
     , builtinAsType
     , builtinGetArgs
     , builtinInput
@@ -108,27 +105,9 @@ isBuiltin = (`elem`builtins) . getIdent
 builtins :: [String]
 builtins = [ "print", "str"
            , "index", "length"
-           --, "compose", "partial"
            , "input", "eval"
            , "isNull"
            , "asType", "getArgs"]
-
-
-builtinFuns :: [(String, [LangLit] -> ExecIO LangLit)]
-builtinFuns = [ ("print", builtinPrint)
-              , ("str", builtinStr)
-              , ("index", builtinIndex)
-              , ("length", builtinLength)
-              , ("input", builtinInput)
---              , ("eval", builtinEval)
-              , ("isNull", builtinIsNull)
-              , ("asType", builtinAsType)
-              , ("getArgs", builtinGetArgs)
-              ]
-
-
-getBuiltinFun :: LangIdent -> [LangLit] -> ExecIO LangLit
-getBuiltinFun (LangIdent x) = fromJust $ lookup x builtinFuns
 
 
 -- | Builtin print function.
@@ -175,9 +154,6 @@ asType (LitFloat _) (LitInt x) = return . LitFloat $ fromIntegral x
 asType (LitFloat _) (LitStr y) = fromStr y LitFloat
 asType (LitInt _) (LitStr y) = fromStr y LitInt
 asType (LitList _) x@(LitStr xs) = return . LitList $ map LitChar xs
--- asType (LitList _) (LitStr y) = case evalScan y litList of
---                                    Left _ -> return LitNull
---                                    Right r -> return r
 asType (LitBool _) (LitStr y) =
     case y of
       "true"  -> return $ LitBool True
@@ -248,81 +224,6 @@ builtinIndex _ = throwParserError $ callBuiltinErr "index: invalid call signatur
 splice :: Int -> Int -> [a] -> [a]
 splice x y xs = take (1+y-x) $ drop x xs
 
--- runCompose :: CallSig -> CallSig -> Expr -> ExecIO LangLit
--- runCompose c1 c2 e = do
---   intm <- callFunCallSig c2 [e]
---   callFunCallSig c1 [ExprLit intm]
-
-
--- partial :: CallSig -> [LangLit] -> ExecIO CallSig
--- partial x@(CallSig {callArgs=xArg@(ArgSig {stdArgs=xArgs})}) es
--- -- partial x@(CallSig {callArgs=ArgSig {stdArgs=xArgs, catchAllArg=Nothing}}) es
---     = do
---   p <- liftM envSourceRef get
---   let newStdArgs = drop (length es) xArgs
---       argList = map ExprLit es
---                 ++ map ExprIdent newStdArgs
---                 ++ map ExprParamExpand
---                        (maybeToList $ catchAllArg xArg)
---   return CallSig
---              { callArgs=xArg
---                { stdArgs=newStdArgs}
---              , callBody = SingleStmt
---                           (StmtExpr
---                            (ExprLambdaCall x argList)) p}
-                            -- (map ExprLit es
-                             -- ++ map ExprIdent
-                             -- (drop (length es) xArgs)
-                             -- ++ maybe [] ((:[]) . ExprParamExpand) (catchAllArg xArg)))) p}
-  -- return CallSig { callArgs=ArgSig {stdArgs=drop (length es) xArgs, catchAllArg=Nothing }, callBody = SingleStmt (StmtExpr (ExprLambdaCall x (map ExprLit es ++ map ExprIdent (drop (length es) xArgs)))) p}
-
-
--- | Builtin partial application function.
---
--- @partial($f, ..x)@: Returns a lambda that is the partially applied function of @..x@ to @$f@.
---
--- @partial($f)@: Returns a lambda equivalent to the initial function.
--- builtinPartial :: [LangLit] -> ExecIO LangLit
--- builtinPartial [x@(LitLambda _)] = return x
--- builtinPartial (LitLambda xs:\@x) = liftM LitLambda $ partial x xs
--- -- builtinCompose (LitLambda x:[]) = return . LitLambda $ x
--- -- builtinCompose (LitLambda x:LitLambda y:[]) = liftM LitLambda $ compose x y
--- builtinPartial _ = throwImplementationErr "builtinPartial: better message please!"
-
-
-
--- compose :: CallSig -> CallSig -> ExecIO CallSig
--- compose x@(CallSig {callArgs=ArgSig {catchAllArg=Nothing}})
---         y@(CallSig {callArgs=ArgSig
---                     {stdArgs=[argY], catchAllArg=Nothing}})
---     = do
---   currRef <- liftM envSourceRef get
---   return y { callBody =
---                  SingleStmt
---                  (StmtExpr
---                   (ExprLambdaCall x
---                    [ExprLambdaCall y
---                     [ExprIdent argY]])) currRef }
--- compose _ _ = throwImplementationErr "compose: better message please!"
-
-
--- composeLambdas :: LangLit -> LangLit -> ExecIO LangLit
--- composeLambdas (LitLambda x) (LitLambda y) = liftM LitLambda $ compose x y
--- composeLambdas _ _ = throwImplementationErr "composeLambdas: better message please!"
-
-
--- | Builtin function composition function.
---
--- @compose($f, ..$g)@: composes @$f@ with @..$g@. That is, the result is a lambda that takes an argument and first applies @..$g@ to the argument, then @$f@ to the result produced by @..$g@.
---
--- @compose($f)@: returns a lambda equivalent to the original function.
--- builtinCompose :: [LangLit] -> ExecIO LangLit
--- builtinCompose [x@(LitLambda _)] = return x
--- builtinCompose (xs:\@x) = foldM composeLambdas x xs
--- -- builtinCompose (LitLambda x:[]) = return . LitLambda $ x
--- -- builtinCompose (LitLambda x:LitLambda y:[]) = liftM LitLambda $ compose x y
--- builtinCompose _ = throwImplementationErr "builtinCompose: better message please!"
-
 
 toLitStr :: LangLit -> LangLit
 toLitStr (LitInt x) = LitStr (show x)
@@ -344,11 +245,7 @@ fromEnumL (LitChar x) = fromEnum x
 fromEnumL (LitFloat x) = fromEnum x
 
 
-classToFun :: LangLit -> LangLit
-classToFun (LitClassLambda l) = (LitLambda l)
-
-
-typClass cls typ = undefined -- builtinAsType(typ,
+typClass cls typ = undefined
 
 
 

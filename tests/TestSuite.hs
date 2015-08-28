@@ -8,29 +8,26 @@ import qualified Test.Angle.Lex.Lexer as Lexer
 import qualified Test.Angle.Lex.Token as Token
 import qualified Test.Angle.Parse.Operations as Operations
 import qualified Test.Angle.Parse.Scope as Scope
-import qualified Test.Angle.Parse.Var as Var
 import qualified Test.Angle.Parse.Interp as Interp
 
 
 main :: IO ()
 main = defaultMain allTests -- defaultMainWithArgs allTests ["--timeout=3", "--maximum-test-size=10"]
-       
+
 
 -- | Convert seconds into microseconds
 toMicroSeconds :: Integer -> Integer
 toMicroSeconds n = n*10^(6::Integer)
 
-                   
+
 allTests :: TestTree
-allTests = localOption (Timeout (toMicroSeconds 3) "") $ 
-           testGroup "all tests" 
+allTests = localOption (Timeout (toMicroSeconds 3) "") $
+           testGroup "all tests"
            [ testGroup "helpers tests" Helpers.tests
-           , testGroup "lexer tests" Lexer.tests 
+           , testGroup "lexer tests" Lexer.tests
            , testGroup "operations tests" Operations.tests
-           , localOption (QuickCheckMaxSize 10) $ 
+           , localOption (QuickCheckMaxSize 10) $
              testGroup "scope tests" Scope.tests
            , testGroup "token tests" Token.tests
-           , localOption (QuickCheckMaxSize 10) $ 
-             testGroup "var tests" Var.tests
            , testGroup "interp tests" Interp.tests
            ]

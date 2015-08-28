@@ -36,7 +36,7 @@ import Test.Tasty.QuickCheck
 import Angle.Lex.Helpers (evalScan, Scanner)
 import Angle.Parse.Scope
 import Angle.Parse.Error
-import Angle.Parse.Types
+import Angle.Parse.Types.Internal
 import Angle.Scanner (SourcePos(..))
 import Angle.Types.Lang
 

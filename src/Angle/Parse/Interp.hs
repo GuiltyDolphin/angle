@@ -18,24 +18,23 @@ import Angle.Scanner (ScanError)
 import Angle.Types.Lang
 import Angle.Parse.Error
 import Angle.Parse.Types
-import Angle.Parse.Var
 import Angle.Types.Lang
 import Angle.Parse.Builtins
 import Angle.Parse.Scope
-    
+
 
 stringToStmt :: String -> Either ScanError Stmt
 stringToStmt s = evalScan s program
-                 
+
 
 runStmt :: String -> Stmt -> [String] -> IO (Either AngleError LangLit)
-runStmt source s args = do 
+runStmt source s args = do
   --let env' = initializeEnv args
   --    env = env' { sourceText=source }
   let env = basicEnv { sourceText = source }
   runExecIOEnv env (execStmt s)
 
-            
+
 runFile :: Bool -> FilePath -> [String] -> IO ()
 runFile showSyntx f args = do
   s <- readFile f
@@ -49,16 +48,16 @@ runFile showSyntx f args = do
               case res of
                 Left err -> putStrLn "Runtime error" >> print err >> exitWith (ExitFailure 101)
                 Right _ -> return ()
-                             
+
 interp :: Options -> IO ()
 interp (Options { showRep=sr, fileName=f, progArgs=args }) = runFile sr f args
-               
+
 
 data Options = Options { showRep :: Bool
-                       , fileName :: FilePath 
+                       , fileName :: FilePath
                        , progArgs :: [String]}
                deriving (Show, Eq)
-                        
+
 
 basicOptions :: Options
 basicOptions = Options { showRep = False
@@ -74,7 +73,7 @@ argsToOpts args@(f:_) = basicOptions { fileName = f, progArgs = args }
 
 main :: IO ()
 main = liftM argsToOpts getArgs >>= interp
-       
+
 
 interpWithArgs :: [String] -> IO ()
 interpWithArgs = interp . argsToOpts
@@ -82,8 +81,8 @@ interpWithArgs = interp . argsToOpts
 
 -- initializeEnv :: [String] -> Env
 -- initializeEnv args =
---     startEnv {currentScope = startScope { valueBindings = M.insert 
---                                           (LangIdent "args") 
+--     startEnv {currentScope = startScope { valueBindings = M.insert
+--                                           (LangIdent "args")
 --                                           (emptyVar {varDef = Just (LitList (map LitStr args))}) startBinds}}
 --         where startBinds = valueBindings startScope
 --               startScope = currentScope startEnv
