@@ -17,7 +17,7 @@ module Angle.Parse.Scope
     , resolveLit
     ) where
 
-import Control.Applicative
+
 import Control.Monad
 import qualified Data.Map as M
 import Data.Maybe (fromJust, isJust)
@@ -126,6 +126,7 @@ outermostScope scope =
 
 -- | Finds the local-most Scope that contains a definition
 -- for the specified identifier.
+innerScopeDefining :: (Scope -> BindEnv a) -> LangIdent -> Scope -> Maybe Scope
 innerScopeDefining binds name scope
     = if isDefinedIn binds name scope
       then Just scope
