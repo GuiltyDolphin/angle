@@ -1,27 +1,17 @@
 module Angle.Lex.Token
-    ( tokStmtEnd 
-    , tokListStart 
-    , tokListEnd 
-    , tokParenL 
-    , tokParenR 
-    , tokColon 
+    ( tokParenL
+    , tokParenR
     , tokMultiStmtStart
-    , tokMultiStmtEnd 
-    , tokEltSep 
-    , tokStringStart
-    , tokStringEnd
-    , tokStringBodyChar
-    , tokDenaryDigit
+    , tokMultiStmtEnd
+    , tokEltSep
     , tokTupleStart
     , tokTupleEnd
     , tokAssign
-    , tokRangeSep
     , tokSpace
     , stringNorm
     , stringBS
     , tokWhitespace
     , tokNSpaced
-    , tokPeriod
     , tokString
     , tokNewLine
     , tokEOF
@@ -31,33 +21,24 @@ module Angle.Lex.Token
     , tokInt
     , ident
     , parens
-    , keyword
-    , exprSep
-    , exprEnd
-    , checkStmtEnd
     , whitespace
-    , spaces
-    , keywords
-    , tokFunRefStart
     , tokOpChar
-    , tuple
     , withCharEscape
     ) where
-    
+
 
 import Control.Applicative
 import Control.Monad
-import Data.Char --(isDigit, isSpace, isAlpha, isAlphaNum, readLitChar)
+import Data.Char
 import Numeric
 
 import Angle.Lex.Helpers
 
 
 tokStmtEnd :: Scanner Char
-tokStmtEnd        = char ';' <|> char '\n' 
-
-
+tokStmtEnd        = char ';' <|> char '\n'
                                     <?> "end of statement"
+
 tokListStart :: Scanner Char
 tokListStart      = char '['        <?> "start of list"
 
@@ -74,17 +55,13 @@ tokParenR :: Scanner Char
 tokParenR         = char ')'        <?> "close parenthesis"
 
 
-tokColon :: Scanner Char
-tokColon          = char ':'        <?> "colon"
-
-
 tokMultiStmtStart :: Scanner Char
-tokMultiStmtStart = surrounded whitespace (char '{') 
+tokMultiStmtStart = surrounded whitespace (char '{')
                                     <?> "start of multi-statement"
 
 
 tokMultiStmtEnd :: Scanner Char
-tokMultiStmtEnd   = surrounded whitespace (char '}') 
+tokMultiStmtEnd   = surrounded whitespace (char '}')
                                     <?> "end of multi-statement"
 
 
@@ -137,7 +114,7 @@ tokWhitespace     = cond isSpace    <?> "whitespace"
 
 
 tokAssign :: Scanner Char
-tokAssign         = surrounded spaces (char '=') 
+tokAssign         = surrounded spaces (char '=')
                                     <?> "assignment operator"
 
 
@@ -145,26 +122,18 @@ tokRangeSep :: Scanner String
 tokRangeSep       = string ".."     <?> "range separator"
 
 
-tokPeriod :: Scanner Char
-tokPeriod         = char '.'        <?> "period"
-
-
 tokNewLine :: Scanner Char
 tokNewLine        = char '\n'       <?> "newline"
 
 
 tokEOF :: Scanner ()
-tokEOF            = notScan anyChar -- <?> "eof"
+tokEOF            = notScan anyChar
 
 
 tokStmtBetween :: Scanner String
 tokStmtBetween    = whitespace      <?> "ignored characters"
 
 
-tokFunRefStart :: Scanner Char
-tokFunRefStart = char '$' <?> "function reference"
-
-         
 tokInt :: (Integral a, Read a) => Scanner a
 tokInt = do
   negve <- optional (char '-')
@@ -172,7 +141,7 @@ tokInt = do
   case negve of
     Nothing -> return res
     Just _  -> return (-res)
-         
+
 
 tokDigits :: Scanner String
 tokDigits = some tokDenaryDigit
@@ -198,12 +167,12 @@ tokList = within tokListStart tokListEnd
 ident :: Scanner String
 ident = noneFrom (\x -> string x <* specEnd) keywords *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar)
     where specEnd = notScan tokIdentBodyChar
-        
+
 
 opChars :: String
 opChars = "*/+->=<|&^"
 
-          
+
 tokOpChar :: Scanner Char
 tokOpChar = charFrom "*/+->=<|&^"
 
@@ -212,14 +181,6 @@ sepChar :: String
 sepChar = "{()};, =" ++ opChars
 
 
-exprEnd :: Scanner ()
-exprEnd = lookAhead (void tokRangeSep <|> void tokStmtEnd <|> void tokEltSep <|> void tokParenR)
-
-          
-exprSep :: Scanner Char
-exprSep = lookAhead (charFrom sepChar) <?> "expression boundary"
-
-                
 keywords :: [String]
 keywords = [ "break"
            , "continue"
@@ -238,31 +199,26 @@ keywords = [ "break"
            , "unless"
            , "when"
            , "while"]
-           
-
--- TODO: Is this needed?
-keyword :: String -> Scanner String
-keyword str = string str <* tokSpace
 
 
 -- | Run scan within parentheses.
 parens :: Scanner a -> Scanner a
-parens sc = within tokParenL tokParenR sc 
+parens sc = within tokParenL tokParenR sc
             <?> "parentheses"
-         
+
 
 tokString :: Scanner String
-tokString = within tokStringStart tokStringEnd 
+tokString = within tokStringStart tokStringEnd
             (many tokStringBodyChar) <?> "string"
 
+
 stringNorm :: Scanner String
--- stringNorm = surrounded (char '"') (liftM concat $ some stringChar) 
 stringNorm = do
   char '"'
   r <- manyTill (char '"') (withCharEscape False)
   char '"'
   return (concat r)
-         
+
 
 stringBS :: Scanner String
 stringBS = do
@@ -272,21 +228,13 @@ stringBS = do
   return (concat r)
 
 
-tuple :: Scanner b -> Scanner [b]
-tuple sc = within tokTupleStart tokTupleEnd 
-           (sepWith tokEltSep sc) <?> "tuple"
-
-
-checkStmtEnd :: Scanner Char
-checkStmtEnd = lookAhead tokMultiStmtEnd <|> tokStmtEnd
-
-               
 whitespace :: Scanner String
 whitespace = many tokWhitespace
 
 
 spaces :: Scanner String
 spaces = many tokSpace
+
 
 -- | Space or newline followed by optional whitespace.
 --
@@ -303,7 +251,7 @@ withCharEscape :: Bool -- ^ Treat backslashes as literal backslashes.
 withCharEscape b = do
   c <- anyChar
   case c of
-    '\\' -> if b 
+    '\\' -> if b
             then liftM (\x -> [c,x]) anyChar
             else escString -- liftM (:[]) escChar
                  <|> liftM (\x -> [c, x]) anyChar
@@ -316,14 +264,14 @@ escString = (escEmpty >> return "")
 
 
 escEmpty :: Scanner Char
-escEmpty = char '&' 
+escEmpty = char '&'
            <|> (some tokSpace >> char '\\')
 
 
 escChar :: Scanner Char
-escChar = genEsc 
-          <|> escNum 
-          <|> asciiEsc 
+escChar = genEsc
+          <|> escNum
+          <|> asciiEsc
           <|> controlEsc
           <?> "escape code"
 
@@ -334,7 +282,7 @@ controlEsc = do
   code <- upper
   return $ toEnum $ fromEnum code - fromEnum 'A'
     where upper = cond isUpper
-           
+
 
 toBase :: (Show a, Integral a) => a -> a -> String
 toBase base num = showIntAtBase base intToDigit num ""
@@ -342,7 +290,7 @@ toBase base num = showIntAtBase base intToDigit num ""
 
 fromBase :: Int -> String -> Int
 fromBase base = fst . head . readInt base ((<base) . digitToInt) digitToInt
-          
+
 
 numBase :: Int -> Scanner Char -> Scanner Int
 numBase base baseDig = do
@@ -354,7 +302,7 @@ numBase base baseDig = do
 escNum :: Scanner Char
 escNum = do
   code <- numBase 10 tokDenaryDigit
-          <|> (char 'o' >> numBase 8 octDigit) 
+          <|> (char 'o' >> numBase 8 octDigit)
           <|> (char 'x' >> numBase 16 hexDigit)
   return $ toEnum $ fromIntegral code
       where hexDigit = cond isHexDigit

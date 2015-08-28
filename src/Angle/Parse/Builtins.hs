@@ -42,7 +42,7 @@ module Angle.Parse.Builtins
     , startEnv
     , argsToString
     ) where
-      
+
 
 -- TODO:
 -- - inClass(x,..cls) - builtin function for checking
@@ -59,16 +59,16 @@ import Angle.Parse.Scope
 import Angle.Parse.Types
 import Angle.Types.Lang
 import Angle.Lex.Lexer (litList, evalScan)
-                    
+
 
 emptyArgs :: ArgSig
 emptyArgs = ArgSig { stdArgs=[], catchAllArg=Nothing }
 
 
 builtinCallSig :: LangIdent -> Lambda
-builtinCallSig name = 
+builtinCallSig name =
     Lambda
-    { lambdaArgs = emptyArgs 
+    { lambdaArgs = emptyArgs
                    { catchAllArg = Just (LangIdent "x") }
     , lambdaBody = body
     }
@@ -80,21 +80,21 @@ builtinCallSig name =
 
 
 builtinVar :: LangIdent -> (LangIdent, VarVal Lambda)
-builtinVar name = (name, VarVal 
+builtinVar name = (name, VarVal
                            { varDef = Just $ builtinCallSig name
                            , varBuiltin = True })
 
 
 builtinsVars :: BindEnv Lambda
-builtinsVars = bindEnvFromList $ 
+builtinsVars = bindEnvFromList $
                map (builtinVar . LangIdent) builtins
 
 
 -- | Starting environment with builtin functions defined.
 startEnv :: Env
-startEnv = basicEnv 
-           { currentScope = emptyScope 
-                            { lambdaBindings = builtinsVars 
+startEnv = basicEnv
+           { currentScope = emptyScope
+                            { lambdaBindings = builtinsVars
                             , classBindings = builtinClassBinds
                             } }
 
@@ -103,8 +103,8 @@ startEnv = basicEnv
 isBuiltin :: LangIdent -> Bool
 isBuiltin = (`elem`builtins) . getIdent
 
-           
--- | List of the builtin functions. 
+
+-- | List of the builtin functions.
 builtins :: [String]
 builtins = [ "print", "str"
            , "index", "length"
@@ -138,7 +138,7 @@ getBuiltinFun (LangIdent x) = fromJust $ lookup x builtinFuns
 builtinPrint :: [LangLit] -> ExecIO LangLit
 builtinPrint xs = liftIO (putStrLn res) >> returnVal (LitStr res)
     where res = argsToString xs
-                                            
+
 
 -- | Builtin input function.
 --
@@ -148,25 +148,25 @@ builtinPrint xs = liftIO (putStrLn res) >> returnVal (LitStr res)
 builtinInput :: [LangLit] -> ExecIO LangLit
 builtinInput xs = liftM LitStr (liftIO $ putStr res >> liftIO getLine) >>= returnVal
     where res = argsToString xs
-                              
+
 
 argsToString :: [LangLit] -> String
-argsToString = concatMap 
+argsToString = concatMap
                (\x -> case x of
                         (LitStr s) -> s
                         _          -> showSyn x)
-                              
+
 
 builtinAsType :: [LangLit] -> ExecIO LangLit
 builtinAsType [x] = return x
 builtinAsType [x,y] = asType x y
 builtinAsType (x:xs) = liftM LitList $ mapM (asType x) xs
 builtinAsType _ = throwParserError $ callBuiltinErr "asType: invalid call"
-                  
+
 
 asType :: LangLit -> LangLit -> ExecIO LangLit
 asType x y | typeOf x == typeOf y = return y
-asType (LitStr _) (LitList xs) 
+asType (LitStr _) (LitList xs)
     | all isLitChar xs = return . LitStr $ map (\(LitChar x) -> x) xs
     where isLitChar (LitChar x) = True
           isLitChar _ = False
@@ -178,30 +178,30 @@ asType (LitList _) x@(LitStr xs) = return . LitList $ map LitChar xs
 -- asType (LitList _) (LitStr y) = case evalScan y litList of
 --                                    Left _ -> return LitNull
 --                                    Right r -> return r
-asType (LitBool _) (LitStr y) = 
+asType (LitBool _) (LitStr y) =
     case y of
       "true"  -> return $ LitBool True
       "false" -> return $ LitBool False
       _       -> return LitNull
 asType (LitList _) x@(LitRange _ (Just _) _) = iterToLit x
 asType _ _ = return LitNull
-                                    
+
 
 fromStr :: (Read a) => String -> (a -> LangLit) -> ExecIO LangLit
 fromStr s f = case reads s of
               []       -> return LitNull
               [(r,"")] -> return $ f r
-                              
+
 
 builtinLength :: [LangLit] -> ExecIO LangLit
 builtinLength [LitList xs] = return . LitInt $ length xs
 builtinLength [LitRange _ Nothing _] = return $ LitKeyword $ LangIdent "infinite"
 builtinLength [LitRange x (Just y) Nothing] = return . LitInt $ (fromEnumL y + 1) - fromEnumL x
 builtinLength _ = throwParserError $ callBuiltinErr "length: invalid call"
-                  
+
 
 -- | @isNull(x)@ -> bool: true if @x@ is the null literal.
--- 
+--
 -- @isNull(..x)@ -> [bool]: list of applying @isNull@ to each argument.
 builtinIsNull :: [LangLit] -> ExecIO LangLit
 builtinIsNull [x] = return . LitBool $ isNull x
@@ -213,11 +213,11 @@ builtinStr :: [LangLit] -> ExecIO LangLit
 builtinStr [] = return $ LitStr ""
 builtinStr xs | length xs > 1 = throwParserError $ wrongNumberOfArgumentsErr 1 (length xs)
               | otherwise = return $ toLitStr (head xs)
-                            
-                       
+
+
 -- TODO:
 -- - Currently wraps back round with negatives
---   e.g. index(-5,-1,[1,2,3]); -> [2, 3]     
+--   e.g. index(-5,-1,[1,2,3]); -> [2, 3]
 -- - should probably work more like Pyhon's indexing system.
 
 -- | Builtin index function.
@@ -233,26 +233,26 @@ builtinIndex [LitInt x,LitList xs]
     | x >= length xs = throwParserError $ indexOutOfBoundsErr x
     | x < 0 = return $ xs !! (length xs + x)
     | otherwise = return $ xs !! x
-builtinIndex [LitInt x,LitInt y,LitList xs] 
-    | x >= length xs || y > length xs 
+builtinIndex [LitInt x,LitInt y,LitList xs]
+    | x >= length xs || y > length xs
         = throwParserError $ indexOutOfBoundsErr x
-    | x < 0 = builtinIndex 
+    | x < 0 = builtinIndex
               [LitInt (length xs + x), LitInt y, LitList xs]
-    | y < 0 = builtinIndex 
+    | y < 0 = builtinIndex
               [LitInt x, LitInt (length xs + y), LitList xs]
-    | otherwise 
+    | otherwise
         = return . LitList $ splice x y xs
 builtinIndex _ = throwParserError $ callBuiltinErr "index: invalid call signature"
 
 
 splice :: Int -> Int -> [a] -> [a]
 splice x y xs = take (1+y-x) $ drop x xs
-                
+
 -- runCompose :: CallSig -> CallSig -> Expr -> ExecIO LangLit
 -- runCompose c1 c2 e = do
 --   intm <- callFunCallSig c2 [e]
 --   callFunCallSig c1 [ExprLit intm]
-                 
+
 
 -- partial :: CallSig -> [LangLit] -> ExecIO CallSig
 -- partial x@(CallSig {callArgs=xArg@(ArgSig {stdArgs=xArgs})}) es
@@ -262,16 +262,16 @@ splice x y xs = take (1+y-x) $ drop x xs
 --   let newStdArgs = drop (length es) xArgs
 --       argList = map ExprLit es
 --                 ++ map ExprIdent newStdArgs
---                 ++ map ExprParamExpand 
+--                 ++ map ExprParamExpand
 --                        (maybeToList $ catchAllArg xArg)
---   return CallSig 
---              { callArgs=xArg 
+--   return CallSig
+--              { callArgs=xArg
 --                { stdArgs=newStdArgs}
---              , callBody = SingleStmt 
---                           (StmtExpr 
+--              , callBody = SingleStmt
+--                           (StmtExpr
 --                            (ExprLambdaCall x argList)) p}
-                            -- (map ExprLit es 
-                             -- ++ map ExprIdent 
+                            -- (map ExprLit es
+                             -- ++ map ExprIdent
                              -- (drop (length es) xArgs)
                              -- ++ maybe [] ((:[]) . ExprParamExpand) (catchAllArg xArg)))) p}
   -- return CallSig { callArgs=ArgSig {stdArgs=drop (length es) xArgs, catchAllArg=Nothing }, callBody = SingleStmt (StmtExpr (ExprLambdaCall x (map ExprLit es ++ map ExprIdent (drop (length es) xArgs)))) p}
@@ -289,22 +289,22 @@ splice x y xs = take (1+y-x) $ drop x xs
 -- -- builtinCompose (LitLambda x:LitLambda y:[]) = liftM LitLambda $ compose x y
 -- builtinPartial _ = throwImplementationErr "builtinPartial: better message please!"
 
-                 
+
 
 -- compose :: CallSig -> CallSig -> ExecIO CallSig
 -- compose x@(CallSig {callArgs=ArgSig {catchAllArg=Nothing}})
---         y@(CallSig {callArgs=ArgSig 
+--         y@(CallSig {callArgs=ArgSig
 --                     {stdArgs=[argY], catchAllArg=Nothing}})
---     = do 
+--     = do
 --   currRef <- liftM envSourceRef get
---   return y { callBody = 
---                  SingleStmt 
---                  (StmtExpr 
---                   (ExprLambdaCall x 
---                    [ExprLambdaCall y 
+--   return y { callBody =
+--                  SingleStmt
+--                  (StmtExpr
+--                   (ExprLambdaCall x
+--                    [ExprLambdaCall y
 --                     [ExprIdent argY]])) currRef }
 -- compose _ _ = throwImplementationErr "compose: better message please!"
-              
+
 
 -- composeLambdas :: LangLit -> LangLit -> ExecIO LangLit
 -- composeLambdas (LitLambda x) (LitLambda y) = liftM LitLambda $ compose x y
@@ -344,33 +344,12 @@ fromEnumL (LitChar x) = fromEnum x
 fromEnumL (LitFloat x) = fromEnum x
 
 
--- typClass cls typ = 
---     Lambda { lambdaArgs = args
---            , lambdaBody = 
---                SingleStmt 
---                ( StmtExpr 
---                  ( angleEq (angleExprIdent "x")
---                    ( angleFunCall "asType"
---                      [ ExprLit typ
---                      , angleExprIdent "x"]))) 
---                startRef }
---     where args = emptyArgs 
---                  { stdArgs = 
---                    [ eltClass 
---                      (ClassRef 
---                       (LangIdent cls)) 
---                      (LangIdent "x")] }
---           angleEq x y = ExprOp $ MultiOp OpEq [x, y]
---           angleFunCall name args = ExprFunCall (LangIdent name) args
---           angleExprIdent name = ExprIdent . LangIdent $ name
-
-
 classToFun :: LangLit -> LangLit
 classToFun (LitClassLambda l) = (LitLambda l)
 
 
-typClass cls typ = undefined -- builtinAsType(typ, 
-           
+typClass cls typ = undefined -- builtinAsType(typ,
+
 
 
 builtinClass :: LangIdent -> Lambda -> (LangIdent, VarVal Lambda)

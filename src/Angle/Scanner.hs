@@ -1,7 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 -- Change imports
@@ -10,7 +9,6 @@ module Angle.Scanner
   , scanChar
   , beginningOfFile
   , unexpectedErr
-  , expectedErr
   , strMsg
   , Scanner
   , SourcePos(..)
@@ -23,8 +21,6 @@ module Angle.Scanner
 
 import Control.Applicative
 import Control.Monad.Error
--- import Control.Monad.Trans.State
--- import Control.Monad.Trans.Reader
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Trans.Except
@@ -32,7 +28,7 @@ import Data.List (genericIndex, genericLength)
 
 
 -- | Represents a position in source.
-newtype SourcePos = SourcePos 
+newtype SourcePos = SourcePos
     { getSourcePos :: (Int, Int, Int) }
     deriving (Eq)
 
@@ -64,7 +60,7 @@ sourceIndex :: SourcePos -> Int
 sourceIndex (SourcePos (_, _, si)) = si
 
 
--- | Reset the column number whilst incrementing the 
+-- | Reset the column number whilst incrementing the
 -- line number and source index.
 incNL :: SourcePos -> SourcePos
 incNL (SourcePos (ln,_,si)) = SourcePos (ln+1, 0, si+1)
@@ -87,29 +83,29 @@ data ScanEnv = ScanEnv { sourceText :: String } deriving (Show, Eq)
 -- | Collects results from the scanner and
 -- returns a value of type @a@.
 newtype Scanner a = Scanner
-    { runScanner :: ExceptT ScanError 
-                    (StateT ScanState 
+    { runScanner :: ExceptT ScanError
+                    (StateT ScanState
                      (Reader ScanEnv)) a }
     deriving ( Functor, Applicative, Monad )
-         
+
 
 instance MonadError ScanError Scanner where
     throwError = Scanner . throwE
-    catchError (Scanner e) h 
+    catchError (Scanner e) h
         = Scanner (lift $ runExceptT e) >>= either h return
-         
+
 
 instance MonadState ScanState Scanner where
     get = Scanner $ lift get
     put x = Scanner $ lift $ put x
-                         
+
 
 instance MonadPlus Scanner where
     mzero = do
       s <- get
       emptyErrh $ UnknownError (sourcePos s)
     mplus x y = x `catchError` const y
-         
+
 
 instance Alternative Scanner where
     empty = mzero
@@ -119,20 +115,20 @@ instance Alternative Scanner where
 instance MonadReader ScanEnv Scanner where
     ask = Scanner $ lift ask
     local f (Scanner (ExceptT e)) = Scanner $ ExceptT $ local f e
-                
+
 
 emptyErrh :: ScanError -> Scanner a
-emptyErrh = throwError 
+emptyErrh = throwError
 
 
-data ScanError = ScanError 
-    { expectedMsg :: String -- ^Human readable statement of 
+data ScanError = ScanError
+    { expectedMsg :: String -- ^Human readable statement of
                             -- an expected value
     , unexpectedMsg :: String
-    , errMsg :: String    -- ^A general error message that 
-                          -- does not fit into one of the 
+    , errMsg :: String    -- ^A general error message that
+                          -- does not fit into one of the
                           -- above two categories
-    , errPos :: SourcePos  -- ^The position in source 
+    , errPos :: SourcePos  -- ^The position in source
                            -- where the error occurred
     , scanErrText :: String -- Reference to the source text
     } | UnknownError SourcePos deriving (Eq)
@@ -148,16 +144,16 @@ instance Show ScanError where
                   if null lns
                   then "no source\n"
                   else replicate (colNo ep) ' ' ++ "v\n" ++ lns !! lineNo ep ++ "\n"
-            cEm = if null em then "" 
+            cEm = if null em then ""
                   else concat ["expected ", em, "\n"]
-            cUm = if null um then "" 
+            cUm = if null um then ""
                   else concat ["unexpected ", um, "\n"]
   show (UnknownError pos) = show pos ++ "\nUnknown Error!"
 
 
 unexpectedErr :: String -> Scanner a
 unexpectedErr = toErr (\e msg -> e { unexpectedMsg=msg })
-             
+
 
 toErr :: (ScanError -> String -> ScanError) -> String -> Scanner a
 toErr err msg = do
@@ -168,17 +164,11 @@ toErr err msg = do
 
 
 basicErr :: ScanError
-basicErr = ScanError { errMsg="", unexpectedMsg="", expectedMsg="", errPos=beginningOfFile, scanErrText = ""}
-
-
-expectedErr :: String -> Scanner a
-expectedErr = toErr (\e msg -> e { expectedMsg=msg })
-             
-
--- generalErr msg = do
---   pos <- liftM sourcePos get
---   txt <- liftM sourceText ask
---   throwError (strMsg msg { errPos=pos, scanErrText=txt })
+basicErr = ScanError { errMsg=""
+                     , unexpectedMsg=""
+                     , expectedMsg=""
+                     , errPos=beginningOfFile
+                     , scanErrText = ""}
 
 
 -- | Retrieves the next character from the

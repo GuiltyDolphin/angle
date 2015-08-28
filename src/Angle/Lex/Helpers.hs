@@ -14,15 +14,11 @@ module Angle.Lex.Helpers
     , charFrom
     , surrounded
     , (<?>)
-    , oneFrom
-    , chain
-    , chainFlat
     , strMsg
     , anyChar
     , manyTill
     , unexpectedErr
     , manyTill'
-    , someTill
     , evalScan
     , Scanner
     , SourcePos
@@ -34,10 +30,10 @@ import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Trans.Except
-    
+
 
 import Data.Char (readLitChar)
-    
+
 import Angle.Scanner
 
 
@@ -94,16 +90,12 @@ choice :: [Scanner a] -> Scanner a
 choice = msum
 
 
--- | Attempt each of xs as an input to `sc' and return first
--- successful result.
-oneFrom :: (a -> Scanner a) -> [a] -> Scanner a
-oneFrom scf xs = choice $ map scf xs
 
 
 -- | Succeeds if it does not parse the specified character.
 notChar :: Char -> Scanner Char
 notChar ch = cond (/=ch)
-             
+
 
 -- | Matches any character, only fails when there is no more input.
 anyChar :: Scanner Char
@@ -135,15 +127,7 @@ notScan sc = tryScan (do
 -- | Fail if any scanners built from `scf' succeed.
 noneFrom :: (Show a) => (a -> Scanner a) -> [a] -> Scanner ()
 noneFrom scf = notScan . oneFrom scf
-               
-
-chain :: [Scanner a] -> Scanner [a]
-chain = sequence
-
-        
-chainFlat :: [Scanner [a]] -> Scanner [a]
-chainFlat = liftM concat . chain
-
+  where oneFrom scf xs = choice $ map scf xs
 
 -- | List of `sc' separated with `sep'.
 sepWith :: Scanner a -> Scanner b -> Scanner [b]
@@ -161,16 +145,11 @@ sepWith sep sc = tryScan (do
 -- | Collect sc until `ti' succeeds.
 manyTill :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
 manyTill ti sc = many (notScan ti *> sc)
-                 
+
 
 -- | Like `manyTill', but also consume @ti@.
 manyTill' :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
 manyTill' ti sc = manyTill ti sc <* ti
-                 
-
--- | Like `manyTill', but `sc' must succeed before `ti'.
-someTill :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
-someTill ti sc = (:) <$> (notScan ti *> sc) <*> manyTill ti sc
 
 
 -- | If the scan fails, specify what was expected.
@@ -182,9 +161,6 @@ sc <?> msg = do
     newPos <- liftM sourcePos get
     if newPos == oldPos then throwError $ e {expectedMsg=msg}--expectedErr msg
     else throwError e)
--- sc <?> msg = sc `catchError` (\e -> do
---                                 newPos <- liftM sourcePos get
---                                 throwError $ e {expectedMsg = msg, errPos=newPos})
 
 
 -- | Used for evaluating a single Scanner with a given string.

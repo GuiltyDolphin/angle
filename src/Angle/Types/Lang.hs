@@ -16,42 +16,37 @@ module Angle.Types.Lang
     , LangType(..)
     , typeOf
     , ArgSig(..)
-    , hasCatchAllArg
     , ShowSyn(..)
     , SourceRef(..)
     , startRef
     , ClassRef(..)
---    , ClassLambda(..)
     , LangClass(..)
     , AnnType(..)
     , ArgElt(..)
-    , argNoAnn
     , Lambda(..)
     , LambdaType(..)
     , typeAnnOf
-    , isValidIdent
-    , isInfiniteRange
     , isNull
     , enumType
-    , eltClass
+    , allType
     ) where
-    
+
 
 -- TODO:
 -- - AnnType
---   - Add AnnAny - a type that allows any 
+--   - Add AnnAny - a type that allows any
 --     type to be passed (as in, function, literal etc..)
 import Data.Char (isAlpha, isAlphaNum)
 import Data.Maybe (isJust)
 import Numeric (showFFloat)
-    
+
 import Angle.Scanner (SourcePos, beginningOfFile)
-    
+
 
 -- | Most general construct in the language.
-data Stmt = 
-    SingleStmt 
-    { stmtSingStmt :: SingStmt 
+data Stmt =
+    SingleStmt
+    { stmtSingStmt :: SingStmt
     , stmtSourcePos :: SourceRef
     } -- ^ Any language construct that
       --   performs some action or evaluation.
@@ -61,7 +56,7 @@ data Stmt =
                              --   discarding intermediate
                              --   results.
             deriving (Show)
-                     
+
 
 -- | Statements are equal if their contents are equal,
 -- the position may differ.
@@ -69,12 +64,12 @@ instance Eq Stmt where
     (SingleStmt x _) == (SingleStmt y _) = x == y
     (MultiStmt xs) == (MultiStmt ys) = xs == ys
     _ == _ = False
-                     
+
 
 -- | Positional reference to some section of source code.
 newtype SourceRef = SourceRef { getSourceRef :: (SourcePos, SourcePos) }
     deriving (Show, Eq)
-             
+
 
 -- | The initial `SourceRef' - starting and ending at
 -- the beginning of the file.
@@ -88,15 +83,15 @@ class ShowSyn a where
     -- | Convert the value to a string representation that
     -- would produce the exact same result if lexed.
     showSyn :: a -> String
-               
+
 
 instance ShowSyn Stmt where
     showSyn (SingleStmt x _) = showSyn x
-    showSyn (MultiStmt xs) = "{\n" ++ showRest ++ "}\n" 
-        where showRest = unlines 
-                         $ map (" "++) $ lines 
+    showSyn (MultiStmt xs) = "{\n" ++ showRest ++ "}\n"
+        where showRest = unlines
+                         $ map (" "++) $ lines
                          $ concatMap showSyn xs
-                             
+
 
 instance ShowSyn SingStmt where
     showSyn (StmtAssign n e) = concat [showSyn n, " = ", showSyn e, ";\n"]
@@ -127,18 +122,18 @@ data LangStruct = StructFor LangIdent Expr Stmt
                 | StructDefun LangIdent Lambda
                 | StructDefClass LangIdent Lambda
                   deriving (Show, Eq)
-                           
+
 
 instance ShowSyn LangStruct where
-    showSyn (StructFor n e s) = 
+    showSyn (StructFor n e s) =
         concat [ "for ", showSyn n
                , " in ", showSyn e
                , " do ", showSyn s]
-    showSyn (StructWhile e s) = 
+    showSyn (StructWhile e s) =
         concat ["while ", showSyn e, " do ", showSyn s]
-    showSyn (StructIf e s els) 
+    showSyn (StructIf e s els)
         = concat [ "if "   , showSyn e
-                 , " then ", showSyn s] ++ 
+                 , " then ", showSyn s] ++
           case els of
             Nothing -> ""
             Just x  -> " else " ++ showSyn x
@@ -146,17 +141,8 @@ instance ShowSyn LangStruct where
         = concat ["defun ", showSyn n, showLambdaFun c]
     showSyn (StructDefClass n c)
         = concat ["defclass ", showSyn n, showLambdaFun c]
-    -- showSyn (StructDefun n c) 
-    --     = concat ["defun ", showSyn n, showSynSep "("
-    --                           (case catchArg of
-    --                              Nothing -> ") "
-    --                              Just x -> concat [if not (null args) then ", .." else "..", showSyn x, ") "]) ", " args]
-    --       ++ showSyn body
-    --     where args = stdArgs $ callArgs c
-    --           body = callBody c
-    --           catchArg = catchAllArg $ callArgs c
-                    
-    
+
+
 showSynSep :: ShowSyn a => String -> String -> String -> [a] -> String
 showSynSep start end _ [] = start ++ end
 showSynSep start end sep xs = start ++ concatMap ((++sep) . showSyn) (init xs) ++ showSyn (last xs) ++ end
@@ -172,14 +158,14 @@ showSynOpList = showSynSep " " ")" " "
 
 data ParamList = ParamList { parListParams :: [Expr] }
                deriving (Show, Eq)
-             
+
 
 data Lambda = Lambda { lambdaArgs :: ArgSig
                      , lambdaBody :: Stmt
                      -- , lambdaType :: LambdaType
                      } deriving (Show, Eq)
 
-            
+
 instance ShowSyn Lambda where
     -- showSyn (Lambda args body@(SingleStmt _ _) cls)
     --     = concat [case cls of FunLambda -> "$"; ClassLambda -> "@", "(", showSyn args, " ", init $ showSyn body, ")"]
@@ -188,28 +174,18 @@ instance ShowSyn Lambda where
          = concat ["(", showSyn args, " ", init $ showSyn body, ")"]
     showSyn (Lambda args body) = concat ["(", showSyn args, " ", showSyn body, ")"]
 
+
 -- | An argument signature.
 data ArgSig = ArgSig { stdArgs :: [ArgElt] -- ^ Standard positional arguments.
                      , catchAllArg :: Maybe LangIdent -- ^ Argument that catches any remaining arguments after the positional arguments have been filled.
                      } deriving (Show, Eq)
 
 
-data ArgElt = ArgElt 
+data ArgElt = ArgElt
     { argEltType :: AnnType
     , argEltName :: LangIdent
     , argEltClass :: Maybe ClassRef
     } deriving (Show, Eq)
-            
-argNoAnn :: LangIdent -> ArgElt
-argNoAnn name = ArgElt { argEltType = AnnAny
-                       , argEltName = name
-                       , argEltClass = Nothing }
-           
-
-eltClass :: ClassRef -> LangIdent -> ArgElt 
-eltClass cls name = ArgElt { argEltType = AnnAny
-                           , argEltName = name
-                           , argEltClass = Just cls }
 
 
 instance ShowSyn ArgElt where
@@ -221,24 +197,25 @@ instance ShowSyn ArgElt where
             AnnClass -> "@"
             AnnLit   -> "!"
             AnnAny   -> ""
-          ++ showSyn name ++ case cls of 
+          ++ showSyn name ++ case cls of
                                Just c  -> ':' : showSyn c
                                Nothing -> ""
-                       
+
 
 data LangClass = LangClass LangIdent Lambda
-              
+
 
 newtype ClassRef = ClassRef { getClassRef :: LangIdent }
     deriving (Show, Eq)
-             
+
+
 instance ShowSyn ClassRef where
     showSyn (ClassRef {getClassRef = name}) = '@' : showSyn name
-                                     
+
 
 data AnnType = AnnClass | AnnFun | AnnLit | AnnAny
                deriving (Eq)
-                        
+
 
 instance Show AnnType where
     show AnnClass = "class"
@@ -247,32 +224,27 @@ instance Show AnnType where
     show AnnAny = "any"
 
 
--- | @True@ if `catchAllArg` is  a @Just@ value.
-hasCatchAllArg :: ArgSig -> Bool
-hasCatchAllArg = isJust . catchAllArg 
-
-
 -- | Language literal values.
 data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
              | LitInt { getLitInt :: Int } -- ^ Integers, support at least the range -2^29 to 2^29-1.
              | LitFloat { getLitFloat :: Double } -- ^ Double-precision floating point value.
-             | LitList { getLitList :: [LangLit] } -- ^ List of literal values. Values may be of different types.    
+             | LitList { getLitList :: [LangLit] } -- ^ List of literal values. Values may be of different types.
              | LitBool { getLitBool :: Bool } -- ^ Boolean value.
              | LitChar { getLitChar :: Char }
              | LitRange LangLit (Maybe LangLit) (Maybe LangLit)
-             | LitNull -- ^ Null value. Implicit value 
-                       -- returned from any expression 
-                       -- that fails to return a value 
+             | LitNull -- ^ Null value. Implicit value
+                       -- returned from any expression
+                       -- that fails to return a value
                        -- explicitly.
              | LitLambda { getLitLambda :: Lambda } -- ^ A function without a name.
              | LitClassLambda { getLitClassLambda :: Lambda }
              | LitKeyword { getLitKeyword :: LangIdent }
                deriving (Show, Eq)
-                        
+
 
 data LambdaType = FunLambda | ClassLambda
                   deriving (Show, Eq)
- 
+
 
 instance ShowSyn LangLit where
     showSyn (LitStr x) = show x -- '\"' : x ++ "\""
@@ -295,7 +267,7 @@ instance ShowSyn LangLit where
     showSyn LitNull = "null"
     showSyn (LitLambda x) = showSyn x
     showSyn (LitKeyword x) = ':' : showSyn x
-                   
+
 
 data LangType = LTStr
               | LTChar
@@ -323,7 +295,7 @@ typeOf LitNull       = LTNull
 typeOf (LitLambda{}) = LTLambda
 typeOf (LitKeyword _) = LTKeyword
 typeOf (LitClassLambda{}) = LTClass
-                       
+
 
 -- TODO: Check this - can't identify classes
 typeAnnOf :: LangLit -> AnnType
@@ -332,7 +304,7 @@ typeAnnOf :: LangLit -> AnnType
 typeAnnOf (LitLambda{}) = AnnFun
 typeAnnOf (LitClassLambda{}) = AnnClass
 typeAnnOf _ = AnnLit
-              
+
 
 instance Show LangType where
     show LTList = "list"
@@ -346,7 +318,7 @@ instance Show LangType where
     show LTKeyword = "keyword"
     show LTChar = "char"
     show LTClass = "class"
-                   
+
 
 data Expr = ExprIdent LangIdent
           | ExprFunIdent LangIdent
@@ -359,7 +331,7 @@ data Expr = ExprIdent LangIdent
           | ExprRange Expr (Maybe Expr) (Maybe Expr)
           | ExprParamExpand LangIdent
             deriving (Show, Eq)
-                     
+
 
 instance ShowSyn Expr where
     showSyn (ExprIdent x) = showSyn x
@@ -372,56 +344,57 @@ instance ShowSyn Expr where
     showSyn (ExprRange{}) = error "showSyn - cannot show unevaluated range"
     showSyn (ExprLambdaCall x xs) = showSyn (ExprLambda x) ++ " : (" ++ showSynArgs xs ++ ")"
     showSyn (ExprParamExpand _) = error "showSyn - ExprParamExpand made it to showSyn"
-                         
-                         
+
+
 newtype LangIdent = LangIdent { getIdent :: String }
     deriving (Show, Eq, Ord)
-                          
+
+
 instance ShowSyn LangIdent where
     showSyn = getIdent
-                                  
+
 
 -- | TODO: Check this out... It looks a bit weird.
 instance ShowSyn ArgSig where
-    showSyn (ArgSig args catchArg) = 
+    showSyn (ArgSig args catchArg) =
         showSynSep "("
           (case catchArg of
              Nothing -> ")"
-             Just x  -> concat 
-                        [ if not (null args) 
-                          then ", .." 
+             Just x  -> concat
+                        [ if not (null args)
+                          then ", .."
                           else ".."
                         , showSyn x
                         , ")"]) ", " args
-                                  
 
-data LangOp = SpecOp Op Expr 
+
+data LangOp = SpecOp Op Expr
             | MultiOp Op [Expr]
               deriving (Show, Eq)
-                       
+
 
 instance ShowSyn LangOp where
     showSyn (SpecOp o e) = showSyn o ++ showSyn e
     showSyn (MultiOp o es) = concat ["(", showSyn o, showSynOpList es]
 
 
-data Op = OpAdd 
+data Op = OpAdd
         | OpAnd
         | OpConcat
-        | OpDiv 
+        | OpDiv
         | OpEq
         | OpGreater
         | OpGreaterEq
         | OpLess
         | OpLessEq
-        | OpMult 
+        | OpMult
         | OpNeg
-        | OpNot 
+        | OpNot
         | OpOr
-        | OpSub 
+        | OpSub
         | UserOp LangIdent
           deriving (Show, Eq)
-                   
+
 
 instance ShowSyn Op where
     showSyn OpAdd = "+"
@@ -446,17 +419,6 @@ showLambdaFun (Lambda {lambdaArgs=args, lambdaBody=body})
     = showSyn args ++ " " ++ showSyn body
 
 
-isValidIdent :: String -> Bool
-isValidIdent [] = False
-isValidIdent (x:xs) = isAlpha x && all isAlphaNum xs
-
-
-isInfiniteRange :: LangLit -> Bool
-isInfiniteRange (LitRange _ Nothing _) = True
-isInfiniteRange (LitRange{}) = False
-isInfiniteRange _ = error "isInfiniteRange: passed non-range"
-
-
 isNull :: LangLit -> Bool
 isNull LitNull = True
 isNull _ = False
@@ -467,3 +429,7 @@ enumType (LitInt _) = True
 enumType (LitChar _) = True
 enumType (LitFloat _) = True
 enumType _ = False
+
+
+allType :: LangType -> [LangLit] -> Bool
+allType t = all ((==t) . typeOf)
