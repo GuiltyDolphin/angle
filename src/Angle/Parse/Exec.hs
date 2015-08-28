@@ -48,7 +48,7 @@ lookupVar binds name = do
   currScope <- getScope
   case resolve binds name currScope of
     Nothing -> return Nothing
-    Just x -> return $ varDef x
+    Just x  -> return $ varDef x
               
 
 lookupVarF :: (Scope -> BindEnv a) -> (LangIdent -> ParserError) -> LangIdent -> ExecIO a
@@ -122,7 +122,7 @@ upScope = do
   currScope <- liftM currentScope get
   case outerScope currScope of
     Nothing -> return ()
-    Just x -> modifyScope (const x)
+    Just x  -> modifyScope (const x)
   
   
 bindArgs :: [Expr] -> ArgSig -> ExecIO ()
@@ -186,8 +186,8 @@ execClass val clsName = do
   res <- callLambda cls [ExprLit val]
   case res of
     x@(LitBool _) -> return x
-    y -> throwParserError 
-         $ typeClassWrongReturnErr clsName (typeOf y)
+    y             -> throwParserError 
+                     $ typeClassWrongReturnErr clsName (typeOf y)
 
 
 -- | True if the literal is of the specified annotation type.
@@ -224,8 +224,8 @@ expandParams (x:xs)
              val <- lookupVarLitF n
              case val of 
                LitList vs -> liftM (map ExprLit vs ++) $ expandParams xs
-               _ -> liftM (x:) $ expandParams xs
-      _ -> liftM (x:) $ expandParams xs
+               _          -> liftM (x:) $ expandParams xs
+      _                -> liftM (x:) $ expandParams xs
                          
 
 execExpr :: Expr -> ExecIO LangLit
@@ -330,9 +330,8 @@ execSingStmt (StmtReturn x) = do
 execSingStmt (StmtBreak x False) 
     = case x of
         Nothing -> throwBreak Nothing
-        Just v -> execExpr v 
-                  >>= returnVal 
-                  >>= (throwBreak . Just)
+        Just v  -> execExpr v 
+                   >>= returnVal >>= (throwBreak . Just)
 execSingStmt (StmtBreak _ True) = throwContinue
 
 
@@ -365,11 +364,11 @@ execStructIf :: Expr -> Stmt -> Maybe Stmt -> ExecIO LangLit
 execStructIf if' thn els = do
   p <- execExpr if'
   case p of
-    (LitBool True) -> execStmt thn
+    (LitBool True)  -> execStmt thn
     (LitBool False) -> case els of 
                          Nothing -> return LitNull
                          Just s  -> execStmt s
-    x -> throwParserError $ typeUnexpectedErr (typeOf x) LTBool
+    x               -> throwParserError $ typeUnexpectedErr (typeOf x) LTBool
 
 
 execStructFor :: LangIdent -> Expr -> Stmt -> ExecIO LangLit
@@ -425,7 +424,7 @@ builtinEval :: [LangLit] -> ExecIO LangLit
 builtinEval xs = do
   let r = evalScan st program
   case r of
-    Left _ -> throwParserError . callBuiltinErr $ "eval: no parse"
+    Left _    -> throwParserError . callBuiltinErr $ "eval: no parse"
     Right res -> execStmt res
     where st = argsToString xs
 

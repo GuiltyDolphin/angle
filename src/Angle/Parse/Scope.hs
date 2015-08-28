@@ -92,7 +92,7 @@ data Scope = Scope
 isOutermostScope :: Scope -> Bool
 isOutermostScope s = case outerScope s of
                     Nothing -> True
-                    Just _ -> False
+                    Just _  -> False
 
 
 -- | True if the scope contains a defition for the given
@@ -187,7 +187,7 @@ resolveFun = resolve lambdaBindings
 
 resolve :: (Scope -> BindEnv a) -> LangIdent -> Scope -> Maybe (VarVal a)
 resolve binds name scope = case innerScopeDefining binds name scope of
-                             Nothing -> Nothing
+                             Nothing     -> Nothing
                              Just scope' -> fromCurrentScope binds scope'
                                                                     where fromCurrentScope b = lookupBind name . b
                                  

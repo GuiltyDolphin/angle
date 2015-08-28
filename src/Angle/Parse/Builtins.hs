@@ -154,7 +154,7 @@ argsToString :: [LangLit] -> String
 argsToString = concatMap 
                (\x -> case x of
                         (LitStr s) -> s
-                        _ -> showSyn x)
+                        _          -> showSyn x)
                               
 
 builtinAsType :: [LangLit] -> ExecIO LangLit
@@ -180,16 +180,16 @@ asType (LitList _) x@(LitStr xs) = return . LitList $ map LitChar xs
 --                                    Right r -> return r
 asType (LitBool _) (LitStr y) = 
     case y of
-      "true" -> return $ LitBool True
+      "true"  -> return $ LitBool True
       "false" -> return $ LitBool False
-      _ -> return LitNull
+      _       -> return LitNull
 asType (LitList _) x@(LitRange _ (Just _) _) = iterToLit x
 asType _ _ = return LitNull
                                     
 
 fromStr :: (Read a) => String -> (a -> LangLit) -> ExecIO LangLit
 fromStr s f = case reads s of
-              [] -> return LitNull
+              []       -> return LitNull
               [(r,"")] -> return $ f r
                               
 

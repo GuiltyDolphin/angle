@@ -171,7 +171,7 @@ tokInt = do
   res <- read <$> tokDigits <?> "integer"
   case negve of
     Nothing -> return res
-    Just _ -> return (-res)
+    Just _  -> return (-res)
          
 
 tokDigits :: Scanner String
@@ -187,7 +187,7 @@ tokFloat = do
   let res = read $ f ++ rst
   case negve of
     Nothing -> return res
-    Just _ ->  return (-res)
+    Just _  ->  return (-res)
 
 
 tokList :: Scanner a -> Scanner a
@@ -307,7 +307,7 @@ withCharEscape b = do
             then liftM (\x -> [c,x]) anyChar
             else escString -- liftM (:[]) escChar
                  <|> liftM (\x -> [c, x]) anyChar
-    _ -> return [c]
+    _    -> return [c]
 
 
 escString :: Scanner String
@@ -387,4 +387,4 @@ ascii3codes = [ "NUL","SOH","STX","ETX","EOT","ENQ","ACK","BEL"
 codeToChar :: String -> Char
 codeToChar s = case readLitChar ('\\':s) of
                  [(r,"")] -> r
-                 [] -> error $ "codeToChar: not a valid code: " ++ s
+                 []       -> error $ "codeToChar: not a valid code: " ++ s

@@ -141,7 +141,7 @@ instance ShowSyn LangStruct where
                  , " then ", showSyn s] ++ 
           case els of
             Nothing -> ""
-            Just x -> " else " ++ showSyn x
+            Just x  -> " else " ++ showSyn x
     showSyn (StructDefun n c)
         = concat ["defun ", showSyn n, showLambdaFun c]
     showSyn (StructDefClass n c)
@@ -217,12 +217,12 @@ instance ShowSyn ArgElt where
                     , argEltName=name
                     , argEltClass=cls })
         = case typ of
-            AnnFun -> "$"
+            AnnFun   -> "$"
             AnnClass -> "@"
-            AnnLit -> "!"
-            AnnAny -> ""
+            AnnLit   -> "!"
+            AnnAny   -> ""
           ++ showSyn name ++ case cls of 
-                               Just c -> ':' : showSyn c
+                               Just c  -> ':' : showSyn c
                                Nothing -> ""
                        
 
@@ -387,12 +387,12 @@ instance ShowSyn ArgSig where
         showSynSep "("
           (case catchArg of
              Nothing -> ")"
-             Just x -> concat 
-                       [ if not (null args) 
-                         then ", .." 
-                         else ".."
-                       , showSyn x
-                       , ")"]) ", " args
+             Just x  -> concat 
+                        [ if not (null args) 
+                          then ", .." 
+                          else ".."
+                        , showSyn x
+                        , ")"]) ", " args
                                   
 
 data LangOp = SpecOp Op Expr 

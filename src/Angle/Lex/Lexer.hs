@@ -99,7 +99,7 @@ stmtBreak = do
   n <- string "break" <|> string "continue"
   case n of
     "continue" -> return StmtBreak { breakValue=Nothing, breakContinue=True}
-    "break" -> do
+    "break"    -> do
               retV <- optional (tryScan (tokNSpaced *> expr))
               return StmtBreak { breakValue=retV, breakContinue=False}
 
@@ -271,7 +271,7 @@ litChar :: Scanner LangLit
 litChar = liftM LitChar $ surrounded (char '\'') (notScan (char '\'') >> (do
                                                                            res <- withCharEscape True
                                                                            case readLitChar res of
-                                                                             [] -> unexpectedErr $ "not a valid character: " ++ res
+                                                                             []       -> unexpectedErr $ "not a valid character: " ++ res
                                                                              [(r,"")] -> return r))
                                                                              
                    
