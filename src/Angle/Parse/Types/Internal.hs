@@ -27,11 +27,6 @@ import Angle.Parse.Scope
 import Angle.Types.Lang
 
 
-newtype ExecEnv a = ExecEnv { runExecEnv :: StateT Env IO a }
-    deriving (Functor, Applicative, Monad
-             , MonadState Env, MonadIO)
-
-
 newtype ExecIO a = ExecIO
     { runExecIO :: ExceptT AngleError (StateT Env IO) a }
     deriving ( Functor, Applicative, Monad
@@ -80,17 +75,6 @@ basicEnv = Env { currentScope = emptyScope
                , envSynRep = ""
                , envValue = LitNull
                }
-
-
-data Stack = Stack
-    { stackPointer :: StackFrame
-    , stackTop :: StackFrame
-    , stackStack :: [StackFrame]
-    } deriving (Show, Eq)
-
-data StackFrame = StackFrame
-    { frameName :: String
-    } deriving (Show, Eq)
 
 
 -- In a language like Java, could use try..catch

@@ -1,29 +1,26 @@
 {-# LANGUAGE DeriveDataTypeable #-}
-module Angle.Parse.REPL 
-    ( main 
+module Angle.Parse.REPL
+    ( main
     ) where
-    
+
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Error
-import Data.Char (isSpace)
 import Data.List (elemIndices)
 
 import System.Console.CmdArgs hiding (program)
 import qualified System.Console.CmdArgs as CA
 
 import Angle.Lex.Lexer
-import Angle.Lex.Helpers
 import Angle.Parse.Builtins
 import Angle.Parse.Exec
-import Angle.Parse.Error
 import Angle.Parse.Types
 import Angle.Types.Lang
-    
+
 data ReplOptions = ReplOptions
     { file :: String
     } deriving (Show, Data, Typeable)
-                 
+
 
 replOptions :: ReplOptions
 replOptions = ReplOptions
@@ -33,12 +30,12 @@ replOptions = ReplOptions
               &= summary "repl for angle programming language"
 
 
-processLine :: String -> IO ()
-processLine s = do
-  case evalScan s program of
-    Left err -> print err
-    Right res -> runExecIOEnv startEnv (execStmt res) >>= print
-                               
+--processLine :: String -> IO ()
+--processLine s = do
+--  case evalScan s program of
+--    Left err -> print err
+--    Right res -> runExecIOEnv startEnv (execStmt res) >>= print
+
 -- execLine :: Env -> String -> IO Env
 -- execLine e s = case evalScan s program of
 --                  Left err -> print err
@@ -54,14 +51,14 @@ collectLine s multi =
   -- then return s
   -- else do
   --    nxt <- liftIO getLine
-  --    if shouldDecMulti s 
+  --    if shouldDecMulti s
   --    then liftM (s++) $ collectLine nxt (multi-1)
   --    else if shouldIncMulti s
   --         then liftM (s++) $ collectLine nxt (multi+1)
   --         else liftM (s++) $ collectLine nxt multi
 
 runLine :: String -> ExecIO ()
-runLine s = do 
+runLine s = do
   r <- collectLine s 0
   case evalScan r stmt of
               Left err -> liftIO $ print err
@@ -69,23 +66,23 @@ runLine s = do
                 toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
                 liftIO $ printSyn toPrint
 
-                 
-shouldIncMulti :: String -> Bool
-shouldIncMulti xs = count '{' xs > count '}' xs
-                    
+
+--shouldIncMulti :: String -> Bool
+--shouldIncMulti xs = count '{' xs > count '}' xs
+
 incMultiBy :: String -> Int
 incMultiBy xs = count '{' xs - count '}' xs
 
-                    
 
-shouldDecMulti :: String -> Bool
-shouldDecMulti xs = count '}' xs > count '{' xs
-                    
+
+--shouldDecMulti :: String -> Bool
+--shouldDecMulti xs = count '}' xs > count '{' xs
+
 
 count :: Eq a => a -> [a] -> Int
 count x = length . elemIndices x
 
-                       
+
 printSyn :: (ShowSyn a) => a -> IO ()
 printSyn = putStrLn . showSyn
 
@@ -98,7 +95,7 @@ withSource s =
                  toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
                  liftIO $ printSyn toPrint
                  mainProg
-    
+
 
 
 mainProg :: ExecIO ()
@@ -106,31 +103,33 @@ mainProg = do
   liftIO $ putStr "> "
   userInput <- liftIO getLine
   unless (userInput=="exit")
-           (do 
+           (do
              runLine userInput `catchError` const mainProg
              mainProg)
-                 
 
-runMain :: ReplOptions -> IO ()
-runMain opts = undefined
-               
+
+--runMain :: ReplOptions -> IO ()
+--runMain opts = undefined
+
 
 runWithSource :: String -> IO ()
 runWithSource s = do
   runExecIOEnv startEnv $ withSource s
   return ()
 
-main = do 
-  args <- cmdArgs replOptions
-  unless (null $ file args)
-       (readFile (file args) >>= runWithSource)
+main :: IO ()
+main = do
+  margs <- cmdArgs replOptions
+  unless (null $ file margs)
+       (readFile (file margs) >>= runWithSource)
   runExecIOEnv startEnv mainProg
+  return ()
   -- runExecIOBasic mainProg
   -- putStr "> "
   -- userInput <- getLine
   -- unless (userInput=="exit") (processLine userInput >> main)
 
-       
+
 
 -- Ideas for Error tracking:
 -- - Expansion-based error finder

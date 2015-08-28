@@ -19,11 +19,9 @@ module TestHelper
 
 
 import Control.Applicative ((<*>), (<$>))
-import Control.Monad (liftM, liftM2, liftM3)
-import Control.Monad.Trans.Except
 import Control.Monad.State
 import Data.Char (isAlpha, isAlphaNum)
-import Data.List (isInfixOf, zipWith4)
+import Data.List (zipWith4)
 import qualified Data.Map as M
 
 import Test.QuickCheck
@@ -58,7 +56,9 @@ instance Arbitrary LangLit where
     shrink (LitBool x) = shrink1 LitBool x
     shrink (LitRange x y z) = shrink3 LitRange x y z
     shrink (LitLambda x) = shrink1 LitLambda x
+    shrink (LitChar x) = shrink1 LitChar x
     shrink LitNull = [LitNull]
+    shrink _ = undefined
 
 
 instance Arbitrary SingStmt where
@@ -73,6 +73,7 @@ instance Arbitrary SingStmt where
     shrink (StmtStruct x) = shrink1 StmtStruct x
     shrink (StmtExpr x) = shrink1 StmtExpr x
     shrink (StmtReturn x) = shrink1 StmtReturn x
+    shrink _ = undefined
 
 
 instance Arbitrary LangStruct where
@@ -87,6 +88,7 @@ instance Arbitrary LangStruct where
     shrink (StructWhile x y) = shrink2 StructWhile x y
     shrink (StructIf x y z) = shrink3 StructIf x y z
     shrink (StructDefun x y) = shrink2 StructDefun x y
+    shrink _ = undefined
 
 
 instance Arbitrary Lambda where
@@ -113,6 +115,7 @@ instance Arbitrary Expr where
     shrink (ExprLambda x) = shrink1 ExprLambda x
     shrink (ExprFunIdent x) = shrink1 ExprFunIdent x
     shrink (ExprList x) = map ExprList $ shrink x
+    shrink _ = undefined
 
 
 instance Arbitrary ArgSig where
@@ -151,11 +154,14 @@ instance Arbitrary ClassRef where
     arbitrary = liftArby ClassRef
     shrink (ClassRef x) = shrink1 ClassRef x
 
+
 instance Arbitrary AnnType where
     arbitrary = elements [AnnFun, AnnClass, AnnLit]
     shrink AnnFun = [AnnClass, AnnLit]
     shrink AnnClass = [AnnFun, AnnLit]
     shrink AnnLit = [AnnFun, AnnClass]
+    shrink _ = undefined
+
 
 instance Arbitrary LambdaType where
     arbitrary = elements [FunLambda, ClassLambda]
@@ -206,6 +212,7 @@ liftArby3 :: (Arbitrary a, Arbitrary b, Arbitrary c) => (a -> b -> c -> d) -> Ge
 liftArby3 f = liftM3 f arbitrary arbitrary arbitrary
 
 
+liftArby4 :: (Arbitrary a, Arbitrary b, Arbitrary c, Arbitrary d) => (a -> b -> c -> d -> e) -> Gen e
 liftArby4 f = liftM4 f arbitrary arbitrary arbitrary arbitrary
 
 
@@ -256,7 +263,7 @@ instance Arbitrary MultiOp where
                 ]
 
 
-newtype ValidComment = ValidComment { getValidComment :: String }
+newtype ValidComment = ValidComment String
 
 
 instance Arbitrary ValidComment where
@@ -341,6 +348,7 @@ instance Arbitrary LangType where
     shrink x = filter (/=x) langTypes
 
 
+langTypes :: [LangType]
 langTypes = [LTStr, LTInt, LTFloat, LTList
             , LTBool, LTRange, LTNull ]
 
@@ -364,13 +372,6 @@ instance Arbitrary SourcePos where
 
 assertEqualQC :: (Monad m, Eq a) => a -> a -> PropertyM m ()
 assertEqualQC x = assertQC . (==x)
-
-
-isNumeric :: LangLit -> Bool
-isNumeric x = case typeOf x of
-                LTFloat -> True
-                LTInt   -> True
-                _       -> False
 
 
 maxSized :: (Testable prop) => Int -> prop -> Property

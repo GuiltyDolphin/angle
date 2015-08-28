@@ -48,14 +48,12 @@ module Angle.Parse.Builtins
 
 import Control.Monad
 import Control.Monad.State
-import Data.Maybe (fromJust)
 import System.Environment
 
 import Angle.Parse.Error
 import Angle.Parse.Scope
 import Angle.Parse.Types
 import Angle.Types.Lang
-import Angle.Lex.Lexer (litList, evalScan)
 
 
 emptyArgs :: ArgSig
@@ -147,13 +145,13 @@ asType :: LangLit -> LangLit -> ExecIO LangLit
 asType x y | typeOf x == typeOf y = return y
 asType (LitStr _) (LitList xs)
     | all isLitChar xs = return . LitStr $ map (\(LitChar x) -> x) xs
-    where isLitChar (LitChar x) = True
+    where isLitChar (LitChar _) = True
           isLitChar _ = False
 asType (LitStr _) x = return . toLitStr $ x
 asType (LitFloat _) (LitInt x) = return . LitFloat $ fromIntegral x
 asType (LitFloat _) (LitStr y) = fromStr y LitFloat
 asType (LitInt _) (LitStr y) = fromStr y LitInt
-asType (LitList _) x@(LitStr xs) = return . LitList $ map LitChar xs
+asType (LitList _) (LitStr xs) = return . LitList $ map LitChar xs
 asType (LitBool _) (LitStr y) =
     case y of
       "true"  -> return $ LitBool True
@@ -165,8 +163,8 @@ asType _ _ = return LitNull
 
 fromStr :: (Read a) => String -> (a -> LangLit) -> ExecIO LangLit
 fromStr s f = case reads s of
-              []       -> return LitNull
               [(r,"")] -> return $ f r
+              _        -> return LitNull
 
 
 builtinLength :: [LangLit] -> ExecIO LangLit
@@ -233,6 +231,8 @@ toLitStr x@(LitStr _) = x
 toLitStr (LitList xs) = LitStr (show xs)
 toLitStr x@(LitRange{}) = LitStr $ showSyn x
 toLitStr LitNull = LitStr ""
+toLitStr (LitChar x) = LitStr [x]
+toLitStr _ = error "toLitStr: cannot display type"
 
 
 builtinGetArgs :: [LangLit] -> ExecIO LangLit
@@ -243,26 +243,13 @@ fromEnumL :: LangLit -> Int
 fromEnumL (LitInt x) = fromEnum x
 fromEnumL (LitChar x) = fromEnum x
 fromEnumL (LitFloat x) = fromEnum x
-
-
-typClass cls typ = undefined
-
-
-
-builtinClass :: LangIdent -> Lambda -> (LangIdent, VarVal Lambda)
-builtinClass name body = (name, VarVal { varDef = Just body
-                                       , varBuiltin = True })
-
-
-builtinClasses :: [(String, LangLit)]
-builtinClasses = [ ("int", LitInt 1)
-                 , ("float", LitFloat 1)
-                 ]
+fromEnumL _ = error "fromEnumL: non-enumerable type"
 
 
 builtinClassBinds :: BindEnv Lambda
-builtinClassBinds = bindEnvFromList $ map toBuiltinClass builtinClasses
-    where toBuiltinClass (name, val) = builtinClass (LangIdent name) (typClass name val)
+builtinClassBinds = undefined
+-- builtinClassBinds = bindEnvFromList $ map toBuiltinClass builtinClasses
+--    where toBuiltinClass (name, val) = builtinClass (LangIdent name) (typClass name val)
 
 
 

@@ -242,6 +242,7 @@ execExpr x@(ExprRange{}) = do
   r <- execExprRange x
   checkLitRange r
   returnVal r
+execExpr _ = undefined
 
 
 execExprRange :: Expr -> ExecIO LangLit
@@ -253,6 +254,7 @@ execExprRange (ExprRange x Nothing (Just z))
     = liftM3 LitRange (execExpr x) (return Nothing) (liftM Just $ execExpr z)
 execExprRange (ExprRange x (Just y) (Just z))
     = liftM3 LitRange (execExpr x) (liftM Just $ execExpr y) (liftM Just $ execExpr z)
+execExprRange _ = error "excExprRange: passed non-range expression"
 
 
 execFunCall :: LangIdent -> [Expr] -> ExecIO LangLit

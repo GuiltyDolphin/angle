@@ -47,18 +47,6 @@ withPretty f pretty x sc = P.result { P.ok = Just b
     where b = f x sc
 
 
-
--- withShowRes :: (ShowSyn a, Eq a) => a -> Scanner a -> Result
--- withShowRes x sc = MkResult (Just $ showSynTest x sc) True "bleh!" [] []
-
-withFail :: (ShowSyn a) => a -> P.Result
-withFail x = P.failed { P.reason = showSyn x }
-
-
-checkFloatStr :: Double -> Bool
-checkFloatStr x = not $ 'e' `elem` (show x)
-
-
 escapedStr :: String -> String
 escapedStr xs = "\"" ++ xs ++ "\""
 
@@ -73,9 +61,10 @@ testLitStr x = "\"\\" `noneElem` x ==> litStrShow x litStr
 
 
 noneElem :: (Eq a) => [a] -> [a] -> Bool
-noneElem xs ys = and $ map (`notElem` ys) xs
+noneElem xs ys = all (`notElem` ys) xs
 
 
+litStrShow :: String -> Scanner LangLit -> P.Result
 litStrShow = withPretty f p
     where f x sc = evalScan (escapedStr x) sc == Right (LitStr x)
           p x sc = either (const "got an error!\n") showSyn (evalScan (escapedStr x) sc)
@@ -83,10 +72,6 @@ litStrShow = withPretty f p
 
 testLitInt :: Int -> Bool
 testLitInt x = evalScan (show x) litInt == Right (LitInt x)
-
-
-testLitNull :: Bool
-testLitNull = evalScan "()" litNull == Right LitNull
 
 
 testLitBool :: Bool
@@ -98,15 +83,6 @@ testLitBool = evalScan "true" litBool == Right (LitBool True)
 -- testRange x y z = evalScan toTest litRange == Right expected
 --     where toTest = concat ["(", showSyn x, "..", showSyn y, "..", showSyn z, ")"]
 --           expected = LitRange x y (Just z)
-
-
-testLangLitInt :: Int -> Bool
-testLangLitInt x = evalScan (show x) langLit
-                   ==  Right (LitInt x)
-
-
-testLangLitBool :: Bool
-testLangLitBool = evalScan "true" langLit == Right (LitBool True) && evalScan "false" langLit == Right (LitBool False)
 
 
 testEmptyCall :: Bool

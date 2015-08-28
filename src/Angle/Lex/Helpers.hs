@@ -31,9 +31,6 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Trans.Except
 
-
-import Data.Char (readLitChar)
-
 import Angle.Scanner
 
 
@@ -126,8 +123,8 @@ notScan sc = tryScan (do
 
 -- | Fail if any scanners built from `scf' succeed.
 noneFrom :: (Show a) => (a -> Scanner a) -> [a] -> Scanner ()
-noneFrom scf = notScan . oneFrom scf
-  where oneFrom scf xs = choice $ map scf xs
+noneFrom scf = notScan . oneFrom
+  where oneFrom xs = choice $ map scf xs
 
 -- | List of `sc' separated with `sep'.
 sepWith :: Scanner a -> Scanner b -> Scanner [b]

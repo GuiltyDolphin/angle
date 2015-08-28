@@ -22,7 +22,6 @@ module Angle.Lex.Lexer.Internal
 import Control.Applicative
 import Control.Monad.State
 import Data.Char (readLitChar)
-import Data.Maybe (isJust)
 
 import Angle.Lex.Helpers
 import Angle.Lex.Token
@@ -86,13 +85,11 @@ stmtAssign = StmtAssign
 
 
 stmtBreak :: Scanner SingStmt
-stmtBreak = do
-  n <- string "break" <|> string "continue"
-  case n of
-    "continue" -> return StmtBreak { breakValue=Nothing, breakContinue=True}
-    "break"    -> do
+stmtBreak = sBreak <|> sContinue
+  where sContinue = string "continue" >> return StmtBreak { breakValue=Nothing, breakContinue=True}
+        sBreak = string "break" >> (do
               retV <- optional (tryScan (tokNSpaced *> expr))
-              return StmtBreak { breakValue=retV, breakContinue=False}
+              return StmtBreak { breakValue=retV, breakContinue=False})
 
 
 stmtComment :: Scanner SingStmt
@@ -165,14 +162,6 @@ structUnless = do
   char ' ' <|> tokNewLine
   s <- stmt
   return $ StructIf (ExprOp (SpecOp OpNot e)) s Nothing
-
-
-structWhen :: Scanner LangStruct
-structWhen = do
-  e <- string "when " *> expr
-  char ' ' <|> tokNewLine
-  s <- stmt
-  return $ StructIf e s Nothing
 
 
 -- | Function definition.
@@ -261,8 +250,8 @@ litChar = liftM LitChar $ surrounded (char '\'')
                                        (do
                                          res <- withCharEscape True
                                          case readLitChar res of
-                                                []       -> unexpectedErr $ "not a valid character: " ++ res
-                                                [(r,"")] -> return r))
+                                                [(r,"")] -> return r
+                                                _        -> unexpectedErr $ "not a valid character: " ++ res))
 
 
 
@@ -472,8 +461,3 @@ argSigType = char '@' *> return AnnClass
              <|> char '$' *> return AnnFun
              <|> char '!'*> return AnnLit
              <|> return AnnAny
-
-
-lambdaTyp :: Scanner LambdaType
-lambdaTyp = (char '$' >> return FunLambda)
-            <|> (char '@' >> return ClassLambda)

@@ -4,23 +4,16 @@ module Angle.Parse.Interp
     ) where
 
 -- import System.IO
-import Control.Monad
 import Control.Monad.State
-import qualified Data.Map as M
 import System.Environment
-import System.IO
 import System.Exit
 
 import Angle.Lex.Lexer
 import Angle.Parse.Exec
-import Angle.Lex.Helpers (evalScan)
 import Angle.Scanner (ScanError)
-import Angle.Types.Lang
 import Angle.Parse.Error
 import Angle.Parse.Types
 import Angle.Types.Lang
-import Angle.Parse.Builtins
-import Angle.Parse.Scope
 
 
 stringToStmt :: String -> Either ScanError Stmt
@@ -28,7 +21,7 @@ stringToStmt s = evalScan s program
 
 
 runStmt :: String -> Stmt -> [String] -> IO (Either AngleError LangLit)
-runStmt source s args = do
+runStmt source s _ = do
   --let env' = initializeEnv args
   --    env = env' { sourceText=source }
   let env = basicEnv { sourceText = source }
@@ -69,6 +62,7 @@ argsToOpts :: [String] -> Options
 argsToOpts xs | "--show-rep" `elem` xs = (argsToOpts xs') { showRep = True }
               where xs' = filter (/="--show-rep") xs
 argsToOpts args@(f:_) = basicOptions { fileName = f, progArgs = args }
+argsToOpts _ = error "argsToOpts: invalid args"
 -- argsToOpts [f] = basicOptions { fileName = f }
 
 main :: IO ()

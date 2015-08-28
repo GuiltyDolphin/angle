@@ -35,10 +35,6 @@ import Numeric
 import Angle.Lex.Helpers
 
 
-tokStmtEnd :: Scanner Char
-tokStmtEnd        = char ';' <|> char '\n'
-                                    <?> "end of statement"
-
 tokListStart :: Scanner Char
 tokListStart      = char '['        <?> "start of list"
 
@@ -118,10 +114,6 @@ tokAssign         = surrounded spaces (char '=')
                                     <?> "assignment operator"
 
 
-tokRangeSep :: Scanner String
-tokRangeSep       = string ".."     <?> "range separator"
-
-
 tokNewLine :: Scanner Char
 tokNewLine        = char '\n'       <?> "newline"
 
@@ -169,16 +161,8 @@ ident = noneFrom (\x -> string x <* specEnd) keywords *> ((:) <$> tokIdentStartC
     where specEnd = notScan tokIdentBodyChar
 
 
-opChars :: String
-opChars = "*/+->=<|&^"
-
-
 tokOpChar :: Scanner Char
 tokOpChar = charFrom "*/+->=<|&^"
-
-
-sepChar :: String
-sepChar = "{()};, =" ++ opChars
 
 
 keywords :: [String]
@@ -335,4 +319,4 @@ ascii3codes = [ "NUL","SOH","STX","ETX","EOT","ENQ","ACK","BEL"
 codeToChar :: String -> Char
 codeToChar s = case readLitChar ('\\':s) of
                  [(r,"")] -> r
-                 []       -> error $ "codeToChar: not a valid code: " ++ s
+                 _       -> error $ "codeToChar: not a valid code: " ++ s

@@ -9,11 +9,7 @@ import Angle.Lex.Helpers
 import TestHelper
 
 
-newtype CharScan = CharScan {charScanChar :: Char}
-
-
-charScan :: Char -> Scanner Char
-charScan = char
+newtype CharScan = CharScan Char
 
 
 instance Arbitrary CharScan where
@@ -24,22 +20,8 @@ instance Show CharScan where
     show (CharScan c) = "charScan " ++ show c
 
 
-doesScan :: String -> Scanner a -> Bool
-doesScan s sc = case evalScan s sc of
-                   Right _ -> True
-                   Left _ -> False
-
-
-doesNotScan :: String -> Scanner a -> Bool
-doesNotScan s = not . doesScan s
-
-
 testChar :: Char -> Bool
 testChar x = evalScan [x] (char x) == Right x
-
-
-testCharFrom :: Char -> String -> Property
-testCharFrom c s = c `elem` s ==> evalScan [c] (charFrom s) == Right c
 
 
 testString :: String -> Bool
@@ -66,11 +48,6 @@ testAnyCharEmpty = case evalScan "" anyChar of
 
 testAnyChar :: Char -> Bool
 testAnyChar c = evalScan [c] anyChar == Right c
-
-
-testNotScan :: (Show a) => String -> Scanner a -> Bool
-testNotScan s sc = if doesScan s sc then doesNotScan s (notScan sc)
-                   else doesScan s (notScan sc)
 
 
 testCond :: Fun Char Bool -> Char -> Property
