@@ -15,6 +15,7 @@ module TestHelper
     , maxSized
     , runExecIOBasic
     , runExec
+    , runEx
     ) where
 
 
@@ -37,6 +38,8 @@ import Angle.Parse.Error
 import Angle.Parse.Types.Internal
 import Angle.Scanner (SourcePos(..))
 import Angle.Types.Lang
+import Angle.Lex.Lexer (program)
+import Angle.Parse.Exec (execStmt)
 
 
 instance Arbitrary LangLit where
@@ -326,6 +329,10 @@ runExec e = do
   case x of
     Left _ -> fail "runExec failed"
     Right r -> return r
+
+
+runEx :: String -> PropertyM IO LangLit
+runEx s = let (Right r) = evalScan s program in run $ runExec $ execStmt r
 
 -- monadicExec :: PropertyM ExecIO a -> PropertyM ExecIO (IO (Either AngleError a))
 -- monadicExec e = do

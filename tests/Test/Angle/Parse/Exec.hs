@@ -2,14 +2,12 @@ module Test.Angle.Parse.Exec
     ( tests
     ) where
 
+import Data.List (foldl')
+
 import TestHelper
 
-import Angle.Parse.Exec
 import Angle.Types.Lang
 import Angle.Lex.Lexer.Internal
-
-
-basicAddition = ("(+ 1 2 3)", LitInt 6)
 
 
 --filterFun = evalScan
@@ -21,83 +19,93 @@ basicAddition = ("(+ 1 2 3)", LitInt 6)
 --  , "}" ] structDefun
 
 
-setupAddF = concat [defIsInt, defAddInts]
-
-defIsInt = defun "isInt" "x" "return (== x asType(0, x))"
-
-
-defAddInts = defun "addInts" "x:@isInt, y:@isInt" "(+ x y)"
+appending :: [a] -> [[a]] -> [a]
+appending x = concatMap (++x)
 
 
+setupAddF :: String
+setupAddF = appending "\n" [defIsInt, defAddInts]
+
+
+defIsInt :: String
+defIsInt = defun "isInt" "x" "return (== x asType(0, x));"
+
+defAddInts :: String
+defAddInts = defun "addInts" "x:@isInt, y:@isInt" "(+ x y);"
+
+
+defun :: String -> String -> String -> String
 defun n a b = concat ["defun ", n, "(", a, ") ", b]
-
-multS b = concat ["{\n", b, "\n}"]
-
-for e es b = concat ["for ", e, " in ", es, " do ", b]
-
-ifS c b els = concat ["if ", c, " then ", b]
-              ++ maybe "" ("else "++) els
-
-defFilterFun = defun "filter" "$f, xs"
-  (multS $ concat [ "res = [];"
-                  , for "elt" "xs" "if f(elt) then res = (+ res elt);"
-                  ])
-
-defLess = defun "less" "x, y" "(< x y)"
-
-callFun f a = concat [f, "(", a, ");"]
-
-
---runEx :: String -> PropertyM IO LangLit
-runEx s = let (Right r) = evalScan s program in run $ runExec $ execStmt r
 
 
 checkRes :: String -> (LangLit -> Bool) -> Property
 checkRes s r = monadicIO $ runEx s >>= (assertQC . r)
 
+
+checkFail :: String -> Property
 checkFail s = expectFailure $ monadicIO $ runEx s
 
 
 checkResEq :: String -> LangLit -> Property
-checkResEq s x = monadicIO $ runEx s >>= assertEqualQC x
+checkResEq s x = checkRes s (==x)
 
-fromLInts = map getLitInt
 
 testLess :: Int -> Int -> Property
 testLess = binTest LitBool (<) "<"
 
 
-testAdd :: Int -> Int -> Property
-testAdd = binTest LitInt (+) "+"
+testAdd :: NonEmptyList Int -> Property
+testAdd (NonEmpty xs) = opTest LitInt sum "+" xs
+
+
+testMult :: NonEmptyList Int -> Property
+testMult (NonEmpty xs) = opTest LitInt (foldl' (*) 1) "*" xs
+
+testNot :: Bool -> Property
+testNot = opTestUnary LitBool not "^"
 
 
 -- | Helper function for testing binary operators
-binTest :: (Show b, Show c) => (a -> LangLit) -> (b -> c -> a) -> String -> b -> c -> Property
+binTest ::
+  (Show b) =>
+  (a -> LangLit)
+  -> (b -> b -> a)
+  -> String -> b -> b
+  -> Property
 binTest t f op x y = checkResEq st (t $ f x y)
-  where st = sToOp op x y
+  where st = opStr op [x, y]
 
 
--- | Produce the neccessary padding to produce an operator string
-sToOp :: (Show a, Show b) => String -> a -> b -> String
-sToOp op x y = concat ["(", op, " ", show x, " ", show y, ");"]
+opStr :: (Show a) => String -> [a] -> String
+opStr op xs = concat ["(", op, " ", appending " " (init xs'), last xs', ");"]
+  where xs' = map show xs
 
---testFilterLess :: Int -> [Int] -> Bool
---testFilterLess x xs = res == filter (<x) xs
---  where res = fromLInts $ runE $ concat [defFilterFun, callFun "filter", k
 
-isLeft (Left _) = True
-isLeft _ = False
+opTest ::
+  (Show b) =>
+  (a -> LangLit)
+  -> ([b] -> a)
+  -> String -> [b]
+  -> Property
+opTest t f op xs = checkResEq st (t $ f xs)
+  where st = opStr op xs
 
-checkResWith s = checkRes
 
-callShow f xs = concat [ f
-                       , "("
+opTestUnary :: (a -> LangLit) -> (a -> a) -> String -> a -> Property
+opTestUnary t f op x = checkResEq st (t $ f x)
+  where st = concat [op, showSyn $ t x, ";"]
+
+
+callShow :: (Show a) => String -> [a] -> String
+callShow f xs = concat [ f, "("
                        , concatMap ((++", ") . show) (init xs)
                        , show (last xs)
                        , ");"
                        ]
-callShowSyn f xs = concat [ f
-                          , "("
+
+
+callShowSyn :: (ShowSyn a) => String -> [a] -> String
+callShowSyn f xs = concat [ f, "("
                           , concatMap ((++", ") . showSyn) (init xs)
                           , showSyn (last xs)
                           , ");"
@@ -111,12 +119,15 @@ testClassAdd x y = checkFail toRun
   where toRun = setupAddF ++ callShowSyn "addInts" [x, y]
 
 
+tests :: [TestTree]
 tests = [ testGroup "filter tests"
           [ --testProperty "filterLess" testFilterLess
           ]
         , testGroup "basic operators"
           [ testProperty "less" testLess
           , testProperty "add" testAdd
+          , testProperty "mult" testMult
+          , testProperty "not" testNot
           ]
         , testGroup "classes"
           [ testProperty "isAdd" testClassAdd
