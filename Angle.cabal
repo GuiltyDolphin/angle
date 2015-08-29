@@ -72,6 +72,7 @@ test-suite angle-testsuite
                      , TestHelper
                      , Test.Angle.Parse.Scope
                      , Test.Angle.Parse.Operations
+                     , Test.Angle.Parse.Exec
   build-depends:       HUnit >= 1.2.5.2
                      , HUnit >= 1.2.5.2
                      , QuickCheck >= 2.7.6

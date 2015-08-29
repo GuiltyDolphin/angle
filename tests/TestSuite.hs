@@ -8,6 +8,7 @@ import qualified Test.Angle.Lex.Lexer as Lexer
 import qualified Test.Angle.Lex.Token as Token
 import qualified Test.Angle.Parse.Operations as Operations
 import qualified Test.Angle.Parse.Scope as Scope
+import qualified Test.Angle.Parse.Exec as Exec
 
 
 main :: IO ()
@@ -28,4 +29,5 @@ allTests = localOption (Timeout (toMicroSeconds 3) "") $
            , localOption (QuickCheckMaxSize 10) $
              testGroup "scope tests" Scope.tests
            , testGroup "token tests" Token.tests
+           , testGroup "exec tests" Exec.tests
            ]

@@ -57,10 +57,6 @@ lookupVarF binds err name = lookupVar binds name
                             return
 
 
-lookupClassF :: LangIdent -> ExecIO Lambda
-lookupClassF = lookupVarF classBindings nameNotDefinedClassErr
-
-
 getScope :: ExecIO Scope
 getScope = liftM currentScope get
 
@@ -96,10 +92,6 @@ lookupVarCurrentScope binds name = do
 
 assignVarLambda :: LangIdent -> Lambda -> ExecIO ()
 assignVarLambda = assignVar lambdaBindings setVarFunInScope
-
-
-assignVarClass :: LangIdent -> Lambda -> ExecIO ()
-assignVarClass = assignVar classBindings setVarClassInScope
 
 
 assignVar
@@ -143,20 +135,16 @@ bindArgs args (ArgSig
                    return [(cp, LitList res)]
   vals <- mapM (uncurry checkArg) toCheck
   let toBindFuns = map fst $ filter (isAnnFun . snd)  vals
-      toBindClass = map fst $ filter (isAnnClass . snd) vals
       toBindLits = map fst $ filter (isAnnLit . snd) vals
       toBindAny = map fst (filter (isAnnAny . snd) vals) ++ catchBind
       isAnnFun AnnFun = True
       isAnnFun _ = False
       isAnnLit AnnLit = True
       isAnnLit _ = False
-      isAnnClass AnnClass = True
-      isAnnClass _ = False
       isAnnAny AnnAny = True
       isAnnAny _ = False
   newScope
   forM_ toBindFuns (\(x, LitLambda l) -> assignVarLambda x l)
-  forM_ toBindClass (\(x, LitLambda l) -> assignVarClass x l)
   forM_ toBindLits (uncurry assignVarLit)
   forM_ toBindAny (uncurry assignVarLit)
   return ()
@@ -182,7 +170,7 @@ checkSatClass v (Just clsName) = do
 
 execClass :: LangLit -> LangIdent -> ExecIO LangLit
 execClass val clsName = do
-  cls <- lookupClassF clsName
+  cls <- lookupVarLambdaF clsName
   res <- callLambda cls [ExprLit val]
   case res of
     x@(LitBool _) -> return x
@@ -194,7 +182,6 @@ execClass val clsName = do
 satType :: LangLit -> AnnType -> Bool
 satType _ AnnAny = True
 satType (LitLambda _) AnnFun = True
-satType (LitLambda _) AnnClass = True -- TODO: Check this!
 satType (LitLambda _) AnnLit = False
 satType _ AnnLit = True
 satType _ _ = False
@@ -358,8 +345,6 @@ execLangStruct (StructIf if' thn els)
     = execStructIf if' thn els
 execLangStruct (StructDefun name cs)
     = assignVarLambda name cs *> return LitNull
-execLangStruct (StructDefClass name cs)
-    = assignVarClass name cs *> return LitNull
 
 
 execStructIf :: Expr -> Stmt -> Maybe Stmt -> ExecIO LangLit

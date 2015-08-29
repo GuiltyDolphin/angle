@@ -1,13 +1,13 @@
 {-|
 Module      : Angle.Parse.Builtins
-Description : Builtin language functions, classes and variables.
+Description : Builtin language functions and variables.
 Copyright   : (c) Ben Moon, 2015
 License     : GPL-3
 Maintainer  : guiltydolphin@gmail.com
 Stability   : experimental
 Portability : POSIX
 
-This module defines and exports classes, functions and variables that can be used in Angle.
+This module defines and exports functions and variables that can be used in Angle.
 
 Minutae:
 
@@ -90,7 +90,6 @@ startEnv :: Env
 startEnv = basicEnv
            { currentScope = emptyScope
                             { lambdaBindings = builtinsVars
-                            , classBindings = builtinClassBinds
                             } }
 
 
@@ -244,12 +243,6 @@ fromEnumL (LitInt x) = fromEnum x
 fromEnumL (LitChar x) = fromEnum x
 fromEnumL (LitFloat x) = fromEnum x
 fromEnumL _ = error "fromEnumL: non-enumerable type"
-
-
-builtinClassBinds :: BindEnv Lambda
-builtinClassBinds = undefined
--- builtinClassBinds = bindEnvFromList $ map toBuiltinClass builtinClasses
---    where toBuiltinClass (name, val) = builtinClass (LangIdent name) (typClass name val)
 
 
 

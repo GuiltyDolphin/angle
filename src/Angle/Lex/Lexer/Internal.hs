@@ -119,7 +119,6 @@ langStruct =     structFor
              <|> structIf
              <|> structUnless
              <|> structDefun
-             <|> structDefClass
              <?> "language construct"
 
 
@@ -429,17 +428,9 @@ classRef :: Scanner ClassRef
 classRef = liftM ClassRef $ char '@' >> langIdent
 
 
-structDefClass :: Scanner LangStruct
-structDefClass = do
-  string "defclass "
-  name <- langIdent
-  arg <- callList
-  body <- stmt
-  return $ StructDefClass name (Lambda arg body)
-
-
 classRefArgSig :: Scanner ClassRef
 classRefArgSig = tryScan (char ':' >> classRef)
+
 
 callList :: Scanner ArgSig
 callList = parens $ do
@@ -457,7 +448,6 @@ argElt = do
 
 
 argSigType :: Scanner AnnType
-argSigType = char '@' *> return AnnClass
-             <|> char '$' *> return AnnFun
+argSigType = char '$' *> return AnnFun
              <|> char '!'*> return AnnLit
              <|> return AnnAny

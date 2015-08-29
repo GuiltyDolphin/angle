@@ -20,11 +20,9 @@ module Angle.Types.Lang
     , SourceRef(..)
     , startRef
     , ClassRef(..)
-    , LangClass(..)
     , AnnType(..)
     , ArgElt(..)
     , Lambda(..)
-    , LambdaType(..)
     , typeAnnOf
     , isNull
     , enumType
@@ -118,7 +116,6 @@ data LangStruct = StructFor LangIdent Expr Stmt
                 | StructWhile Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)
                 | StructDefun LangIdent Lambda
-                | StructDefClass LangIdent Lambda
                   deriving (Show, Eq)
 
 
@@ -137,8 +134,6 @@ instance ShowSyn LangStruct where
             Just x  -> " else " ++ showSyn x
     showSyn (StructDefun n c)
         = concat ["defun ", showSyn n, showLambdaFun c]
-    showSyn (StructDefClass n c)
-        = concat ["defclass ", showSyn n, showLambdaFun c]
 
 
 showSynSep :: ShowSyn a => String -> String -> String -> [a] -> String
@@ -156,7 +151,6 @@ showSynOpList = showSynSep " " ")" " "
 
 data Lambda = Lambda { lambdaArgs :: ArgSig
                      , lambdaBody :: Stmt
-                     -- , lambdaType :: LambdaType
                      } deriving (Show, Eq)
 
 
@@ -185,15 +179,11 @@ instance ShowSyn ArgElt where
                     , argEltClass=cls })
         = case typ of
             AnnFun   -> "$"
-            AnnClass -> "@"
             AnnLit   -> "!"
             AnnAny   -> ""
           ++ showSyn name ++ case cls of
                                Just c  -> ':' : showSyn c
                                Nothing -> ""
-
-
-data LangClass = LangClass LangIdent Lambda
 
 
 newtype ClassRef = ClassRef { getClassRef :: LangIdent }
@@ -204,12 +194,11 @@ instance ShowSyn ClassRef where
     showSyn (ClassRef {getClassRef = name}) = '@' : showSyn name
 
 
-data AnnType = AnnClass | AnnFun | AnnLit | AnnAny
+data AnnType = AnnFun | AnnLit | AnnAny
                deriving (Eq)
 
 
 instance Show AnnType where
-    show AnnClass = "class"
     show AnnFun = "function"
     show AnnLit = "literal"
     show AnnAny = "any"
@@ -228,18 +217,12 @@ data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
                        -- that fails to return a value
                        -- explicitly.
              | LitLambda { getLitLambda :: Lambda } -- ^ A function without a name.
-             | LitClassLambda { getLitClassLambda :: Lambda }
              | LitKeyword { getLitKeyword :: LangIdent }
                deriving (Show, Eq)
 
 
-data LambdaType = FunLambda | ClassLambda
-                  deriving (Show, Eq)
-
-
 instance ShowSyn LangLit where
     showSyn (LitStr x) = show x
-    showSyn (LitClassLambda l) = showSyn l
     showSyn (LitChar x) = show x
     showSyn (LitInt x) = show x
     showSyn (LitFloat x) = showFFloat Nothing x ""
@@ -270,7 +253,6 @@ data LangType = LTStr
               | LTNull
               | LTKeyword
               | LTLambda
-              | LTClass
                 deriving (Eq)
 
 
@@ -285,13 +267,11 @@ typeOf (LitRange{})  = LTRange
 typeOf LitNull       = LTNull
 typeOf (LitLambda{}) = LTLambda
 typeOf (LitKeyword _) = LTKeyword
-typeOf (LitClassLambda{}) = LTClass
 
 
 -- TODO: Check this - can't identify classes
 typeAnnOf :: LangLit -> AnnType
 typeAnnOf (LitLambda{}) = AnnFun
-typeAnnOf (LitClassLambda{}) = AnnClass
 typeAnnOf _ = AnnLit
 
 
@@ -306,7 +286,6 @@ instance Show LangType where
     show LTLambda = "function"
     show LTKeyword = "keyword"
     show LTChar = "char"
-    show LTClass = "class"
 
 
 data Expr = ExprIdent LangIdent

@@ -12,7 +12,6 @@ module Angle.Parse.Scope
     , mergeScope
     , setVarFunInScope
     , setVarLitInScope
-    , setVarClassInScope
     , deleteLitFromScope
     , resolveLit
     ) where
@@ -76,7 +75,6 @@ data Scope = Scope
 --    , bindings   :: BindEnv
     , valueBindings :: BindEnv LangLit
     , lambdaBindings :: BindEnv Lambda
-    , classBindings :: BindEnv Lambda -- ClassLambda
     } deriving (Show, Eq)
 
 
@@ -154,7 +152,6 @@ emptyScope = Scope {
                outerScope = Nothing
              , valueBindings = emptyBindEnv
              , lambdaBindings = emptyBindEnv
-             , classBindings = emptyBindEnv
              }
 
 
@@ -170,11 +167,6 @@ onFunBindings
 onFunBindings f scope = scope { lambdaBindings = f $ lambdaBindings scope }
 
 
-onClassBindings
-  :: (BindEnv Lambda -> BindEnv Lambda) -> Scope -> Scope
-onClassBindings f scope = scope { classBindings = f $ classBindings scope }
-
-
 insertVar :: LangIdent -> VarVal a -> BindEnv a -> BindEnv a
 insertVar = insertBind
 
@@ -187,10 +179,6 @@ setVarFunInScope :: LangIdent -> VarVal Lambda -> Scope -> Scope
 setVarFunInScope name val = onFunBindings (insertVar name val)
 
 
-setVarClassInScope :: LangIdent -> VarVal Lambda -> Scope -> Scope
-setVarClassInScope name val = onClassBindings (insertVar name val)
-
-
 
 -- | Merge the binding values of the scopes,
 -- favouring the first when a definition exists
@@ -200,10 +188,8 @@ mergeScope :: Scope -> Scope -> Scope
 mergeScope sc1 sc2
     = let nLits = mergeBinds `on` valueBindings
           nFuns = mergeBinds `on` lambdaBindings
-          nClss = mergeBinds `on` classBindings
       in sc1 { valueBindings = nLits sc1 sc2
              , lambdaBindings = nFuns sc1 sc2
-             , classBindings = nClss sc1 sc2
              }
 
 

@@ -156,17 +156,10 @@ instance Arbitrary ClassRef where
 
 
 instance Arbitrary AnnType where
-    arbitrary = elements [AnnFun, AnnClass, AnnLit]
-    shrink AnnFun = [AnnClass, AnnLit]
-    shrink AnnClass = [AnnFun, AnnLit]
-    shrink AnnLit = [AnnFun, AnnClass]
+    arbitrary = elements [AnnFun, AnnLit]
+    shrink AnnFun = [AnnLit]
+    shrink AnnLit = [AnnFun]
     shrink _ = undefined
-
-
-instance Arbitrary LambdaType where
-    arbitrary = elements [FunLambda, ClassLambda]
-    shrink FunLambda = [ClassLambda]
-    shrink ClassLambda = [FunLambda]
 
 
 instance Arbitrary Stmt where
@@ -315,8 +308,8 @@ instance (Arbitrary a) => Arbitrary (VarVal a) where
 
 
 instance Arbitrary Scope where
-    arbitrary = liftArby4 Scope
-    shrink (Scope w x y z) = shrink4 Scope w x y z
+    arbitrary = liftArby3 Scope
+    shrink (Scope w x y) = shrink3 Scope w x y
 
 
 -- Extracts a property from monadic Either code, giving
@@ -331,7 +324,7 @@ runExec :: ExecIO a -> IO a
 runExec e = do
   x <- runExecIOBasic e
   case x of
-    Left _ -> fail "meh"
+    Left _ -> fail "runExec failed"
     Right r -> return r
 
 -- monadicExec :: PropertyM ExecIO a -> PropertyM ExecIO (IO (Either AngleError a))
