@@ -5,11 +5,11 @@ name:                angle
 version:             0.1.0.0
 -- synopsis:
 -- description:
--- license:
+license:             GPL3
 license-file:        LICENSE
 author:              Ben Moon
 maintainer:          guiltydolphin@gmail.com
--- copyright:
+copyright:           Ben Moon 2015
 -- category:
 build-type:          Simple
 -- extra-source-files:
