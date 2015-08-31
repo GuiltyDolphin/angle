@@ -1,4 +1,16 @@
 {-# LANGUAGE RankNTypes #-}
+{-|
+Module      : Angle.Parse.Operations
+Description : Definitions for builtin operators.
+Copyright   : Copyright (C) 2015 Ben Moon
+License     : GNU GPL, version 3
+Maintainer  : GuiltyDolphin@gmail.com
+Stability   : alpha
+
+Angle provides many builtin logical and arithmetical operators,
+of which many are overloaded to work on multiple types. Definitions
+for these operators can be found in this module.
+-}
 module Angle.Parse.Operations
     ( addLit
     , andLit
