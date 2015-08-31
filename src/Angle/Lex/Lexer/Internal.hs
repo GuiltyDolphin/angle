@@ -319,7 +319,7 @@ lambda = do
 
 -- | Set of arguments for a function
 arglist :: Scanner [Expr]
-arglist = within tokTupleStart tokTupleEnd (sepWith tokEltSep (expr <|> exprParamExpand))
+arglist = within tokParenL tokParenR (sepWith tokEltSep (expr <|> exprParamExpand))
 
 
 exprParamExpand :: Scanner Expr
@@ -424,12 +424,12 @@ multOp sc = MultiOp
 --   foo($((x) (+ x 1))) -> lambda: $((x) (+ x 1)) passed as arg.
 
 
-classRef :: Scanner ClassRef
-classRef = liftM ClassRef $ char '@' >> langIdent
+constrRef :: Scanner ConstrRef
+constrRef = liftM ConstrRef $ char '@' >> langIdent
 
 
-classRefArgSig :: Scanner ClassRef
-classRefArgSig = tryScan (char ':' >> classRef)
+constrRefArgSig :: Scanner ConstrRef
+constrRefArgSig = tryScan (char ':' >> constrRef)
 
 
 callList :: Scanner ArgSig
@@ -443,7 +443,7 @@ argElt :: Scanner ArgElt
 argElt = do
   typ <- argSigType
   name <- identName
-  cls <- optional classRefArgSig
+  cls <- optional constrRefArgSig
   return $ ArgElt typ name cls
 
 

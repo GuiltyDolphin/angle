@@ -1,29 +1,46 @@
+{-|
+Module      : Angle.Lex.Token
+Description : Definitons for language tokens.
+Copyright   : Copyright (C) 2015 Ben Moon
+License     : GNU GPL, version 3
+Maintainer  : GuiltyDolphin@gmail.com
+Stability   : alpha
+
+TODO
+-}
 module Angle.Lex.Token
     ( tokParenL
     , tokParenR
-    , tokMultiStmtStart
-    , tokMultiStmtEnd
     , tokEltSep
-    , tokTupleStart
-    , tokTupleEnd
-    , tokAssign
+
+    -- ** Whitespace
+    , tokNewLine
+    , tokNSpaced
     , tokSpace
+    , tokWhitespace
+    , whitespace
+
+    -- *** Strings
     , stringNorm
     , stringBS
-    , tokWhitespace
-    , tokNSpaced
     , tokString
-    , tokNewLine
-    , tokEOF
+    , withCharEscape
+
+    -- ** Statements
+    , tokAssign
     , tokStmtBetween
-    , tokList
+    , tokMultiStmtEnd
+    , tokMultiStmtStart
+
+    -- ** Literals
     , tokFloat
     , tokInt
+    , tokList
+
+    , tokEOF
     , ident
     , parens
-    , whitespace
     , tokOpChar
-    , withCharEscape
     ) where
 
 
@@ -90,14 +107,6 @@ tokStringBodyChar = notChar '"'     <?> "string body"
 
 tokDenaryDigit :: Scanner Char
 tokDenaryDigit    = cond isDigit    <?> "denary digit"
-
-
-tokTupleStart :: Scanner Char
-tokTupleStart     = tokParenL       <?> "start of tuple"
-
-
-tokTupleEnd :: Scanner Char
-tokTupleEnd       = tokParenR       <?> "end of tuple"
 
 
 tokSpace :: Scanner Char
