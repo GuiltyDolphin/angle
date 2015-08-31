@@ -111,9 +111,9 @@ iterToLit = liftM LitList . fromIter
 
 
 iterFromThenTo :: LangLit -> LangLit -> LangLit -> ExecIO [LangLit]
-iterFromThenTo (LitInt x) (LitInt y) (LitInt z) = return $ map LitInt $ enumFromThenTo x z y
-iterFromThenTo (LitFloat x) (LitFloat y) (LitFloat z) = return $ map LitFloat $ enumFromThenTo x z y
-iterFromThenTo (LitChar x) (LitChar y) (LitChar z) = return $ map LitChar $ enumFromThenTo x z y
+iterFromThenTo (LitInt x) (LitInt y) (LitInt z) = return $ map LitInt $ enumFromThenTo x (succ z) y
+iterFromThenTo (LitFloat x) (LitFloat y) (LitFloat z) = return $ map LitFloat $ enumFromThenTo x (succ z) y
+iterFromThenTo (LitChar x) (LitChar y) (LitChar z) = return $ map LitChar $ enumFromThenTo x (succ z) y
 iterFromThenTo _ _ _ = throwImplementationErr "iterFromThenTo: define failure"
 
 iterFrom :: LangLit -> ExecIO [LangLit]
