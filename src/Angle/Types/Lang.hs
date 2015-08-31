@@ -4,54 +4,128 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverlappingInstances #-}
+{-|
+Module      : Angle.Types.Lang
+Description : Basic types that make up the Angle language.
+Copyright   : ben 2015
+License     :
+Maintainer  : GuiltyDolphin@gmail.com
+Stability   : experimental
+Portability :
+
+* LangLit is a container for the various literal values.
+* LangType represents the types of these values.
+* LangIdent represents names (identifiers).
+
+* Stmt wraps SingStmts.
+* SingStmt represents the statements in Angle.
+
+
+= Statements in Angle
+In Angle, statements are split into two main types (see 'Stmt'),
+singular statements and multi-statements.
+
+Singular statements are represented by 'SingStmt' and are what the
+programmer uses to achieve tasks; multi-statements are multiple
+singular statements grouped together such that the effective value
+of the statements is the same as the last statement in the group.
+
+
+== Singular statements
+Statements are separated by semi-colons and allow the programmer to
+perform actions.
+
+[@assignment@] this allows the programmer to give a name to values and
+functions, so that he may refer to them later on in the code.
+
+[@comments@] comments have no functional value, but serve as a means
+to document or explain parts of code.
+
+[@structures@] see "Angle.Types.Lang#structures"
+
+[@expressions@] see "Angle.Types.Lang#expressions"
+
+[@return@] allows the programmer to exit a function early and use
+the provided value as the function's value.
+
+[@break and continue@] for use during loops: break exits the loop
+immediately, whereas continue starts the next iteration of the loop,
+skipping the rest of the loop body.
+
+
+== Language structures #structures#
+In Angle, there exist language structures for performing certain tasks.
+
+[@for loops@ : 'StructFor'] a looping structure that iterates over the elements
+of an enumerable type and allows each to be used within the body
+individually.
+
+[@while loops@ : 'StructWhile'] executes the body while some condition holds.
+
+[@if statement@ : 'StructIf'] categorized as a structure for
+convenience, consists of three parts: a condition, a body of code
+that will execute if the condition holds, and an optional body that
+will execute if the condition does not hold.
+
+[@function definitions@ : 'StructDefun'] allows the assignment of previously
+non-existant lambda bodies to a name.
+
+
+= Expressions #expressions#
+
+-}
 module Angle.Types.Lang
-    ( Stmt(..)
-    , SingStmt(..)
-    , Expr(..)
+    ( Expr(..)
     , LangOp(..)
     , Op(..)
-    , LangStruct(..)
+
+    -- * Fundamental types
     , LangLit(..)
+    , isNull
     , LangIdent(..)
+
+    -- * Advanced types
+    , Stmt(..)
+    , SingStmt(..)
+    , LangStruct(..)
+
+    -- ** Angle types
     , LangType(..)
     , typeOf
+
     , ArgSig(..)
     , ShowSyn(..)
     , SourceRef(..)
     , startRef
-    , ClassRef(..)
+    , ConstrRef(..)
     , AnnType(..)
+    , typeAnnOf
     , ArgElt(..)
     , Lambda(..)
-    , typeAnnOf
-    , isNull
     , enumType
     , allType
     ) where
 
-
--- TODO:
--- - AnnType
---   - Add AnnAny - a type that allows any
---     type to be passed (as in, function, literal etc..)
 import Numeric (showFFloat)
 
 import Angle.Scanner (SourcePos, beginningOfFile)
 
 
--- | Most general construct in the language.
+-- | Wraps statements to allow for positional tracking as well
+-- as multiple statements grouped together.
 data Stmt =
     SingleStmt
     { stmtSingStmt :: SingStmt
     , stmtSourcePos :: SourceRef
     } -- ^ Any language construct that
       --   performs some action or evaluation.
-          | MultiStmt [Stmt] -- ^ Many statements, allowing
-                             --   a series of statements to be
-                             --   executed one after another,
-                             --   discarding intermediate
-                             --   results.
-            deriving (Show)
+    | MultiStmt [Stmt]
+      -- ^ Many statements, allowing
+      --   a series of statements to be
+      --   executed one after another,
+      --   discarding intermediate
+      --   results.
+    deriving (Show)
 
 
 -- | Statements are equal if their contents are equal,
@@ -62,9 +136,10 @@ instance Eq Stmt where
     _ == _ = False
 
 
--- | Positional reference to some section of source code.
-newtype SourceRef = SourceRef { getSourceRef :: (SourcePos, SourcePos) }
-    deriving (Show, Eq)
+-- | Positional reference to a section of source code.
+newtype SourceRef = SourceRef
+    { getSourceRef :: (SourcePos, SourcePos)
+    } deriving (Show, Eq)
 
 
 -- | The initial `SourceRef' - starting and ending at
@@ -149,6 +224,12 @@ showSynOpList :: (ShowSyn a) => [a] -> String
 showSynOpList = showSynSep " " ")" " "
 
 
+-- | Lambdas consist of two parts: the parameter list and the body.
+--
+-- The parameter list describes the possible forms with which the
+-- lambda can be invoked.
+--
+-- The body is the code that is executed upon successful invokation.
 data Lambda = Lambda { lambdaArgs :: ArgSig
                      , lambdaBody :: Stmt
                      } deriving (Show, Eq)
@@ -166,34 +247,61 @@ data ArgSig = ArgSig { stdArgs :: [ArgElt] -- ^ Standard positional arguments.
                      } deriving (Show, Eq)
 
 
+-- | A single element of a parameter list, allows enforcing of
+-- correct annotation types and parameter constraints.
 data ArgElt = ArgElt
     { argEltType :: AnnType
     , argEltName :: LangIdent
-    , argEltClass :: Maybe ClassRef
+    , argEltConstr :: Maybe ConstrRef
     } deriving (Show, Eq)
 
 
 instance ShowSyn ArgElt where
     showSyn (ArgElt {argEltType=typ
                     , argEltName=name
-                    , argEltClass=cls })
+                    , argEltConstr=constr })
         = case typ of
             AnnFun   -> "$"
             AnnLit   -> "!"
             AnnAny   -> ""
-          ++ showSyn name ++ case cls of
+          ++ showSyn name ++ case constr of
                                Just c  -> ':' : showSyn c
                                Nothing -> ""
 
 
-newtype ClassRef = ClassRef { getClassRef :: LangIdent }
+-- | Name referencing a function to be used as a parameter constraint.
+--
+-- Parameter-constraints perform run-time checks on arguments
+-- passed to a function.
+--
+-- For example, if a function of the form @foo(x:\@largeInt)@
+-- is called with some value @y@, the value of @y@ will be
+-- evaluated and then passed to the function @largeInt@.
+-- @largeInt@ should then return a boolean value stating whether
+-- the value passed satisfies it's criteria. Failure to return
+-- a boolean value will result in a fatal error.
+-- If @largeInt@ returns @true@, then the function proceeds as normal,
+-- otherwise an error is thrown.
+--
+-- Functions to be used as parameter-constraints must satisfy the following:
+--
+-- * Must be able to take 1 value on its own.
+--
+-- * Must return a true or false value when used as a constraint.
+newtype ConstrRef = ConstrRef { getConstrRef :: LangIdent }
     deriving (Show, Eq)
 
 
-instance ShowSyn ClassRef where
-    showSyn (ClassRef {getClassRef = name}) = '@' : showSyn name
+instance ShowSyn ConstrRef where
+    showSyn (ConstrRef {getConstrRef = name}) = '@' : showSyn name
 
 
+-- | Possible parameter restrictions provided in definition annotation.
+--
+-- As an example, in the function @foo(x)@, there
+-- is no restriction on what @x@ is passed. However, in the
+-- function @bar($x)@, @x@ must be a function if passed to @bar@,
+-- if it is anything else an error will occur.
 data AnnType = AnnFun | AnnLit | AnnAny
                deriving (Eq)
 
@@ -204,15 +312,23 @@ instance Show AnnType where
     show AnnAny = "any"
 
 
--- | Language literal values.
+-- | Represents the basic types that can be used in Angle.
+--
+-- The reason for the types being contained within one datatype
+-- is to allow untyped expressions to exist in Angle, including
+-- multi-type lists.
+--
+-- See 'ConstrRef' for a means of providing run-time parameter
+-- constraints in Angle.
 data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
              | LitInt { getLitInt :: Int } -- ^ Integers, support at least the range -2^29 to 2^29-1.
              | LitFloat { getLitFloat :: Double } -- ^ Double-precision floating point value.
              | LitList { getLitList :: [LangLit] } -- ^ List of literal values. Values may be of different types.
              | LitBool { getLitBool :: Bool } -- ^ Boolean value.
-             | LitChar { getLitChar :: Char }
+             | LitChar { getLitChar :: Char } -- ^ Character literals, these cannot be specified by the programmer and are used internally
+                                             -- by Angle.
              | LitRange LangLit (Maybe LangLit) (Maybe LangLit)
-             | LitNull -- ^ Null value. Implicit value
+             | LitNull -- ^ Implicit value
                        -- returned from any expression
                        -- that fails to return a value
                        -- explicitly.
@@ -243,6 +359,11 @@ instance ShowSyn LangLit where
     showSyn (LitKeyword x) = ':' : showSyn x
 
 
+-- | The types of the values that can be used in Angle.
+--
+-- The separation of the value containers ('LangLit') and
+-- type representations allows untyped expressions to be
+-- attained more easily.
 data LangType = LTStr
               | LTChar
               | LTInt
@@ -256,6 +377,7 @@ data LangType = LTStr
                 deriving (Eq)
 
 
+-- | Function for determining the type of a literal.
 typeOf :: LangLit -> LangType
 typeOf (LitStr _)    = LTStr
 typeOf (LitChar _)   = LTChar
@@ -269,7 +391,8 @@ typeOf (LitLambda{}) = LTLambda
 typeOf (LitKeyword _) = LTKeyword
 
 
--- TODO: Check this - can't identify classes
+-- | Determine the required annotation restriction of a
+-- particular literal. See 'AnnType' for more information.
 typeAnnOf :: LangLit -> AnnType
 typeAnnOf (LitLambda{}) = AnnFun
 typeAnnOf _ = AnnLit
@@ -288,16 +411,24 @@ instance Show LangType where
     show LTChar = "char"
 
 
+-- | Expressions must be evaluable to some literal, although
+-- in some cases they may evaluate to the null literal.
 data Expr = ExprIdent LangIdent
+            -- ^ 'LangIdent' when representing a variable.
           | ExprFunIdent LangIdent
+            -- ^ 'LangIdent' when representing a function.
           | ExprLambda Lambda
-          | ExprLit LangLit
+          | ExprLit LangLit -- ^ Expression wrapping a literal value.
           | ExprFunCall LangIdent [Expr]
           | ExprLambdaCall Lambda [Expr]
           | ExprOp LangOp
           | ExprList [Expr]
+            -- ^ An unevaluated list (see 'LitList').
           | ExprRange Expr (Maybe Expr) (Maybe Expr)
+            -- ^ An unevaluated range (see 'LitRange').
           | ExprParamExpand LangIdent
+            -- ^ Special form of expression that represents a
+            -- catch parameter.
             deriving (Show, Eq)
 
 
@@ -314,6 +445,12 @@ instance ShowSyn Expr where
     showSyn (ExprParamExpand _) = error "showSyn - ExprParamExpand made it to showSyn"
 
 
+-- | Represents names that can be assigned values.
+--
+-- Each name can contain one literal value and one lambda (function).
+-- When a name is being resolved, context and constraints expressed
+-- by the programmer determine whether a name will resolve to the
+-- contained value or lambda.
 newtype LangIdent = LangIdent { getIdent :: String }
     deriving (Show, Eq, Ord)
 
@@ -336,8 +473,13 @@ instance ShowSyn ArgSig where
                         , ")"]) ", " args
 
 
+-- | Two forms of operator exist in Angle:
 data LangOp = SpecOp Op Expr
+            -- ^ Special operators that can only be used in prefix
+            -- and act upon a single expresson.
             | MultiOp Op [Expr]
+            -- ^ Multi-operators that can take multiple values but
+            -- must be enclosed within parentheses.
               deriving (Show, Eq)
 
 
@@ -346,19 +488,20 @@ instance ShowSyn LangOp where
     showSyn (MultiOp o es) = concat ["(", showSyn o, showSynOpList es]
 
 
+-- | Builtin operators.
 data Op = OpAdd
-        | OpAnd
+        | OpAnd -- ^ Logical AND.
         | OpConcat
         | OpDiv
-        | OpEq
+        | OpEq -- ^ Check equality.
         | OpGreater
         | OpGreaterEq
         | OpLess
         | OpLessEq
         | OpMult
         | OpNeg
-        | OpNot
-        | OpOr
+        | OpNot -- ^ Logical NOT.
+        | OpOr -- ^ Logical OR.
         | OpSub
         | UserOp LangIdent
           deriving (Show, Eq)
@@ -387,11 +530,13 @@ showLambdaFun (Lambda {lambdaArgs=args, lambdaBody=body})
     = showSyn args ++ " " ++ showSyn body
 
 
+-- | True when passed the nullary literal.
 isNull :: LangLit -> Bool
 isNull LitNull = True
 isNull _ = False
 
 
+-- | True if the type can be enumerated in Angle.
 enumType :: LangLit -> Bool
 enumType (LitInt _) = True
 enumType (LitChar _) = True
@@ -399,5 +544,6 @@ enumType (LitFloat _) = True
 enumType _ = False
 
 
+-- | True if all values in list have the specified type.
 allType :: LangType -> [LangLit] -> Bool
 allType t = all ((==t) . typeOf)
