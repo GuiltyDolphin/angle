@@ -1,21 +1,39 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-|
+Module      : Angle.Lex.Lexer.Internal
+Description : Module defining functions for parsing Angle code.
+Copyright   : Copyright (C) 2015 Ben Moon
+License     : GNU GPL, version 3
+Maintainer  : GuiltyDolphin@gmail.com
+Stability   : alpha
+
+Uses parsers from "Angle.Lex.Token" and "Angle.Lex.Helpers", as well
+as custom lexing functions to define all the necessary functions for
+converting Angle source code into Haskell types.
+-}
 module Angle.Lex.Lexer.Internal
     ( program
-    , stmt
-    , litStr
-    , litInt
-    , litBool
-    , litRange
-    , litNull
-    , litList
-    , langOp
-    , exprFunCall
+    , evalScan
+
+    -- ** Literals
     , lambda
     , langLit
+    , litBool
+    , litInt
+    , litList
+    , litNull
+    , litRange
+    , litStr
+
+    -- ** Statements and structures
     , langStruct
     , singStmt
+    , stmt
+
+    -- ** Expressions
     , expr
-    , evalScan
+    , exprFunCall
+    , langOp
     ) where
 
 
@@ -40,6 +58,28 @@ import Angle.Types.Lang
 -- * Spaces will not be parsed after comments
 
 
+
+-- | Single statement or a multi-statement.
+--
+-- See 'singleStmt' for the syntax of singular statments.
+--
+-- Multi-statements are declared by surrounding a series
+-- of statements with braces.
+--
+-- For example: a series of statements that swaps the values
+-- of two variables might be:
+--
+-- @
+-- {
+--   c = x;
+--   x = y;
+--   y = c;
+-- }
+-- @
+--
+--  Which would swap he values of @x@ and @y@, and the value produced by
+--  the series of statements would be the value of the last (value of
+--  @c@).
 stmt :: Scanner Stmt
 stmt = (multiStmt <|> singleStmt) <?> "statement"
 
@@ -63,6 +103,25 @@ multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
 
 -- TODO: Last statement in a multi-statement block, or at
 -- end of file, shouldn't need to have a newline or semi-colon
+-- | Singular statement.
+--
+-- Takes the following forms:
+--
+-- [@return expr@] exits early from a function and produces the
+-- value that @expr@ evaluates to.
+--
+-- [@break {expr}@] exits early from a loop, and produces the value
+-- @expr@ if supplied, or the last value present in the loop.
+--
+-- [@continue@] skips the rest of the body of the current loop and
+-- begins the next iteration.
+--
+-- [@ident = expr@] assigns the value of @expr@ to the variable
+-- @ident@.
+--
+-- [@expr@] executes an expression and produces the value evaluated.
+--
+-- Or a structure may be used, see 'langStruct'.
 singStmt :: Scanner SingStmt
 singStmt = many (surrounded whitespace stmtComment) >>
            stmtStruct
@@ -113,6 +172,26 @@ stmtExpr :: Scanner SingStmt
 stmtExpr = liftM StmtExpr expr
 
 
+-- | Language structure.
+--
+-- Possible forms are:
+--
+-- [@for ident in expr do stmt@] loops over values produced by
+-- @expr@, allowing them to be referenced in @stmt@ by the name
+-- @ident@.
+--
+-- [@while expr do stmt@] while @expr@ evaluates to @true@, will
+-- execute @stmt@ then repeat.
+--
+-- [@if expr then stmt1 {else stmt2}@] if @expr@ evaluates to @true@,
+-- executes @stmt1@, otherwise will execute @stmt2@ if it exists, or
+-- produce a null value.
+--
+-- [@unless expr stmt@] if @expr@ evaluates to @false@ then execute
+-- @stmt@, otherwise produce a null value.
+--
+-- [@defun ident(args) stmt@] defines a function @ident@ that has
+-- a parameter list @args@ and body @stmt@.
 langStruct :: Scanner LangStruct
 langStruct =     structFor
              <|> structWhile
@@ -172,6 +251,7 @@ structDefun = StructDefun
                    <*> stmt)
 
 
+-- | A program consists of a series of statements.
 program :: Scanner Stmt
 program = liftM MultiStmt $ followed tokEOF (many stmt)
 
@@ -236,6 +316,8 @@ exprRange = parens $ do
 
 
 -- | Boolean literal.
+--
+-- litBool = true | false ;
 litBool :: Scanner LangLit
 litBool = liftM LitBool (litTrue <|> litFalse)
           <?> "boolean literal"
@@ -244,18 +326,50 @@ litBool = liftM LitBool (litTrue <|> litFalse)
 
 
 litChar :: Scanner LangLit
-litChar = liftM LitChar $ surrounded (char '\'')
-                                     (notScan (char '\'') >>
-                                       (do
-                                         res <- withCharEscape True
-                                         case readLitChar res of
-                                                [(r,"")] -> return r
-                                                _        -> unexpectedErr $ "not a valid character: " ++ res))
+litChar = liftM LitChar
+              $ surrounded (char '\'')
+                  (notScan (char '\'') >> (do
+                      res <- withCharEscape True
+                      case readLitChar res of
+                          [(r,"")] -> return r
+                          _        -> unexpectedErr
+                                         $ "not a valid character: "
+                                             ++ res))
 
 
 
 -- TODO: Add additional `step' to ranges (1..7..3)
 -- | Dotted range of values.
+--
+-- Ranges have a single mandatory part and two optional parts, in the
+-- form @(start..[stop][..step])@.
+--
+-- Start is the value with which the range will begin. @(1..)@
+-- represents a range starting with the integer 1 and enumerating
+-- to infinity.
+--
+-- Stop is the value at which the range will stop enumerating when
+-- it is equal to or higher than the specified value.
+-- @(1..50)@ represents a range that can produce the numerical
+-- values 1 through 50.
+--
+-- Step is the optional increment of the range, for non-integers, such
+-- as characters, the range step is the positional difference between
+-- the characters.
+-- @(1..10..2)@ represents a range that will enumerate 1 through
+-- 10, but incrementing by 2 on each enumeration.
+--
+-- The following are all valid forms of ranges:
+--
+-- [@(start..)@] range from start to maximum bound of type.
+--
+-- [@(start..stop)@] range from start to stop.
+--
+-- [@(start..stop..step)@] range from start to stop, incrementing by
+-- step.
+--
+-- [@(start....step)@] range from start to maxmimum bound of type,
+-- incrementing by step.
 litRange :: Scanner LangLit
 litRange = tryScan $ parens $ do
              from <- langLit
@@ -268,10 +382,13 @@ litRange = tryScan $ parens $ do
 
 
 -- | Non-valued literal.
+--
+-- litNull = 'null' | '()' ;
 litNull :: Scanner LangLit
 litNull = string "()" <|> string "null" >> return LitNull
 
 
+-- | Expression.
 expr :: Scanner Expr
 expr = (   tryScan exprLit
        <|> exprList
@@ -308,6 +425,13 @@ exprLambda :: Scanner Expr
 exprLambda = liftM ExprLambda lambda
 
 
+-- | Lambdas are unnamed functions which can be assigned to
+-- identifiers or passed to functions when used in their literal
+-- form.
+--
+-- @((x y) (+ x y);)@
+--
+-- References a lambda that performs basic addition.
 lambda :: Scanner Lambda
 lambda = do
     tokParenL
@@ -326,6 +450,10 @@ exprParamExpand :: Scanner Expr
 exprParamExpand = liftM ExprParamExpand $ string ".." >> langIdent
 
 
+-- | Function call.
+--
+-- Function calls consist of an identifier followed
+-- by an argument list surrounded by parentheses (see 'arglist').
 exprFunCall :: Scanner Expr
 exprFunCall = ExprFunCall
               <$> tryScan (langIdent <* lookAhead (char '('))
@@ -337,6 +465,13 @@ exprOp :: Scanner Expr
 exprOp = liftM ExprOp langOp
 
 
+-- | Either a special operator or a multi-operator.
+--
+-- Special operators are prefix and have one operand, i.e., prefix
+-- unary operators.
+--
+-- Multi-operators can take an arbitrary number of arguments (usually
+-- at least one) but must be surrounded by parentheses.
 langOp :: Scanner LangOp
 langOp = specOp <|> multiOp
 
