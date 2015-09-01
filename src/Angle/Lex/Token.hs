@@ -9,22 +9,12 @@ Stability   : alpha
 TODO
 -}
 module Angle.Lex.Token
-    ( tokParenL
-    , tokParenR
-    , tokEltSep
-
+    (
     -- ** Whitespace
-    , tokNewLine
-    , tokNSpaced
+      tokNSpaced
     , tokSpace
     , tokWhitespace
     , whitespace
-
-    -- *** Strings
-    , stringNorm
-    , stringBS
-    , tokString
-    , withCharEscape
 
     -- ** Statements
     , tokAssign
@@ -37,10 +27,17 @@ module Angle.Lex.Token
     , tokInt
     , tokList
 
+    -- *** Strings
+    , tokString
+    , withCharEscape
+
+    -- ** Misc
+    , keywords
     , tokEOF
     , ident
     , parens
     , tokOpChar
+    , tokEltSep
     ) where
 
 
@@ -50,22 +47,6 @@ import Data.Char
 import Numeric
 
 import Angle.Lex.Helpers
-
-
-tokListStart :: Scanner Char
-tokListStart      = char '['        <?> "start of list"
-
-
-tokListEnd :: Scanner Char
-tokListEnd        = char ']'        <?> "end of list"
-
-
-tokParenL :: Scanner Char
-tokParenL         = char '('        <?> "open parenthesis"
-
-
-tokParenR :: Scanner Char
-tokParenR         = char ')'        <?> "close parenthesis"
 
 
 tokMultiStmtStart :: Scanner Char
@@ -83,32 +64,11 @@ tokEltSep         = surrounded whitespace (char ',')
                                     <?> "element separator"
 
 
-tokIdentStartChar :: Scanner Char
-tokIdentStartChar = cond isAlpha
-                                    <?> "start of identifier"
-
-
-tokIdentBodyChar :: Scanner Char
-tokIdentBodyChar  = cond isAlphaNum
-                                    <?> "identifier character"
-
-
-tokStringStart :: Scanner Char
-tokStringStart    = char '"'        <?> "start of string"
-
-
-tokStringEnd :: Scanner Char
-tokStringEnd      = char '"'        <?> "end of string"
-
-
-tokStringBodyChar :: Scanner Char
-tokStringBodyChar = notChar '"'     <?> "string body"
-
-
 tokDenaryDigit :: Scanner Char
 tokDenaryDigit    = cond isDigit    <?> "denary digit"
 
 
+-- | A single space character.
 tokSpace :: Scanner Char
 tokSpace          = char ' '        <?> "space"
 
@@ -118,15 +78,19 @@ tokWhitespace :: Scanner Char
 tokWhitespace     = cond isSpace    <?> "whitespace"
 
 
+-- | Assignment operator character.
 tokAssign :: Scanner Char
-tokAssign         = surrounded spaces (char '=')
-                                    <?> "assignment operator"
+tokAssign = surrounded spaces (char '=')
+                <?> "assignment operator"
+  where
+    spaces = many tokSpace
 
 
-tokNewLine :: Scanner Char
-tokNewLine        = char '\n'       <?> "newline"
+whitespace :: Scanner String
+whitespace = many tokWhitespace
 
 
+-- | Matches when there are no more characters in the stream.
 tokEOF :: Scanner ()
 tokEOF            = notScan anyChar
 
@@ -135,6 +99,7 @@ tokStmtBetween :: Scanner String
 tokStmtBetween    = whitespace      <?> "ignored characters"
 
 
+-- | Matches a string representing an integer.
 tokInt :: (Integral a, Read a) => Scanner a
 tokInt = do
   negve <- optional (char '-')
@@ -162,12 +127,19 @@ tokFloat = do
 
 tokList :: Scanner a -> Scanner a
 tokList = within tokListStart tokListEnd
+  where
+    tokListStart      = char '['
+    tokListEnd        = char ']'
+
+
 
 
 -- | Function/variable identifier (but not a keyword).
 ident :: Scanner String
 ident = noneFrom (\x -> string x <* specEnd) keywords *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar)
     where specEnd = notScan tokIdentBodyChar
+          tokIdentStartChar = cond isAlpha
+          tokIdentBodyChar  = cond isAlphaNum
 
 
 tokOpChar :: Scanner Char
@@ -194,15 +166,25 @@ keywords = [ "break"
            , "while"]
 
 
--- | Run scan within parentheses.
+-- | Matches within parentheses.
 parens :: Scanner a -> Scanner a
 parens sc = within tokParenL tokParenR sc
             <?> "parentheses"
+  where
+    tokParenL = char '('
+    tokParenR = char ')'
 
 
-tokString :: Scanner String
-tokString = within tokStringStart tokStringEnd
-            (many tokStringBodyChar) <?> "string"
+
+
+-- tokString :: Scanner String
+-- tokString = within tokStringStart tokStringEnd
+--             (many tokStringBodyChar) <?> "string"
+--   where
+--     tokStringStart    = char '"'
+--     tokStringEnd      = char '"'
+--     tokStringBodyChar = notChar '"'
+
 
 
 stringNorm :: Scanner String
@@ -213,6 +195,9 @@ stringNorm = do
   return (concat r)
 
 
+tokString :: Scanner String
+tokString = tryScan stringBS <|> stringNorm
+
 stringBS :: Scanner String
 stringBS = do
   string "e\""
@@ -221,19 +206,14 @@ stringBS = do
   return (concat r)
 
 
-whitespace :: Scanner String
-whitespace = many tokWhitespace
-
-
-spaces :: Scanner String
-spaces = many tokSpace
-
-
 -- | Space or newline followed by optional whitespace.
 --
 -- A common separator in Operators and Lambdas.
 tokNSpaced :: Scanner String
 tokNSpaced = tokSpace <|> tokNewLine >> whitespace
+  where
+    tokNewLine = char '\n'
+
 
 
 -- | Parse a single character, escaping it if

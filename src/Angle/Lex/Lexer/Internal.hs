@@ -237,7 +237,7 @@ structIf = StructIf
 structUnless :: Scanner LangStruct
 structUnless = do
   e <- string "unless " *> expr
-  char ' ' <|> tokNewLine
+  tokNSpaced
   s <- stmt
   return $ StructIf (ExprOp (SpecOp OpNot e)) s Nothing
 
@@ -276,7 +276,7 @@ langLit = litStr
 
 -- | A literal string.
 litStr :: Scanner LangLit
-litStr = liftM LitStr (stringBS <|> stringNorm)
+litStr = liftM LitStr tokString
 
 
 -- | Denary integer.
@@ -433,17 +433,15 @@ exprLambda = liftM ExprLambda lambda
 --
 -- References a lambda that performs basic addition.
 lambda :: Scanner Lambda
-lambda = do
-    tokParenL
+lambda = parens $ do
     args <- callList <* tokNSpaced
     body <- stmt
-    tokParenR
     return $ Lambda args body
 
 
 -- | Set of arguments for a function
 arglist :: Scanner [Expr]
-arglist = within tokParenL tokParenR (sepWith tokEltSep (expr <|> exprParamExpand))
+arglist = parens (sepWith tokEltSep (expr <|> exprParamExpand))
 
 
 exprParamExpand :: Scanner Expr
