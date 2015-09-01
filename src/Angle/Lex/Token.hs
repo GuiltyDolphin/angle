@@ -26,6 +26,7 @@ module Angle.Lex.Token
     , tokFloat
     , tokInt
     , tokList
+    , tokChar
 
     -- *** Strings
     , tokString
@@ -189,6 +190,17 @@ stringNorm = do
 -- | String of the form "BODY".
 tokString :: Scanner String
 tokString = tryScan stringBS <|> stringNorm
+
+
+-- | Character of the form 'C'.
+tokChar :: Scanner Char
+tokChar = surrounded (char '\'') charNonEmpty
+  where
+    charNonEmpty = do
+      c <- notChar '\'' -- anyChar
+      case c of
+        '\\' -> escChar
+        _ -> return c
 
 
 stringBS :: Scanner String

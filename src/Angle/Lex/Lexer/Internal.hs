@@ -326,16 +326,7 @@ litBool = liftM LitBool (litTrue <|> litFalse)
 
 
 litChar :: Scanner LangLit
-litChar = liftM LitChar
-              $ surrounded (char '\'')
-                  (notScan (char '\'') >> (do
-                      res <- withCharEscape True
-                      case readLitChar res of
-                          [(r,"")] -> return r
-                          _        -> unexpectedErr
-                                         $ "not a valid character: "
-                                             ++ res))
-
+litChar = liftM LitChar tokChar
 
 
 -- TODO: Add additional `step' to ranges (1..7..3)
