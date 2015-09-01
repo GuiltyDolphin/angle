@@ -107,7 +107,7 @@ builtins = [ "print", "str"
            , "asType", "getArgs"]
 
 
--- | Builtin print function.
+-- | Builtin @print@ function.
 --
 -- @print(..x)@: converts each element of @..x@ to a string
 -- before printing the concatenated result followed by a newline to STDOUT.
@@ -116,7 +116,7 @@ builtinPrint xs = liftIO (putStrLn res) >> returnVal (LitStr res)
     where res = argsToString xs
 
 
--- | Builtin input function.
+-- | Builtin @input@ function.
 --
 -- @input(..x)@: does the same as @builtinPrint@, but does
 -- not automatically append a newline and returns the result
@@ -126,13 +126,19 @@ builtinInput xs = liftM LitStr (liftIO $ putStr res >> liftIO getLine) >>= retur
     where res = argsToString xs
 
 
+-- | Convert arguments to a string.
 argsToString :: [LangLit] -> String
-argsToString = concatMap
-               (\x -> case x of
-                        (LitStr s) -> s
-                        _          -> showSyn x)
+argsToString = concatMap (\x -> case x of
+                             (LitStr s) -> s
+                             _          -> showSyn x)
 
 
+-- | Builtin @asType@ function.
+--
+-- @asType(typ, x)@ deduces the type of @typ@ and attempts to
+-- cast @x@ to that type.
+--
+-- @asType(typ, ..x)@ produces a list of casted values.
 builtinAsType :: [LangLit] -> ExecIO LangLit
 builtinAsType [x] = return x
 builtinAsType [x,y] = asType x y
@@ -166,6 +172,13 @@ fromStr s f = case reads s of
               _        -> return LitNull
 
 
+-- | Builtin @length@ function.
+--
+-- @length(x:\@list)@ returns the number of elements in the list.
+--
+-- @length(x:\@range)@ returns the number of elements that would be
+-- produced by the range if the range is finite, otherwise the
+-- keyword @:infinite@.
 builtinLength :: [LangLit] -> ExecIO LangLit
 builtinLength [LitList xs] = return . LitInt $ length xs
 builtinLength [LitRange _ Nothing _] = return $ LitKeyword $ LangIdent "infinite"
@@ -173,15 +186,19 @@ builtinLength [LitRange x (Just y) Nothing] = return . LitInt $ (fromEnumL y + 1
 builtinLength _ = throwParserError $ callBuiltinErr "length: invalid call"
 
 
--- | @isNull(x)@ -> bool: true if @x@ is the null literal.
+-- | Builtin @isNull@ function.
 --
--- @isNull(..x)@ -> [bool]: list of applying @isNull@ to each argument.
+-- @isNull(x)@ returns @true@ if the passed value is the null literal.
+--
+-- @isNull(..x)@ returns a list of the above.
 builtinIsNull :: [LangLit] -> ExecIO LangLit
 builtinIsNull [x] = return . LitBool $ isNull x
 builtinIsNull xs = return . LitList $ map (LitBool . isNull) xs
 
 
--- | @str(x)@
+-- | Builtin @str@ function.
+--
+-- @str(x)@ is the same as @asType("", x)@
 builtinStr :: [LangLit] -> ExecIO LangLit
 builtinStr [] = return $ LitStr ""
 builtinStr xs | length xs > 1 = throwParserError $ wrongNumberOfArgumentsErr 1 (length xs)
@@ -193,7 +210,7 @@ builtinStr xs | length xs > 1 = throwParserError $ wrongNumberOfArgumentsErr 1 (
 --   e.g. index(-5,-1,[1,2,3]); -> [2, 3]
 -- - should probably work more like Pyhon's indexing system.
 
--- | Builtin index function.
+-- | Builtin @index@ function.
 --
 -- @index(x:\@int, xs:\@list)@: retrieve element at index @x@ from @xs@
 --
@@ -234,6 +251,9 @@ toLitStr (LitChar x) = LitStr [x]
 toLitStr _ = error "toLitStr: cannot display type"
 
 
+-- | Builtin @getArgs@ function.
+--
+-- @getArgs()@ returns the arguments passed to the program.
 builtinGetArgs :: [LangLit] -> ExecIO LangLit
 builtinGetArgs _ = liftM (LitList . map LitStr) $ liftIO getArgs
 

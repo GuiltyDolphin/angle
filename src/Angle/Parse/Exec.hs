@@ -1,7 +1,19 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-|
+Module      : Angle.Parse.Exec
+Description : Controls execution of an Angle program.
+Copyright   : Copyright (C) 2015 Ben Moon
+License     : GNU GPL, version 3
+Maintainer  : GuiltyDolphin@gmail.com
+Stability   : alpha
+
+All programs in Angle can be expressed as a single statement
+(usually a multi-statement) and as such all programs are executed
+via this one statement.
+-}
 module Angle.Parse.Exec
-    ( execStmt -- | The top-most execution.
+    ( execStmt
     ) where
 
 
@@ -298,6 +310,7 @@ callLambda (Lambda
   return res
 
 
+-- | Executes a single statement.
 execStmt :: Stmt -> ExecIO LangLit
 execStmt (SingleStmt x pos) = updatePos pos >> execSingStmt x
 execStmt (MultiStmt (x@(SingleStmt (StmtReturn _) _):_)) = execStmt x

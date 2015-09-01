@@ -2,12 +2,9 @@ module Test.Angle.Parse.Exec
     ( tests
     ) where
 
-import Data.List (foldl')
-
 import TestHelper
 
 import Angle.Types.Lang
-import Angle.Lex.Lexer.Internal
 
 
 --filterFun = evalScan
@@ -39,7 +36,7 @@ defun n a b = concat ["defun ", n, "(", a, ") ", b]
 
 
 checkRes :: String -> (LangLit -> Bool) -> Property
-checkRes s r = monadicIO $ runEx s >>= (assertQC . r)
+checkRes s r = monadicIO $ runEx s >>= (assert . r)
 
 
 checkFail :: String -> Property
@@ -59,7 +56,8 @@ testAdd (NonEmpty xs) = opTest LitInt sum "+" xs
 
 
 testMult :: NonEmptyList Int -> Property
-testMult (NonEmpty xs) = opTest LitInt (foldl' (*) 1) "*" xs
+testMult (NonEmpty xs) = opTest LitInt product "*" xs
+
 
 testNot :: Bool -> Property
 testNot = opTestUnary LitBool not "^"
@@ -119,6 +117,19 @@ testClassAdd x y = checkFail toRun
   where toRun = setupAddF ++ callShowSyn "addInts" [x, y]
 
 
+testReturnSimple :: LangLit -> Property
+testReturnSimple x = checkResEq toRun x
+  where toRun = setupReturnSimple ++ callShowSyn "returnSimple" [x]
+        setupReturnSimple = defun "returnSimple" "x" "return x;"
+
+
+testReturnIfEmbedded :: Bool -> LangLit -> LangLit -> Property
+testReturnIfEmbedded p x y | p = checkResEq toRun x
+                           | otherwise = checkResEq toRun y
+  where toRun = setupReturnIfEmbedded ++ callShowSyn "returnIfEmbedded" [LitBool p, x, y]
+        setupReturnIfEmbedded = defun "returnIfEmbedded" "p, x, y" "if p then return x; else return y;"
+
+
 tests :: [TestTree]
 tests = [ testGroup "filter tests"
           [ --testProperty "filterLess" testFilterLess
@@ -131,6 +142,10 @@ tests = [ testGroup "filter tests"
           ]
         , testGroup "classes"
           [ testProperty "isAdd" testClassAdd
+          ]
+        , testGroup "basic functions"
+          [ testProperty "returnSimple" testReturnSimple
+          , testProperty "returnIfEmbedded" testReturnIfEmbedded
           ]
         ]
 

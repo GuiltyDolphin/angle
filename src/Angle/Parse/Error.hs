@@ -1,40 +1,63 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
+{-|
+Module      : Angle.Parse.Error
+Description : Defines main error system used in Angle.
+Copyright   : Copyright (C) 2015 Ben Moon
+License     : GNU GPL, version 3
+Maintainer  : GuiltyDolphin@gmail.com
+Stability   : alpha
+
+Defines functions for throwing, catching and handling errors that
+occur in Angle.
+-}
 module Angle.Parse.Error
-    ( typeUnexpectedErr
-    , typeNotValidErr
-    , typeMismatchOpErr
-    , typeExpectConstrErr
+    (
+    -- ** Type errors
+      typeAnnWrongErr
     , typeConstrWrongReturnErr
-    , typeAnnWrongErr
+    , typeExpectConstrErr
+    , typeMismatchOpErr
+    , typeNotValidErr
+    , typeUnexpectedErr
+
+    -- ** Name errors
+    , assignToBuiltinErr
     , nameNotDefinedErr
     , nameNotDefinedFunErr
     , nameNotDefinedLitErr
-    , nameNotDefinedConstrErr
-    , assignToBuiltinErr
-    , wrongNumberOfArgumentsErr
-    , ParserError
-    , CanError(..)
-    , CanErrorWithPos(..)
-    , throwError
-    , langError
-    , SourcePos
-    , LError(..)
-    , AngleError(..)
-    , throwParserError
-    , indexOutOfBoundsErr
-    , returnFromGlobalErr
+
+    -- ** Call errors
     , callBuiltinErr
     , malformedSignatureErr
-    , throwImplementationErr
-    , throwReturn
-    , throwBreak
-    , throwContinue
-    , catchReturn
+    , wrongNumberOfArgumentsErr
+
+
+    -- ** Keyword errors
+    , returnFromGlobalErr
+
+
+    -- ** Literal errors
+    , badRangeErr
+    , indexOutOfBoundsErr
+
+    -- ** Control-flow
     , catchBreak
     , catchContinue
-    , badRangeErr
+    , catchReturn
+    , throwBreak
+    , throwContinue
+    , throwReturn
+
+    -- ** Classes, base types and basic functions
+    , AngleError
+    , CanError(..)
+    , CanErrorWithPos(..)
+    , ParserError
+    , throwError
+    , throwImplementationErr
+    , throwParserError
     ) where
 
 
@@ -46,6 +69,7 @@ import Angle.Scanner
 import Angle.Types.Lang
 
 
+-- | Instances are types that can throw Angle errors.
 class (Monad m) => CanError (m :: * -> *) where
     throwAE :: AngleError -> m a
     catchAE :: m a -> (AngleError -> m a) -> m a
@@ -57,6 +81,12 @@ instance CanError (Either AngleError) where
                     r@(Right _) -> r
                     Left l -> f l
 
+
+-- | Instances are types that can throw Angle errors and provide
+-- information about the position at which the error occurred.
+class (CanError m) => CanErrorWithPos m where
+    getErrorPos :: m SourceRef
+    getErrorSource :: m String
 
 
 -- | General error structure.
@@ -98,6 +128,7 @@ instance Show AngleError where
     show (ControlException _) = error "show: control exception made it to show"
 
 
+-- | Base for errors that occur during execution of code.
 data ParserError = TypeError TypeError
                  | NameError NameError
                  | CallError CallError
@@ -109,22 +140,27 @@ data ParserError = TypeError TypeError
                                   -- the user to throw errors
 
 
+-- | Expression produced an invalid type.
 typeErr :: TypeError -> ParserError
 typeErr    = TypeError
 
 
+-- | Issue with identifier.
 nameErr :: NameError -> ParserError
 nameErr    = NameError
 
 
+-- | Bad function call.
 callErr :: CallError -> ParserError
 callErr    = CallError
 
 
+-- | Invalid literal.
 litErr :: LitError -> ParserError
 litErr     = LitError
 
 
+-- | Misused keyword.
 keywordErr :: KeywordError -> ParserError
 keywordErr = KeywordError
 
@@ -144,6 +180,7 @@ instance Error ParserError where
     strMsg = DefaultError
 
 
+-- | Errors involving types.
 data TypeError = TypeMismatch   LangType LangType
                | TypeUnexpected LangType LangType
                | TypeNotValid   LangType
@@ -169,15 +206,18 @@ typeMismatchOpErr :: LangLit -> LangLit -> ParserError
 typeMismatchOpErr x y = typeErr $ (TypeMismatchOp `on` typeOf) x y
 
 
--- | Expect
+-- | Expecting value to satisfy given parameter constraint.
 typeExpectConstrErr :: LangLit -> LangIdent -> ParserError
 typeExpectConstrErr cls = typeErr . TypeExpectConstr cls
 
 
+-- | Function used as parameter constraint did not return boolean
+-- value.
 typeConstrWrongReturnErr :: LangIdent -> LangType -> ParserError
 typeConstrWrongReturnErr cls = typeErr . TypeConstrWrongReturn cls
 
 
+-- | Value did not satisfy given annotation constraint.
 typeAnnWrongErr :: AnnType -> AnnType -> ParserError
 typeAnnWrongErr e = typeErr . TypeAnnWrong e
 
@@ -193,30 +233,30 @@ instance Show TypeError where
     show (TypeAnnWrong t1 t2) = "bad type in function call, expecting " ++ show t1 ++ " but got " ++ show t2
 
 
+-- | Errors involving identifiers and names.
 data NameError = NameNotDefined LangIdent
-               | NameNotDefinedConstr LangIdent
                | NameNotDefinedFun LangIdent
                | NameNotDefinedLit LangIdent
                | NameNotOp LangIdent
                | AssignToBuiltin LangIdent
 
 
+-- | Given identifier has no definition.
 nameNotDefinedErr :: LangIdent -> ParserError
 nameNotDefinedErr  = nameErr . NameNotDefined
 
 
+-- | Given identifier has no lambda assigned.
 nameNotDefinedFunErr :: LangIdent -> ParserError
 nameNotDefinedFunErr = nameErr . NameNotDefinedFun
 
 
+-- | Given identifier has no value assigned.
 nameNotDefinedLitErr :: LangIdent -> ParserError
 nameNotDefinedLitErr = nameErr . NameNotDefinedLit
 
 
-nameNotDefinedConstrErr :: LangIdent -> ParserError
-nameNotDefinedConstrErr = nameErr . NameNotDefinedConstr
-
-
+-- | Attempt to re-assign a builtin variable.
 assignToBuiltinErr :: LangIdent -> ParserError
 assignToBuiltinErr = nameErr . AssignToBuiltin
 
@@ -225,25 +265,28 @@ instance Show NameError where
     show (NameNotDefined  (LangIdent name)) = "not in scope: "         ++ name
     show (NameNotDefinedFun (LangIdent name)) = "not a valid function: " ++ name
     show (NameNotDefinedLit (LangIdent name)) = "no value assigned: "    ++ name
-    show (NameNotDefinedConstr (LangIdent name)) = "not a valid class " ++ name
     show (NameNotOp       (LangIdent name)) = "not a valid operator: " ++ name
     show (AssignToBuiltin (LangIdent name)) = "cannot assign to builtin: " ++ name
 
 
+-- | Errors involving operator and function calls.
 data CallError = WrongNumberOfArguments Int Int
                | BuiltIn String
                | MalformedSignature String
     deriving (Eq)
 
 
+-- | Attempted to pass an invalid number of arguments to a function.
 wrongNumberOfArgumentsErr :: Int -> Int -> ParserError
 wrongNumberOfArgumentsErr expect = callErr . WrongNumberOfArguments expect
 
 
+-- | Error when calling builtin.
 callBuiltinErr :: String -> ParserError
 callBuiltinErr = callErr . BuiltIn
 
 
+-- | Order of arguments not valid in scenario.
 malformedSignatureErr :: String -> ParserError
 malformedSignatureErr = callErr . MalformedSignature
 
@@ -254,16 +297,12 @@ instance Show CallError where
     show (MalformedSignature x) = "malformed signature: " ++ x
 
 
-data LError = LError { errorErr    :: ParserError  -- The actual error
-                     , errorSource :: String
-                     , errorPos    :: SourceRef -- Position at which the error occurred
-                     }
-
-
+-- | Errors involving keywords.
 data KeywordError = ReturnFromGlobal
                     deriving (Eq)
 
 
+-- | Return keyword used in wrong place.
 returnFromGlobalErr :: ParserError
 returnFromGlobalErr = keywordErr ReturnFromGlobal
 
@@ -272,15 +311,7 @@ instance Show KeywordError where
     show ReturnFromGlobal = "return from outermost scope"
 
 
-instance Error LError where
-    noMsg = LError {errorErr=noMsg, errorPos=SourceRef (beginningOfFile, beginningOfFile), errorSource=""}
-    strMsg m = noMsg {errorErr=strMsg m}
-
-
-langError ::  (CanErrorWithPos m) => ParserError -> m a
-langError = throwParserError
-
-
+-- | Raise a 'ParserError' into an 'AngleError'.
 throwParserError :: (CanErrorWithPos m, Monad m) => ParserError -> m a
 throwParserError e = do
   errPosRef <- getErrorPos
@@ -291,24 +322,23 @@ throwParserError e = do
                          }
 
 
+-- | Throw a fatal error caused by the internals of the implementation.
 throwImplementationErr :: (CanError m) => String -> m a
 throwImplementationErr = throwAE . implementationErr
 
 
-class (CanError m) => CanErrorWithPos m where
-    getErrorPos :: m SourceRef
-    getErrorSource :: m String
-
-
+-- | Errors involving literals.
 data LitError = IndexOutOfBoundsError Int
               | BadRange LangType (Maybe LangType) (Maybe LangType)
               deriving (Eq)
 
 
+-- | Attempt to access a non-existant index of a list.
 indexOutOfBoundsErr :: Int -> ParserError
 indexOutOfBoundsErr = litErr . IndexOutOfBoundsError
 
 
+-- | Types are not uniform in range.
 badRangeErr :: LangType -> Maybe LangType -> Maybe LangType -> ParserError
 badRangeErr t1 t2 = litErr . BadRange t1 t2
 
@@ -318,7 +348,10 @@ instance Show LitError where
     show (BadRange t1 t2 t3) = "bad range: all types should be same, but got: " ++ show t1 ++ concatMap ((", "++) . show) (catMaybes [t2,t3])
 
 
-
+-- | Used for control-flow within the language.
+--
+-- These should never make it to the user, but instead be caught in
+-- internal code.
 data ControlException = ControlReturn LangLit
                       | ControlBreak (Maybe LangLit)
                       | ControlContinue
@@ -337,18 +370,22 @@ controlContinue :: AngleError
 controlContinue = controlException ControlContinue
 
 
+-- | Used for the 'return' keyword.
 throwReturn :: (CanError m) => LangLit -> m a
 throwReturn = throwAE . controlReturn
 
 
+-- | Used for the 'break' keyword.
 throwBreak :: (CanError m) => Maybe LangLit -> m a
 throwBreak = throwAE . controlBreak
 
 
+-- | Used for the 'continue' keyword.
 throwContinue :: (CanError m) => m a
 throwContinue = throwAE controlContinue
 
 
+-- | Catch 'ControlReturn', but allow other errors to propagate.
 catchReturn :: (CanError m) => m a -> (LangLit -> m a) -> m a
 catchReturn ex h = ex `catchAE`
                    (\e -> case e of
@@ -356,6 +393,7 @@ catchReturn ex h = ex `catchAE`
                             err -> throwAE err)
 
 
+-- | Catch 'ControlBreak', but allow other errors to propagate.
 catchBreak :: (CanError m) => m a -> (Maybe LangLit -> m a) -> m a
 catchBreak ex h = ex `catchAE`
                   (\e -> case e of
@@ -363,6 +401,7 @@ catchBreak ex h = ex `catchAE`
                            err -> throwAE err)
 
 
+-- | Catch 'ControlContinue', but allow other errors to propagate.
 catchContinue :: (CanError m) => m a -> m a -> m a
 catchContinue ex v = ex `catchAE`
                      (\e -> case e of

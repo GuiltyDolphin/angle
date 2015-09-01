@@ -1,30 +1,51 @@
+{-|
+Module      : Angle.Parse.Scope
+Description : Defines functions for working with Scopes.
+Copyright   : Copyright (C) 2015 Ben Moon
+License     : GNU GPL, version 3
+Maintainer  : GuiltyDolphin@gmail.com
+Stability   : alpha
+
+Each variable in Angle belongs to a scope.
+
+Each scope contains a reference to its parent scope and the binding
+environment that maps variables to their respective values.
+
+Each variable can have a function definition and a value definition,
+which are resolved independently and at distinguishable times.
+
+A variable is considered in-scope if it exists in the current scope
+or any of the parent scopes.
+
+The outer-most scope is called the global scope and is accessible
+from all other parts of a program.
+-}
 module Angle.Parse.Scope
     ( Scope(..)
-    , emptyScope
-    , VarVal(..)
-    , emptyVar
     , BindEnv(..)
+    , VarVal(..)
     , bindEnvFromList
-    , resolve
-    , outermostScope
-    , isOutermostScope
+    , deleteLitFromScope
+    , emptyScope
+    , emptyVar
     , isDefinedIn
+    , isOutermostScope
     , mergeScope
+    , resolve
     , setVarFunInScope
     , setVarLitInScope
-    , deleteLitFromScope
-    , resolveLit
     ) where
 
 
 import Control.Monad
 import qualified Data.Map as M
-import Data.Maybe (fromJust, isJust)
+import Data.Maybe (isJust)
 import Data.Function (on)
 
 import Angle.Types.Lang
 
 
+-- | Convert a list to a binding environment.
 bindEnvFromList :: [(LangIdent, VarVal a)] -> BindEnv a
 bindEnvFromList = BindEnv . M.fromList
 
@@ -33,6 +54,7 @@ emptyBindEnv :: BindEnv a
 emptyBindEnv = BindEnv M.empty
 
 
+-- | Binding environment.
 newtype BindEnv a = BindEnv
     { unBindEnv :: M.Map LangIdent (VarVal a) }
     deriving (Show, Eq)
@@ -72,7 +94,6 @@ type BindMap a = M.Map LangIdent (VarVal a)
 -- to a parent scope.
 data Scope = Scope
     { outerScope :: Maybe Scope -- ^ Parent scope, if any.
---    , bindings   :: BindEnv
     , valueBindings :: BindEnv LangLit
     , lambdaBindings :: BindEnv Lambda
     } deriving (Show, Eq)
@@ -114,14 +135,6 @@ withOuterScope :: Scope -> (Scope -> a) -> Maybe a
 withOuterScope sc f = liftM f (outerScope sc)
 
 
--- | Get the parent-most scope of the given scope.
-outermostScope :: Scope -> Scope
-outermostScope scope =
-    if isOutermostScope scope
-    then scope
-    else outermostScope (fromJust $ outerScope scope)
-
-
 -- | Finds the local-most Scope that contains a definition
 -- for the specified identifier.
 innerScopeDefining :: (Scope -> BindEnv a) -> LangIdent -> Scope -> Maybe Scope
@@ -131,19 +144,17 @@ innerScopeDefining binds name scope
       else join $ withOuterScope scope (innerScopeDefining binds name)
 
 
--- | Retrieves the variable's value from the local-most
+-- | Retrieves the variable's definition from the local-most
 -- scope in which it is defined.
 --
 -- Returns Nothing if no definition is found.
-resolveLit :: LangIdent -> Scope -> Maybe (VarVal LangLit)
-resolveLit = resolve valueBindings
-
-
 resolve :: (Scope -> BindEnv a) -> LangIdent -> Scope -> Maybe (VarVal a)
-resolve binds name scope = case innerScopeDefining binds name scope of
-                             Nothing     -> Nothing
-                             Just scope' -> fromCurrentScope binds scope'
-                                                                    where fromCurrentScope b = lookupBind name . b
+resolve binds name scope =
+    case innerScopeDefining binds name scope of
+             Nothing     -> Nothing
+             Just scope' -> fromCurrentScope binds scope'
+  where
+    fromCurrentScope b = lookupBind name . b
 
 
 -- | A scope with no parent or bindings.
@@ -156,7 +167,6 @@ emptyScope = Scope {
 
 
 -- | Run a function over the bindings of a scope.
-
 onLitBindings
   :: (BindEnv LangLit -> BindEnv LangLit) -> Scope -> Scope
 onLitBindings f scope = scope { valueBindings = f $ valueBindings scope }
@@ -171,19 +181,22 @@ insertVar :: LangIdent -> VarVal a -> BindEnv a -> BindEnv a
 insertVar = insertBind
 
 
+-- | Set the value definition for the given variable in the given
+-- scope.
 setVarLitInScope :: LangIdent -> VarVal LangLit -> Scope -> Scope
 setVarLitInScope name val = onLitBindings (insertVar name val)
 
 
+-- | Set the lambda definition for the given variable in the given
+-- scope.
 setVarFunInScope :: LangIdent -> VarVal Lambda -> Scope -> Scope
 setVarFunInScope name val = onFunBindings (insertVar name val)
 
 
 
--- | Merge the binding values of the scopes,
--- favouring the first when a definition exists
--- in both, but always favouring a definition
--- over no definition.
+-- | Merge the binding values of the scopes, favouring the first
+-- when a definition exists in both, but always favouring a
+-- definition over no definition.
 mergeScope :: Scope -> Scope -> Scope
 mergeScope sc1 sc2
     = let nLits = mergeBinds `on` valueBindings
@@ -193,6 +206,7 @@ mergeScope sc1 sc2
              }
 
 
+-- | Remove the value binding of a variable from the given scope.
 deleteLitFromScope :: LangIdent -> Scope -> Scope
 deleteLitFromScope =  onLitBindings . deleteBind
 
@@ -212,33 +226,6 @@ lookupBind = onBind . M.lookup
 
 insertBind :: LangIdent -> VarVal a -> BindEnv a -> BindEnv a
 insertBind n = withBind . M.insert n
-
-
--- VarVal API
--- - retrieving values
---   - function definition
---     (varFunDef :: VarVal -> CallSig)
---   - value definition
---     (varLitDef :: VarVal -> LangLit)
--- - setting values
---   - function definition
---     (varSetFunDef :: VarVal -> CallSig -> VarVal)
---   - value definition
---     (varSetLitDef :: VarVal -> LangLit -> VarVal)
---   - empty (basic) VarVal
---     (emptyVar :: VarVal)
--- - checking definitions
---   - function definition
---     (hasFunctionDefinition :: VarVal -> Bool)
---   - value definition
---     (hasLiteralDefinition :: VarVal -> Bool)
--- TODO/NOTES
--- - record for determining builtins?
---   (isBuiltin :: VarVal -> Bool)
---   would need to enforce builtins in all scopes
--- - record for constants
---   (isConst :: VarVal -> Bool)
---   cannot assign to constants
 
 
 -- | Represents a variable definition.
