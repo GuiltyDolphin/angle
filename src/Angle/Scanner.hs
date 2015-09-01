@@ -5,19 +5,20 @@
 {-# LANGUAGE UndecidableInstances #-}
 -- Change imports
 module Angle.Scanner
-  ( runScanner
-  , scanChar
+  ( SourcePos(..)
   , beginningOfFile
-  , unexpectedErr
-  , strMsg
-  , Scanner
-  , SourcePos(..)
   , lineNo
   , colNo
+  -- * Types
+  , Scanner
   , ScanEnv(..)
-  , ScanState(..)
   , ScanError(..)
+  , ScanState(..)
+  , runScanner
+  , unexpectedErr
+  , scanChar
   ) where
+
 
 import Control.Applicative
 import Control.Monad.Error
@@ -73,7 +74,10 @@ incCol (SourcePos (ln,cn,si)) = SourcePos (ln,cn+1,si+1)
 
 
 -- | Holds information about the current position in source.
-data ScanState = ScanState { sourcePos :: SourcePos } deriving (Show, Eq)
+data ScanState = ScanState
+         { sourcePos :: SourcePos
+         -- ^ The current position in source.
+         } deriving (Show, Eq)
 
 
 -- | The environment variables that the scanner can access.
@@ -82,6 +86,12 @@ data ScanEnv = ScanEnv { sourceText :: String } deriving (Show, Eq)
 
 -- | Collects results from the scanner and
 -- returns a value of type @a@.
+--
+-- The scanner is the component of Angle that reads in characters
+-- from the source text one at a time and passes them to the lexer to be
+-- converted to tokens.
+-- See <http://forums.devshed.com/programming-languages-139/interpreter-compiler-312483.html\#post1342279 this page>
+-- for an overview of the role of a scanner.
 newtype Scanner a = Scanner
     { runScanner :: ExceptT ScanError
                     (StateT ScanState
@@ -151,6 +161,7 @@ instance Show ScanError where
   show (UnknownError pos) = show pos ++ "\nUnknown Error!"
 
 
+-- | Throws an error stating the unexpected input.
 unexpectedErr :: String -> Scanner a
 unexpectedErr = toErr (\e msg -> e { unexpectedMsg=msg })
 

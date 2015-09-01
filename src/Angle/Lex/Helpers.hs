@@ -1,29 +1,50 @@
+{-|
+Module      : Angle.Lex.Helpers
+Description : Defines functions for working with the scanner.
+Copyright   : Copyright (C) 2015 Ben Moon
+License     : GNU GPL, version 3
+Maintainer  : GuiltyDolphin@gmail.com
+Stability   : alpha
+
+Provided functions are split into two categories:
+
+[@basic@] the functions that work on standard types.
+
+[@advanced@] higher-order scanners.
+-}
 module Angle.Lex.Helpers
-    ( choice
-    , tryScan
-    , notScan
-    , cond
+    (
+    -- ** Basic
+      anyChar
     , char
-    , notChar
-    , noneFrom
-    , string
-    , followed
-    , lookAhead
-    , within
-    , sepWith
     , charFrom
-    , surrounded
-    , (<?>)
-    , strMsg
-    , anyChar
+    , cond
+    , notChar
+    , string
+
+    -- ** Advanced
+    , choice
+    , followed
     , manyTill
-    , unexpectedErr
     , manyTill'
+    , noneFrom
+    , notScan
+    , sepWith
+    , surrounded
+    , tryScan
+    , within
+    , lookAhead
+
+    -- ** Other
     , evalScan
     , Scanner
     , SourcePos
     , sourcePos
+    , strMsg
+    , unexpectedErr
+    , (<?>)
     ) where
+
 
 import Control.Applicative
 import Control.Monad.Error
@@ -58,6 +79,7 @@ char :: Char -> Scanner Char
 char ch = cond (==ch) <?> show ch
 
 
+-- | Matches if character is an element of the provided string.
 charFrom :: String -> Scanner Char
 charFrom str = cond (`elem` str)
 
@@ -67,17 +89,18 @@ string :: String -> Scanner String
 string str = tryScan (mapM char str) <?> str
 
 
--- | Match scanner `sc' between `start' and `end'.
+-- | @within start end sc@ matches @sc@ between @start@ and @end@.
 within :: Scanner a -> Scanner b -> Scanner c -> Scanner c
 within start end sc = start *> sc <* end
 
 
--- | Like `within', but where `start' and `end' are the same.
+-- | @surrounded x@ is the same as @within x x@.
 surrounded :: Scanner a -> Scanner b -> Scanner b
 surrounded surr = within surr surr
 
 
--- | @f@ succeeds after @sc@.
+-- | Parses second scanner before first scanner, returning the result
+-- of the second scanner.
 followed :: Scanner a -> Scanner b -> Scanner b
 followed f sc = sc <* f
 
@@ -99,6 +122,8 @@ anyChar :: Scanner Char
 anyChar = scanChar <?> "any character"
 
 
+-- | Succeeds if the passed scanner succeeds, but does not consume
+-- input upon success.
 lookAhead :: Scanner a -> Scanner a
 lookAhead sc = do
   pos <- get
@@ -121,10 +146,14 @@ notScan sc = tryScan (do
               Just x -> unexpectedErr (show x))
 
 
--- | Fail if any scanners built from `scf' succeed.
+-- | @noneFrom sc scs@ builds a list of scanners by
+-- applying @sc@ to each of @scs@, the resultant scanner
+-- then succeeds only if all of the resultant scanners
+-- fail.
 noneFrom :: (Show a) => (a -> Scanner a) -> [a] -> Scanner ()
 noneFrom scf = notScan . oneFrom
   where oneFrom xs = choice $ map scf xs
+
 
 -- | List of `sc' separated with `sep'.
 sepWith :: Scanner a -> Scanner b -> Scanner [b]

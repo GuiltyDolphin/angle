@@ -49,16 +49,19 @@ import Numeric
 import Angle.Lex.Helpers
 
 
+-- | Start of a multi-stmt.
 tokMultiStmtStart :: Scanner Char
 tokMultiStmtStart = surrounded whitespace (char '{')
                                     <?> "start of multi-statement"
 
 
+-- | End of a multi-stmt.
 tokMultiStmtEnd :: Scanner Char
 tokMultiStmtEnd   = surrounded whitespace (char '}')
                                     <?> "end of multi-statement"
 
 
+-- | Element separator for lists and arguments.
 tokEltSep :: Scanner Char
 tokEltSep         = surrounded whitespace (char ',')
                                     <?> "element separator"
@@ -73,7 +76,7 @@ tokSpace :: Scanner Char
 tokSpace          = char ' '        <?> "space"
 
 
--- Might be an issue with this
+-- | A single space character (see 'isSpace' for what qualifies).
 tokWhitespace :: Scanner Char
 tokWhitespace     = cond isSpace    <?> "whitespace"
 
@@ -86,6 +89,7 @@ tokAssign = surrounded spaces (char '=')
     spaces = many tokSpace
 
 
+-- | Matches any amount of whitespace.
 whitespace :: Scanner String
 whitespace = many tokWhitespace
 
@@ -95,6 +99,7 @@ tokEOF :: Scanner ()
 tokEOF            = notScan anyChar
 
 
+-- | Characters valid between statements.
 tokStmtBetween :: Scanner String
 tokStmtBetween    = whitespace      <?> "ignored characters"
 
@@ -113,7 +118,7 @@ tokDigits :: Scanner String
 tokDigits = some tokDenaryDigit
 
 
--- TODO: Might be able to use a standard read?
+-- | Matches a string representing a floating-point number.
 tokFloat :: Scanner Double
 tokFloat = do
   negve <- optional (char '-')
@@ -125,13 +130,9 @@ tokFloat = do
     Just _  ->  return (-res)
 
 
+-- | Matches within square brackets.
 tokList :: Scanner a -> Scanner a
-tokList = within tokListStart tokListEnd
-  where
-    tokListStart      = char '['
-    tokListEnd        = char ']'
-
-
+tokList = within (char '[') (char ']')
 
 
 -- | Function/variable identifier (but not a keyword).
@@ -142,10 +143,12 @@ ident = noneFrom (\x -> string x <* specEnd) keywords *> ((:) <$> tokIdentStartC
           tokIdentBodyChar  = cond isAlphaNum
 
 
+-- | Valid operator character.
 tokOpChar :: Scanner Char
 tokOpChar = charFrom "*/+->=<|&^"
 
 
+-- | Angle keywords.
 keywords :: [String]
 keywords = [ "break"
            , "continue"
@@ -175,18 +178,6 @@ parens sc = within tokParenL tokParenR sc
     tokParenR = char ')'
 
 
-
-
--- tokString :: Scanner String
--- tokString = within tokStringStart tokStringEnd
---             (many tokStringBodyChar) <?> "string"
---   where
---     tokStringStart    = char '"'
---     tokStringEnd      = char '"'
---     tokStringBodyChar = notChar '"'
-
-
-
 stringNorm :: Scanner String
 stringNorm = do
   char '"'
@@ -195,8 +186,10 @@ stringNorm = do
   return (concat r)
 
 
+-- | String of the form "BODY".
 tokString :: Scanner String
 tokString = tryScan stringBS <|> stringNorm
+
 
 stringBS :: Scanner String
 stringBS = do
