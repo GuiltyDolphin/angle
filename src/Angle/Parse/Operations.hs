@@ -57,7 +57,7 @@ andLit :: MultiOperator
 andLit []               = return $ LitBool True
 andLit (x@(LitBool _):xs) = foldM andLitBool x xs
     where andLitBool = onLitBool (&&)
-andLit (x:_) = langError $ typeNotValidErrT x
+andLit (x:_) = langError $ typeNotValidErr x
 
 
 -- | Concatenation operator
@@ -149,7 +149,7 @@ negLit :: UnaryOperator
 negLit (LitList xs) = return $ LitList (reverse xs)
 negLit (LitInt x)   = return $ LitInt (-x)
 negLit (LitFloat x) = return $ LitFloat (-x)
-negLit x            = langError $ typeNotValidErrT x
+negLit x            = langError $ typeNotValidErr x
 
 
 -- | Logical not operator.
@@ -157,7 +157,7 @@ negLit x            = langError $ typeNotValidErrT x
 -- On boolean: performs logical negation.
 notLit :: UnaryOperator
 notLit (LitBool x) = return . LitBool $ not x
-notLit x = langError $ typeNotValidErrT x
+notLit x = langError $ typeNotValidErr x
 
 
 -- | Logical or operator.
@@ -167,7 +167,7 @@ orLit :: MultiOperator
 orLit []                 = return $ LitBool False
 orLit (x@(LitBool _):xs) = foldM orLitBool x xs
     where orLitBool = onLitBool (||)
-orLit (x:_)              = langError $ typeNotValidErrT x
+orLit (x:_)              = langError $ typeNotValidErr x
 
 
 -- | Subtraction operator.
@@ -198,7 +198,7 @@ subLit xs = onlyNumOp subLitNum xs
 -- work on `LangLit's.
 onLitBool :: Binary Bool Bool -> BinaryOperator
 onLitBool f (LitBool x) (LitBool y) = return . LitBool $ f x y
-onLitBool _ x y = langError $ typeMismatchOpErrT x y
+onLitBool _ x y = langError $ typeMismatchOpErr x y
 
 
 -- | Takes binary functions that act on Ints and Floats and
@@ -216,7 +216,7 @@ numOp i _ (LitInt x) (LitInt y)       = return $ i x y
 numOp _ f (LitFloat x) (LitFloat y)   = return $ f x y
 numOp _ f (LitInt x) (LitFloat y)     = return $ f (fromIntegral x) y
 numOp _ f (LitFloat x) (LitInt y) =     return $ f x (fromIntegral y)
-numOp _ _ x y                         = langError $ typeMismatchOpErrT x y
+numOp _ _ x y                         = langError $ typeMismatchOpErr x y
 
 
 -- | Synonym for a function that performs a comparison
@@ -247,7 +247,7 @@ compOp f (x@(LitStr _):xs) = foldM (compStr f) x xs
        compStr g (LitStr y) (LitStr z)
            = return . LitBool $ g y z
        compStr _ y z
-           = langError $ typeMismatchOpErrT y z
+           = langError $ typeMismatchOpErr y z
 compOp f xs = onlyNumOp (onNumBool f f) xs
 
 
@@ -274,5 +274,5 @@ onNumBool i f = numOpLit i f LitBool LitBool
 onlyNumOp :: (CanErrorWithPos m) => (LangLit -> LangLit -> m LangLit) -> [LangLit] -> m LangLit
 onlyNumOp f (x@(LitInt _):xs) = foldM f x xs
 onlyNumOp f (x@(LitFloat _):xs) = foldM f x xs
-onlyNumOp _ (x:_)              = langError $ typeNotValidErrT x
+onlyNumOp _ (x:_)              = langError $ typeNotValidErr x
 onlyNumOp _ [] = throwImplementationErr "onlyNumOp - got empty list"

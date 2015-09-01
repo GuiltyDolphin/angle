@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 module Angle.Parse.Exec
-    ( execStmt -- ^ The top-most execution.
+    ( execStmt -- | The top-most execution.
     ) where
 
 
@@ -153,29 +153,29 @@ bindArgs args (ArgSig
 -- | Make sure the argument satisfies any
 -- class or type restrictions placed upon it.
 checkArg :: Expr -> ArgElt -> ExecIO ((LangIdent, LangLit), AnnType)
-checkArg ex (ArgElt {argEltClass=cls, argEltType=typ
+checkArg ex (ArgElt {argEltConstr=constr, argEltType=typ
                     , argEltName=name}) = do
   v <- execExpr ex
-  checkSatClass v $ fmap getClassRef cls
+  checkSatConstr v $ fmap getConstrRef constr
   checkSatType v typ
   return ((name, v), typ)
 
 
-checkSatClass :: LangLit -> Maybe LangIdent -> ExecIO ()
-checkSatClass _ Nothing = return ()
-checkSatClass v (Just clsName) = do
-  res <- satClass v clsName
-  unless res (throwParserError $ typeExpectClassErr v clsName)
+checkSatConstr :: LangLit -> Maybe LangIdent -> ExecIO ()
+checkSatConstr _ Nothing = return ()
+checkSatConstr v (Just clsName) = do
+  res <- satConstr v clsName
+  unless res (throwParserError $ typeExpectConstrErr v clsName)
 
 
-execClass :: LangLit -> LangIdent -> ExecIO LangLit
-execClass val clsName = do
+execConstr :: LangLit -> LangIdent -> ExecIO LangLit
+execConstr val clsName = do
   cls <- lookupVarLambdaF clsName
   res <- callLambda cls [ExprLit val]
   case res of
     x@(LitBool _) -> return x
     y             -> throwParserError
-                     $ typeClassWrongReturnErr clsName (typeOf y)
+                     $ typeConstrWrongReturnErr clsName (typeOf y)
 
 
 -- | True if the literal is of the specified annotation type.
@@ -196,9 +196,9 @@ checkSatType val typ = do
 
 -- | True if the given class returns true when
 -- passed the literal.
-satClass :: LangLit -> LangIdent -> ExecIO Bool
-satClass val clsName = do
-  (LitBool res) <- execClass val clsName
+satConstr :: LangLit -> LangIdent -> ExecIO Bool
+satConstr val clsName = do
+  (LitBool res) <- execConstr val clsName
   return res
 
 
@@ -431,5 +431,5 @@ checkLitRange r@(LitRange x y z)
     = unless (validRangeLit r)
       (if enumType x
        then throwParserError $ badRangeErr (typeOf x) (fmap typeOf y) (fmap typeOf z)
-       else throwParserError $ typeExpectClassErr x (LangIdent "enum"))
+       else throwParserError $ typeExpectConstrErr x (LangIdent "enum"))
 checkLitRange _ = throwImplementationErr "checkLitRange: Attempting to check a non-range"

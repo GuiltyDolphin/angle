@@ -3,15 +3,15 @@
 {-# LANGUAGE KindSignatures #-}
 module Angle.Parse.Error
     ( typeUnexpectedErr
-    , typeNotValidErrT
-    , typeMismatchOpErrT
-    , typeExpectClassErr
-    , typeClassWrongReturnErr
+    , typeNotValidErr
+    , typeMismatchOpErr
+    , typeExpectConstrErr
+    , typeConstrWrongReturnErr
     , typeAnnWrongErr
     , nameNotDefinedErr
     , nameNotDefinedFunErr
     , nameNotDefinedLitErr
-    , nameNotDefinedClassErr
+    , nameNotDefinedConstrErr
     , assignToBuiltinErr
     , wrongNumberOfArgumentsErr
     , ParserError
@@ -84,7 +84,8 @@ instance Show AngleError where
                       , parserErrSourceText=es
                       })
         = cEp ++ cEt ++ cEe
-          where cEp = concat ["[", showPos start, "-", showPos end, "]"] ++ "\n"
+          where --cEp = concat ["[", showPos start, "-", showPos end, "]"] ++ "\n"
+                cEp = show start ++ "\n"
                 cEt = let lns = lines es in
                       if null lns
                       then "no source\n"
@@ -148,37 +149,33 @@ data TypeError = TypeMismatch   LangType LangType
                | TypeNotValid   LangType
                | TypeCast LangType LangType
                | TypeMismatchOp LangType LangType
-               | TypeExpectClass LangLit LangIdent
-               | TypeClassWrongReturn LangIdent LangType
+               | TypeExpectConstr LangLit LangIdent
+               | TypeConstrWrongReturn LangIdent LangType
                | TypeAnnWrong AnnType AnnType
 
 
+-- | Wrong type has been passed and required type is known.
 typeUnexpectedErr :: LangType -> LangType -> ParserError
 typeUnexpectedErr t1 = typeErr . TypeUnexpected t1
 
 
-typeNotValidErr :: LangType -> ParserError
-typeNotValidErr      = typeErr . TypeNotValid
+-- | Wrong type has been passed and required type is not known.
+typeNotValidErr :: LangLit -> ParserError
+typeNotValidErr     = typeErr . TypeNotValid . typeOf
 
 
-typeNotValidErrT :: LangLit -> ParserError
-typeNotValidErrT     = typeNotValidErr . typeOf
+-- | Expecting types to be the same.
+typeMismatchOpErr :: LangLit -> LangLit -> ParserError
+typeMismatchOpErr x y = typeErr $ (TypeMismatchOp `on` typeOf) x y
 
 
-typeMismatchOpErr :: LangType -> LangType -> ParserError
-typeMismatchOpErr t1 = typeErr . TypeMismatchOp t1
+-- | Expect
+typeExpectConstrErr :: LangLit -> LangIdent -> ParserError
+typeExpectConstrErr cls = typeErr . TypeExpectConstr cls
 
 
-typeMismatchOpErrT :: LangLit -> LangLit -> ParserError
-typeMismatchOpErrT = typeMismatchOpErr `on` typeOf
-
-
-typeExpectClassErr :: LangLit -> LangIdent -> ParserError
-typeExpectClassErr cls = typeErr . TypeExpectClass cls
-
-
-typeClassWrongReturnErr :: LangIdent -> LangType -> ParserError
-typeClassWrongReturnErr cls = typeErr . TypeClassWrongReturn cls
+typeConstrWrongReturnErr :: LangIdent -> LangType -> ParserError
+typeConstrWrongReturnErr cls = typeErr . TypeConstrWrongReturn cls
 
 
 typeAnnWrongErr :: AnnType -> AnnType -> ParserError
@@ -191,13 +188,13 @@ instance Show TypeError where
     show (TypeNotValid l)     = "type not valid for scenario: " ++ show l
     show (TypeCast l r) = "cannot convert " ++ show l ++ " to " ++ show r
     show (TypeMismatchOp l r) = "cannot perform operation on types " ++ show l ++ " and " ++ show r
-    show (TypeExpectClass v c) = "expecting value that satisfies class '" ++ showSyn c ++ "' but got: " ++ showSyn v
-    show (TypeClassWrongReturn c t) = "bad class: " ++ showSyn c ++ ", expecting return value of type bool, but got " ++ show t
+    show (TypeExpectConstr v c) = "expecting value that satisfies function '" ++ showSyn c ++ "' but got: " ++ showSyn v
+    show (TypeConstrWrongReturn c t) = "bad class: " ++ showSyn c ++ ", expecting return value of type bool, but got " ++ show t
     show (TypeAnnWrong t1 t2) = "bad type in function call, expecting " ++ show t1 ++ " but got " ++ show t2
 
 
 data NameError = NameNotDefined LangIdent
-               | NameNotDefinedClass LangIdent
+               | NameNotDefinedConstr LangIdent
                | NameNotDefinedFun LangIdent
                | NameNotDefinedLit LangIdent
                | NameNotOp LangIdent
@@ -216,8 +213,8 @@ nameNotDefinedLitErr :: LangIdent -> ParserError
 nameNotDefinedLitErr = nameErr . NameNotDefinedLit
 
 
-nameNotDefinedClassErr :: LangIdent -> ParserError
-nameNotDefinedClassErr = nameErr . NameNotDefinedClass
+nameNotDefinedConstrErr :: LangIdent -> ParserError
+nameNotDefinedConstrErr = nameErr . NameNotDefinedConstr
 
 
 assignToBuiltinErr :: LangIdent -> ParserError
@@ -228,7 +225,7 @@ instance Show NameError where
     show (NameNotDefined  (LangIdent name)) = "not in scope: "         ++ name
     show (NameNotDefinedFun (LangIdent name)) = "not a valid function: " ++ name
     show (NameNotDefinedLit (LangIdent name)) = "no value assigned: "    ++ name
-    show (NameNotDefinedClass (LangIdent name)) = "not a valid class " ++ name
+    show (NameNotDefinedConstr (LangIdent name)) = "not a valid class " ++ name
     show (NameNotOp       (LangIdent name)) = "not a valid operator: " ++ name
     show (AssignToBuiltin (LangIdent name)) = "cannot assign to builtin: " ++ name
 
