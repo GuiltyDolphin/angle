@@ -26,6 +26,8 @@ module Angle.Parse.Types.Internal
     , getEnvValue
     , fromIter
     , iterToLit
+    , fromEnumL
+    , isInfiniteRange
     ) where
 
 
@@ -120,15 +122,33 @@ putEnvValue v = modify (\e -> e {envValue=v})
 fromIter :: LangLit -> ExecIO [LangLit]
 fromIter (LitList xs) = return xs
 fromIter (LitStr xs) = return $ map LitChar xs
-fromIter (LitRange x Nothing Nothing) = iterFrom x
+-- fromIter (LitRange x Nothing Nothing) =
 fromIter (LitRange x (Just y) Nothing) = iterFromTo x y
 fromIter (LitRange x (Just y) (Just z)) = iterFromThenTo x y z
 fromIter _ = throwImplementationErr "fromIter: TODO: define this!"
 
 
+-- | True if the range has infinite size.
+isInfiniteRange :: LangLit -> Bool
+isInfiniteRange (LitRange _ Nothing _) = True
+isInfiniteRange (LitRange x (Just y) (Just z))
+    = (y' > x' && z' - x' < 0) || (y' < x' && z' - x' > 0) || (z' - x') == 0
+  where [x',y',z'] = map fromEnumL [x,y,z]
+
+
+-- | Retrieve enum value from literal, literal must be
+-- enumerable.
+fromEnumL :: LangLit -> Int
+fromEnumL (LitInt x) = fromEnum x
+fromEnumL (LitChar x) = fromEnum x
+fromEnumL (LitFloat x) = fromEnum x
+fromEnumL _ = error "fromEnumL: non-enumerable type"
+
+
 -- | Convert a list or range into a literal list.
 iterToLit :: LangLit -> ExecIO LangLit
-iterToLit = liftM LitList . fromIter
+iterToLit x@(LitRange{}) | isInfiniteRange x = return LitNull
+iterToLit x = liftM LitList $ fromIter x
 
 
 iterFromThenTo :: LangLit -> LangLit -> LangLit -> ExecIO [LangLit]

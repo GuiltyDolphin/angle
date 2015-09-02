@@ -20,6 +20,8 @@ module Angle.Parse.Types
     , basicEnv
     , Env(..)
     , getEnvValue
+    , fromEnumL
+    , isInfiniteRange
     ) where
 
 import Angle.Parse.Types.Internal
