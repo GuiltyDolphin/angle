@@ -265,6 +265,7 @@ langLit :: Scanner LangLit
 langLit = litStr
           <|> litNull
           <|> litChar
+          <|> tryScan litLambda
           <|> litRange
           <|> litBool
           <|> litList
@@ -298,6 +299,10 @@ litList = liftM LitList (tokList $ sepWith tokEltSep langLit)
 
 litKeyword :: Scanner LangLit
 litKeyword = liftM LitKeyword (char ':' >> identName)
+
+
+litLambda :: Scanner LangLit
+litLambda = liftM LitLambda lambda
 
 
 exprList :: Scanner Expr
@@ -386,7 +391,6 @@ expr = (   tryScan exprLit
        <|> exprFunIdent
        <|> tryScan exprOp
        <|> tryScan exprRange
-       <|> exprLambda
        <|> exprFunCall
        <|> exprIdent)
        <?> "expression"
@@ -412,10 +416,6 @@ exprFunIdent :: Scanner Expr
 exprFunIdent = liftM ExprFunIdent funIdent
 
 
-exprLambda :: Scanner Expr
-exprLambda = liftM ExprLambda lambda
-
-
 -- | Lambdas are unnamed functions which can be assigned to
 -- identifiers or passed to functions when used in their literal
 -- form.
@@ -431,8 +431,15 @@ lambda = parens $ do
 
 
 -- | Set of arguments for a function
-arglist :: Scanner [Expr]
-arglist = parens (sepWith tokEltSep (expr <|> exprParamExpand))
+arglist :: Scanner [Arg]
+-- arglist = parens (sepWith tokEltSep (expr <|> exprParamExpand))
+arglist = parens (sepWith tokEltSep arg)
+
+
+arg :: Scanner Arg
+arg = tryScan (liftM ArgLambda lambda)
+      <|> liftM ArgExpr expr
+      <|> liftM ArgExpr exprParamExpand
 
 
 exprParamExpand :: Scanner Expr

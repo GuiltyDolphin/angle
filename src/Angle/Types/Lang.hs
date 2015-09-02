@@ -7,11 +7,10 @@
 {-|
 Module      : Angle.Types.Lang
 Description : Basic types that make up the Angle language.
-Copyright   : ben 2015
-License     :
+Copyright   : Copyright (C) 2015 Ben Moon
+License     : GNU GPL, version 3
 Maintainer  : GuiltyDolphin@gmail.com
 Stability   : experimental
-Portability :
 
 * LangLit is a container for the various literal values.
 * LangType represents the types of these values.
@@ -43,7 +42,7 @@ to document or explain parts of code.
 
 [@structures@] see "Angle.Types.Lang#structures"
 
-[@expressions@] see "Angle.Types.Lang#expressions"
+[@expressions@] see 'Expr'
 
 [@return@] allows the programmer to exit a function early and use
 the provided value as the function's value.
@@ -69,10 +68,6 @@ will execute if the condition does not hold.
 
 [@function definitions@ : 'StructDefun'] allows the assignment of previously
 non-existant lambda bodies to a name.
-
-
-= Expressions #expressions#
-
 -}
 module Angle.Types.Lang
     ( Expr(..)
@@ -94,6 +89,7 @@ module Angle.Types.Lang
     , typeOf
 
     , ArgSig(..)
+    , Arg(..)
     , ShowSyn(..)
     , SourceRef(..)
     , startRef
@@ -170,8 +166,10 @@ instance ShowSyn SingStmt where
     showSyn (StmtExpr e) = showSyn e ++ ";\n"
     showSyn (StmtComment x) = "#" ++ x ++ "\n"
     showSyn (StmtReturn x) = "return " ++ showSyn x ++ ";\n"
-    showSyn (StmtBreak x False) = "break" ++ maybe "" ((" "++) . showSyn) x
-    showSyn (StmtBreak Nothing True) = "continue"
+    showSyn (StmtBreak x False) = "break" ++ retVal ++ ";\n"
+      where
+        retVal = maybe "" ((" "++) . showSyn) x
+    showSyn (StmtBreak Nothing True) = "continue;\n"
     showSyn (StmtBreak _ _) = error "showSyn: StmtBreak not a valid combination!"
 
 
@@ -417,10 +415,9 @@ data Expr = ExprIdent LangIdent
             -- ^ 'LangIdent' when representing a variable.
           | ExprFunIdent LangIdent
             -- ^ 'LangIdent' when representing a function.
-          | ExprLambda Lambda
           | ExprLit LangLit -- ^ Expression wrapping a literal value.
-          | ExprFunCall LangIdent [Expr]
-          | ExprLambdaCall Lambda [Expr]
+          | ExprFunCall LangIdent [Arg]
+          | ExprLambdaCall Lambda [Arg]
           | ExprOp LangOp
           | ExprList [Expr]
             -- ^ An unevaluated list (see 'LitList').
@@ -432,16 +429,26 @@ data Expr = ExprIdent LangIdent
             deriving (Show, Eq)
 
 
+
+-- | Represents an argument passed to a function.
+data Arg = ArgExpr Expr | ArgLambda Lambda
+  deriving (Show, Eq)
+
+
+instance ShowSyn Arg where
+  showSyn (ArgExpr e) = showSyn e
+  showSyn (ArgLambda l) = showSyn l
+
+
 instance ShowSyn Expr where
     showSyn (ExprIdent x) = showSyn x
     showSyn (ExprLit x) = showSyn x
     showSyn (ExprFunCall n es) = showSyn n ++ showSynArgs es
     showSyn (ExprOp x) = showSyn x
-    showSyn (ExprLambda x) = "(" ++ showSyn x ++ ")"
     showSyn (ExprFunIdent x) = "$" ++ showSyn x
     showSyn (ExprList _) = error "showSyn - cannot show unevaluated list"
     showSyn (ExprRange{}) = error "showSyn - cannot show unevaluated range"
-    showSyn (ExprLambdaCall x xs) = showSyn (ExprLambda x) ++ " : (" ++ showSynArgs xs ++ ")"
+    showSyn (ExprLambdaCall x xs) = showSyn (LitLambda x) ++ " : (" ++ showSynArgs xs ++ ")"
     showSyn (ExprParamExpand _) = error "showSyn - ExprParamExpand made it to showSyn"
 
 
@@ -459,7 +466,7 @@ instance ShowSyn LangIdent where
     showSyn = getIdent
 
 
--- | TODO: Check this out... It looks a bit weird.
+-- TODO: Check this out... It looks a bit weird.
 instance ShowSyn ArgSig where
     showSyn (ArgSig args catchArg) =
         showSynSep "("

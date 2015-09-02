@@ -2,6 +2,8 @@ module Test.Angle.Lex.Lexer
     ( tests
     ) where
 
+import Control.Monad (liftM)
+
 import Angle.Lex.Lexer.Internal
 import qualified Test.QuickCheck.Property as P
 import Angle.Types.Lang
@@ -34,16 +36,20 @@ showSynTest x sc = evalScan (showSyn x) sc == Right x
 
 prettySyn :: (ShowSyn a, Eq a) => a -> Scanner a -> P.Result
 prettySyn = withPretty f p
-    where p x sc = either (const "got an error!\n") showSyn (evalScan (showSyn x) sc)
+    where p x sc = either (const $ "Could not parse: \n" ++ showSyn x)
+                     showSyn (evalScan (showSyn x) sc)
           f = showSynTest
 
 
-withPretty :: (a -> Scanner b -> Bool) -> (a -> Scanner b -> String) -> a -> Scanner b -> P.Result
-withPretty f pretty x sc = P.result { P.ok = Just b
-                           , P.reason = if b
-                                        then ""
-                                        else pretty x sc
-                           }
+withPretty :: (a -> Scanner b -> Bool) -- ^ Test function to apply
+           -> (a -> Scanner b -> String) -- ^ Prettify function
+           -> a -> Scanner b -> P.Result
+withPretty f pretty x sc = P.result
+                             { P.ok = Just b
+                             , P.reason = if b
+                                          then ""
+                                          else pretty x sc
+                             }
     where b = f x sc
 
 
@@ -51,13 +57,22 @@ escapedStr :: String -> String
 escapedStr xs = "\"" ++ xs ++ "\""
 
 
-testLitStrEmpty :: Assertion
-testLitStrEmpty = evalScan "\"\"" litStr @?= Right (LitStr "")
+
+newtype NoQuoteString = NoQuoteString { getNoQuoteString :: String }
+  deriving (Show, Eq)
+
+instance Arbitrary NoQuoteString where
+  arbitrary = liftM NoQuoteString $ suchThat arbitrary ("\"" `noneElem`)
+
+
+testLitStrEmpty :: Bool
+testLitStrEmpty = evalScan "\"\"" litStr == Right (LitStr "")
 
 
 testLitStr :: String -> Property
 testLitStr x = "\"\\" `noneElem` x ==> litStrShow x litStr
 -- testLitStr x = '"' `notElem` x ==> evalScan (escapedStr x) litStr == Right (LitStr x)
+--
 
 
 noneElem :: (Eq a) => [a] -> [a] -> Bool
@@ -105,7 +120,7 @@ tests = [ testGroup "literals"
 --          , testProperty "range" testRange
           , testProperty "integer" testLitInt
           , testProperty "string" testLitStr
-          , testCase "empty string" testLitStrEmpty
+          , testProperty "empty string" testLitStrEmpty
 --          , testProperty "float" testLitFloat
           ]
         , testGroup "functions"
@@ -118,11 +133,11 @@ tests = [ testGroup "literals"
         , localOption (QuickCheckMaxSize 10) $
           testGroup "show syntax"
           [ localOption (QuickCheckMaxSize 9) $
-            testProperty "Stmt" $ testShowSynStmt
-          , testProperty "SingStmt" $ testShowSynSingStmt
+            testProperty "Stmt" testShowSynStmt
+          , testProperty "SingStmt" testShowSynSingStmt
           , localOption (QuickCheckMaxSize 9) $
-            testProperty "LangStruct" $ testShowSynLangStruct
-          , testProperty "Expr" $ testShowSynExpr
+            testProperty "LangStruct" testShowSynLangStruct
+          , testProperty "Expr" testShowSynExpr
           , localOption (QuickCheckMaxSize 10) $ testProperty "Lambda" testShowSynLambda
           ]
         ]

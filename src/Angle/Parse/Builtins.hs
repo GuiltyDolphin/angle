@@ -70,7 +70,7 @@ builtinCallSig name =
     where body = SingleStmt
                  ( StmtExpr
                    ( ExprFunCall name
-                     [ ExprParamExpand
+                     [ ArgExpr $ ExprParamExpand
                        ( LangIdent "x" )])) startRef
 
 
@@ -181,8 +181,13 @@ fromStr s f = case reads s of
 -- keyword @:infinite@.
 builtinLength :: [LangLit] -> ExecIO LangLit
 builtinLength [LitList xs] = return . LitInt $ length xs
-builtinLength [LitRange _ Nothing _] = return $ LitKeyword $ LangIdent "infinite"
+builtinLength [x@(LitRange{})] | isInfiniteRange x = return $ LitKeyword $ LangIdent "infinite"
 builtinLength [LitRange x (Just y) Nothing] = return . LitInt $ (fromEnumL y + 1) - fromEnumL x
+builtinLength [LitRange x (Just y) (Just z)] = return .
+  LitInt $ ceiling (fromIntegral div1 / fromIntegral div2)
+  where
+    div1 = (fromEnumL y + 1) - fromEnumL x
+    div2 = fromEnumL z - fromEnumL x
 builtinLength _ = throwParserError $ callBuiltinErr "length: invalid call"
 
 
@@ -240,15 +245,11 @@ splice x y xs = take (1+y-x) $ drop x xs
 
 
 toLitStr :: LangLit -> LangLit
-toLitStr (LitInt x) = LitStr (show x)
-toLitStr (LitFloat x) = LitStr (show x)
-toLitStr (LitBool x) = LitStr (show x)
 toLitStr x@(LitStr _) = x
-toLitStr (LitList xs) = LitStr (show xs)
-toLitStr x@(LitRange{}) = LitStr $ showSyn x
-toLitStr LitNull = LitStr ""
 toLitStr (LitChar x) = LitStr [x]
-toLitStr _ = error "toLitStr: cannot display type"
+toLitStr LitNull = LitStr ""
+toLitStr x = LitStr $ showSyn x
+-- toLitStr _ = error "toLitStr: cannot display type"
 
 
 -- | Builtin @getArgs@ function.
@@ -256,13 +257,6 @@ toLitStr _ = error "toLitStr: cannot display type"
 -- @getArgs()@ returns the arguments passed to the program.
 builtinGetArgs :: [LangLit] -> ExecIO LangLit
 builtinGetArgs _ = liftM (LitList . map LitStr) $ liftIO getArgs
-
-
-fromEnumL :: LangLit -> Int
-fromEnumL (LitInt x) = fromEnum x
-fromEnumL (LitChar x) = fromEnum x
-fromEnumL (LitFloat x) = fromEnum x
-fromEnumL _ = error "fromEnumL: non-enumerable type"
 
 
 

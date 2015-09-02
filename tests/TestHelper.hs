@@ -3,19 +3,20 @@
 module TestHelper
     ( module Test.Tasty
     , module Test.Tasty.QuickCheck
-    , module Test.Tasty.HUnit
+    , assert
     , Scanner
     , evalScan
     , monadicEither
 --    , monadicExec
     , monadicIO
-    , assertQC
-    , assertEqualQC
+    , assertEqual
     , run
     , maxSized
     , runExecIOBasic
     , runExec
     , runEx
+    , SmallList(..)
+    , TinyList(..)
     ) where
 
 
@@ -26,13 +27,12 @@ import Data.List (zipWith4)
 import qualified Data.Map as M
 
 import Test.QuickCheck
-import Test.QuickCheck.Monadic hiding (assert)
-import qualified Test.QuickCheck.Monadic as Monadic
+import Test.QuickCheck.Monadic
 import Test.Tasty
-import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
 
 import Angle.Lex.Helpers (evalScan, Scanner)
+import Angle.Lex.Token (keywords)
 import Angle.Parse.Scope
 import Angle.Parse.Error
 import Angle.Parse.Types.Internal
@@ -47,21 +47,30 @@ instance Arbitrary LangLit where
                 [ (7, liftArby (LitStr . getValidLitStr))
                 , (9, liftArby LitInt)
                 , (9, liftArby LitFloat)
-                , (1, liftM LitList (liftArby getSmallList))
+                , (1, liftM LitList (liftArby getTinyList))
                 , (9, liftArby LitBool)
-                --, (1, liftArby3 LitRange)
-                , (9, return LitNull)
+                , (1, arbyRange)
+                , (6, liftArby LitChar)
+                , (1, liftArby LitLambda)
+                --, (9, return LitNull)
                 ]
-    shrink (LitList xs) = shrink1 LitList xs
-    shrink (LitInt x) = shrink1 LitInt x
-    shrink (LitStr x) = shrink1 LitStr x
-    shrink (LitFloat x) = shrink1 LitFloat x
-    shrink (LitBool x) = shrink1 LitBool x
-    shrink (LitRange x y z) = shrink3 LitRange x y z
-    shrink (LitLambda x) = shrink1 LitLambda x
-    shrink (LitChar x) = shrink1 LitChar x
-    shrink LitNull = [LitNull]
-    shrink _ = undefined
+      where arbyRange = do
+              x <- suchThat arbitrary enumType
+              [y,z] <- suchThat (vector 2) (allType (typeOf x))
+              (b1, b2) <- arbitrary
+              let y' = if b1 then Just y else Nothing
+                  z' = if b2 then Just z else Nothing
+              return $ LitRange x y' z'
+    -- --shrink (LitList xs) = shrink1 LitList xs
+    -- shrink (LitInt x) = shrink1 LitInt x
+    -- shrink (LitStr x) = shrink1 LitStr x
+    -- shrink (LitFloat x) = shrink1 LitFloat x
+    -- shrink (LitBool x) = shrink1 LitBool x
+    -- --shrink (LitRange x y z) = shrink3 LitRange x y z
+    -- --shrink (LitLambda x) = shrink1 LitLambda x
+    -- shrink (LitChar x) = shrink1 LitChar x
+    -- shrink LitNull = [LitNull]
+    -- shrink _ = undefined
 
 
 instance Arbitrary SingStmt where
@@ -110,15 +119,16 @@ instance Arbitrary Expr where
                 , (4, liftArby  ExprOp)
                 --, (4, liftArby ExprLambda)
                 , (4, liftArby ExprFunIdent)
+                --, (1, liftArby3 ExprRange)
                 ]
-    shrink (ExprIdent x) = shrink1 ExprIdent x
-    shrink (ExprLit x) = shrink1 ExprLit x
-    shrink (ExprFunCall x y) = shrink2 ExprFunCall x y
-    shrink (ExprOp x) = shrink1 ExprOp x
-    shrink (ExprLambda x) = shrink1 ExprLambda x
-    shrink (ExprFunIdent x) = shrink1 ExprFunIdent x
-    shrink (ExprList x) = map ExprList $ shrink x
-    shrink _ = undefined
+    -- shrink (ExprIdent x) = shrink1 ExprIdent x
+    -- shrink (ExprLit x) = shrink1 ExprLit x
+    -- shrink (ExprFunCall x y) = shrink2 ExprFunCall x y
+    -- shrink (ExprOp x) = shrink1 ExprOp x
+    -- shrink (ExprLambda x) = shrink1 ExprLambda x
+    -- shrink (ExprFunIdent x) = shrink1 ExprFunIdent x
+    -- shrink (ExprList x) = map ExprList $ shrink x
+    -- shrink _ = undefined
 
 
 instance Arbitrary ArgSig where
@@ -153,9 +163,9 @@ shrink4
 shrink4 f w x y z = zipWith4 f (shrink w) (shrink x) (shrink y) (shrink z)
 
 
-instance Arbitrary ClassRef where
-    arbitrary = liftArby ClassRef
-    shrink (ClassRef x) = shrink1 ClassRef x
+instance Arbitrary ConstrRef where
+    arbitrary = liftArby ConstrRef
+    shrink (ConstrRef x) = shrink1 ConstrRef x
 
 
 instance Arbitrary AnnType where
@@ -315,7 +325,7 @@ instance Arbitrary Scope where
     shrink (Scope w x y) = shrink3 Scope w x y
 
 
--- Extracts a property from monadic Either code, giving
+-- | Extracts a property from monadic Either code, giving
 -- a failing property if the result is a Left.
 monadicEither :: PropertyM (Either e) a -> Property
 monadicEither = monadic (\e -> case e of
@@ -370,17 +380,21 @@ instance Arbitrary SourcePos where
     shrink (SourcePos x) = shrink1 SourcePos x
 
 
-assertEqualQC :: (Monad m, Eq a) => a -> a -> PropertyM m ()
-assertEqualQC x = assertQC . (==x)
+instance Arbitrary Arg where
+  arbitrary = frequency
+                  [ (1, liftArby ArgLambda)
+                  , (9, liftArby ArgExpr)
+                  ]
+
+assertEqual :: (Monad m, Eq a) => a -> a -> PropertyM m ()
+assertEqual x = assert . (==x)
 
 
 maxSized :: (Testable prop) => Int -> prop -> Property
 maxSized x = mapSize (min x)
 
 
-assertQC :: (Monad m) => Bool -> PropertyM m ()
-assertQC = Monadic.assert
-
 isValidIdent :: String -> Bool
 isValidIdent [] = False
+isValidIdent xs | xs `elem` keywords = False
 isValidIdent (x:xs) = isAlpha x && all isAlphaNum xs
