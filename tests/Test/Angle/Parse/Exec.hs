@@ -164,8 +164,8 @@ testBuiltinIsNull x = checkResEq toRun $ LitBool (x == LitNull)
     toRun = callShowSyn "isNull" [x]
 
 
-testBuiltinIndexBasic :: [LangLit] -> NonNegative Int -> Property
-testBuiltinIndexBasic xs (NonNegative x) = x < length xs
+testBuiltinIndexBasic :: TinyList LangLit -> NonNegative Int -> Property
+testBuiltinIndexBasic (TinyList xs) (NonNegative x) = x < length xs
                                         ==> checkResEq toRun $ xs !! x
   where
     toRun = callShowSyn "index" [LitInt x, LitList xs]
@@ -207,9 +207,26 @@ testForLoopSimple (TinyList xs) = checkResEq toRun (LitList xs)
   where toRun = for "i" (showSyn $ LitList xs) "i;"
 
 
+testForLoopBreakSimple :: NonEmptyList LangLit -> Property
+testForLoopBreakSimple (NonEmpty xs) = checkResEq toRun (head xs)
+  where
+    toRun = for "i" (showSyn $ LitList xs) (multiStmt ["i;", "break;"])
+
+
+testForLoopBreakWithValue :: NonEmptyList LangLit -> LangLit -> Property
+testForLoopBreakWithValue (NonEmpty xs) y = checkResEq toRun y
+  where
+    toRun = for "i" (showSyn $ LitList xs) (multiStmt ["i;", "break " ++ showSyn y ++ ";"])
+
+
+multiStmt :: [String] -> String
+multiStmt xs = concat ["{", concat xs, "}"]
+
+
 for :: String -> String -> String -> String
 for ident expr body = concat [ "for ", ident, " in "
                              , expr, " do ", body]
+
 
 tests :: [TestTree]
 tests = [ testGroup "filter tests"
@@ -236,6 +253,8 @@ tests = [ testGroup "filter tests"
           ]
         , testGroup "structures"
           [ testProperty "simple for-loop" testForLoopSimple
+          , testProperty "for loop break - simple" testForLoopBreakSimple
+          , testProperty "for loop break - value" testForLoopBreakWithValue
           ]
         , testGroup "builtin functions"
           [ testProperty "length" testBuiltinLength

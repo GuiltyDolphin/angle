@@ -29,5 +29,6 @@ allTests = localOption (Timeout (toMicroSeconds 3) "") $
            , localOption (QuickCheckMaxSize 10) $
              testGroup "scope tests" Scope.tests
            , testGroup "token tests" Token.tests
-           , testGroup "exec tests" Exec.tests
+           , localOption (QuickCheckMaxSize 10) $
+             testGroup "exec tests" Exec.tests
            ]
