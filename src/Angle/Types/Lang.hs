@@ -89,7 +89,6 @@ module Angle.Types.Lang
     , typeOf
 
     , ArgSig(..)
-    , Arg(..)
     , ShowSyn(..)
     , SourceRef(..)
     , startRef
@@ -416,8 +415,8 @@ data Expr = ExprIdent LangIdent
           | ExprFunIdent LangIdent
             -- ^ 'LangIdent' when representing a function.
           | ExprLit LangLit -- ^ Expression wrapping a literal value.
-          | ExprFunCall LangIdent [Arg]
-          | ExprLambdaCall Lambda [Arg]
+          | ExprFunCall LangIdent [Expr]
+          | ExprLambdaCall Lambda [Expr]
           | ExprOp LangOp
           | ExprList [Expr]
             -- ^ An unevaluated list (see 'LitList').
@@ -427,17 +426,6 @@ data Expr = ExprIdent LangIdent
             -- ^ Special form of expression that represents a
             -- catch parameter.
             deriving (Show, Eq)
-
-
-
--- | Represents an argument passed to a function.
-data Arg = ArgExpr Expr | ArgLambda Lambda
-  deriving (Show, Eq)
-
-
-instance ShowSyn Arg where
-  showSyn (ArgExpr e) = showSyn e
-  showSyn (ArgLambda l) = showSyn l
 
 
 instance ShowSyn Expr where

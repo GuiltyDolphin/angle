@@ -379,13 +379,6 @@ instance Arbitrary SourcePos where
       return $ SourcePos (f, s, t)
     shrink (SourcePos x) = shrink1 SourcePos x
 
-
-instance Arbitrary Arg where
-  arbitrary = frequency
-                  [ (1, liftArby ArgLambda)
-                  , (9, liftArby ArgExpr)
-                  ]
-
 assertEqual :: (Monad m, Eq a) => a -> a -> PropertyM m ()
 assertEqual x = assert . (==x)
 

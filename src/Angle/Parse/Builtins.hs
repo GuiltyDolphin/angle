@@ -70,7 +70,7 @@ builtinCallSig name =
     where body = SingleStmt
                  ( StmtExpr
                    ( ExprFunCall name
-                     [ ArgExpr $ ExprParamExpand
+                     [ ExprParamExpand
                        ( LangIdent "x" )])) startRef
 
 

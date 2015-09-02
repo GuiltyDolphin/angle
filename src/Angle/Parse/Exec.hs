@@ -129,7 +129,7 @@ upScope = do
     Just x  -> modifyScope (const x)
 
 
-bindArgs :: [Arg] -> ArgSig -> ExecIO ()
+bindArgs :: [Expr] -> ArgSig -> ExecIO ()
 bindArgs args (ArgSig
                     { stdArgs=params
                     , catchAllArg=catchParam})
@@ -143,7 +143,7 @@ bindArgs args (ArgSig
                  Nothing -> return []
                  Just cp -> do
                    let toCatch = drop lp args
-                   res <- mapM execArg toCatch
+                   res <- mapM execExpr toCatch
                    return [(cp, LitList res)]
   vals <- mapM (uncurry checkArg) toCheck
   let toBindFuns = map fst $ filter (isAnnFun . snd)  vals
@@ -164,18 +164,13 @@ bindArgs args (ArgSig
 
 -- | Make sure the argument satisfies any
 -- class or type restrictions placed upon it.
-checkArg :: Arg -> ArgElt -> ExecIO ((LangIdent, LangLit), AnnType)
+checkArg :: Expr -> ArgElt -> ExecIO ((LangIdent, LangLit), AnnType)
 checkArg ex (ArgElt {argEltConstr=constr, argEltType=typ
                     , argEltName=name}) = do
-  v <- execArg ex
+  v <- execExpr ex
   checkSatConstr v $ fmap getConstrRef constr
   checkSatType v typ
   return ((name, v), typ)
-
-
-execArg :: Arg -> ExecIO LangLit
-execArg (ArgLambda l) = return $ LitLambda l
-execArg (ArgExpr e) = execExpr e
 
 
 checkSatConstr :: LangLit -> Maybe LangIdent -> ExecIO ()
@@ -188,7 +183,7 @@ checkSatConstr v (Just clsName) = do
 execConstr :: LangLit -> LangIdent -> ExecIO LangLit
 execConstr val clsName = do
   cls <- lookupVarLambdaF clsName
-  res <- callLambda cls [ArgExpr $ ExprLit val]
+  res <- callLambda cls [ExprLit val]
   case res of
     x@(LitBool _) -> return x
     y             -> throwParserError
@@ -220,18 +215,16 @@ satConstr val clsName = do
 
 
 -- | Expand any ExprParamExpand expressions in an argument list.
-expandParams :: [Arg] -> ExecIO [Arg]
+expandParams :: [Expr] -> ExecIO [Expr]
 expandParams [] = return []
 expandParams (x:xs)
   = case x of
-      ArgExpr e -> case e of
-          ExprParamExpand n -> do
-              val <- lookupVarLitF n
-              case val of
-                LitList vs -> liftM (map (ArgExpr . ExprLit) vs ++) $ expandParams xs
-                _          -> liftM (x:) $ expandParams xs
-          _                -> liftM (x:) $ expandParams xs
-      _ -> liftM (x:) $ expandParams xs
+        ExprParamExpand n -> do
+            val <- lookupVarLitF n
+            case val of
+              LitList vs -> liftM (map ExprLit vs ++) $ expandParams xs
+              _          -> liftM (x:) $ expandParams xs
+        _                -> liftM (x:) $ expandParams xs
 
 
 execExpr :: Expr -> ExecIO LangLit
@@ -262,7 +255,7 @@ execExprRange (ExprRange x (Just y) (Just z))
 execExprRange _ = error "excExprRange: passed non-range expression"
 
 
-execFunCall :: LangIdent -> [Arg] -> ExecIO LangLit
+execFunCall :: LangIdent -> [Expr] -> ExecIO LangLit
 execFunCall = callFun
 
 
@@ -298,14 +291,14 @@ withMultiOp :: [Expr] -> ([LangLit] -> ExecIO LangLit) -> ExecIO LangLit
 withMultiOp xs f = mapM execExpr xs >>= f
 
 
-callFun :: LangIdent -> [Arg] -> ExecIO LangLit
+callFun :: LangIdent -> [Expr] -> ExecIO LangLit
 callFun x args | isBuiltin x = callBuiltin x args
                | otherwise = do
   l <- lookupVarLambdaF x
   callLambda l args
 
 
-callLambda :: Lambda -> [Arg] -> ExecIO LangLit
+callLambda :: Lambda -> [Expr] -> ExecIO LangLit
 callLambda (Lambda
             { lambdaArgs=params
             , lambdaBody=body}) args
@@ -326,7 +319,10 @@ execStmt (MultiStmt (x:xs)) = execStmt x >> execStmt (MultiStmt xs)
 
 
 execSingStmt :: SingStmt -> ExecIO LangLit
-execSingStmt (StmtAssign name e) = execExpr e >>= assignVarLit name
+execSingStmt (StmtAssign name e) = execExpr e
+    >>= (\x -> case x of
+        x'@(LitLambda l) -> assignVarLambda name l >> returnVal x'
+        x' -> assignVarLit name x')
 execSingStmt (StmtStruct x) = execLangStruct x
 execSingStmt (StmtExpr x) = setEnvSynRep (showSyn x) >> execExpr x
 execSingStmt (StmtComment _) = return LitNull
@@ -407,11 +403,11 @@ execStructWhile ex s = do
                       (StructIf ex s (Just (SingleStmt (StmtBreak Nothing False) pos)))) pos)
 
 
-builtinArgs :: [Arg] -> ExecIO [LangLit]
-builtinArgs xs = expandParams xs >>= mapM execArg
+builtinArgs :: [Expr] -> ExecIO [LangLit]
+builtinArgs xs = expandParams xs >>= mapM execExpr
 
 
-callBuiltin :: LangIdent -> [Arg] -> ExecIO LangLit
+callBuiltin :: LangIdent -> [Expr] -> ExecIO LangLit
 callBuiltin (LangIdent "print") xs = builtinArgs xs >>= builtinPrint
 callBuiltin (LangIdent "str")   xs = builtinArgs xs >>= builtinStr
 callBuiltin (LangIdent "index") xs = builtinArgs xs >>= builtinIndex

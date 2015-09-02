@@ -431,15 +431,8 @@ lambda = parens $ do
 
 
 -- | Set of arguments for a function
-arglist :: Scanner [Arg]
--- arglist = parens (sepWith tokEltSep (expr <|> exprParamExpand))
-arglist = parens (sepWith tokEltSep arg)
-
-
-arg :: Scanner Arg
-arg = tryScan (liftM ArgLambda lambda)
-      <|> liftM ArgExpr expr
-      <|> liftM ArgExpr exprParamExpand
+arglist :: Scanner [Expr]
+arglist = parens (sepWith tokEltSep (expr <|> exprParamExpand))
 
 
 exprParamExpand :: Scanner Expr
