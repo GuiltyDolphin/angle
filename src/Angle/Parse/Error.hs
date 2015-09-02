@@ -110,22 +110,22 @@ controlException = ControlException
 instance Show AngleError where
     show (ImplementationError x) = "Implementation error: " ++ x
     show (ParserError { parserErrErr=ee
-                      , parserErrSourceRef=SourceRef (start,end)
+                      , parserErrSourceRef=SourceRef (start,_)
                       , parserErrSourceText=es
                       })
         = cEp ++ cEt ++ cEe
-          where --cEp = concat ["[", showPos start, "-", showPos end, "]"] ++ "\n"
-                cEp = show start ++ "\n"
-                cEt = let lns = lines es in
+          where
+            cEp = show start ++ "\n"
+            cEt = let lns = lines es in
                       if null lns
                       then "no source\n"
-                      else replicate (colNo start) ' ' ++ "v\n" ++ lns !! lineNo start ++ "\n"
-                cEe = show ee
-                showPos sp
-                    = let ln = show $ lineNo sp
-                          cn = show $ colNo sp
-                      in concat ["(", ln, ",", cn, ")"]
-    show (ControlException _) = error "show: control exception made it to show"
+                      else replicate (colNo start) ' '
+                               ++ "v\n"
+                               ++ lns !! lineNo start
+                               ++ "\n"
+            cEe = show ee
+    show (ControlException _) =
+        error "show: control exception made it to show"
 
 
 -- | Base for errors that occur during execution of code.
