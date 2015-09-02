@@ -24,7 +24,8 @@ allTests :: TestTree
 allTests = localOption (Timeout (toMicroSeconds 3) "") $
            testGroup "all tests"
            [ testGroup "helpers tests" Helpers.tests
-           , testGroup "lexer tests" Lexer.tests
+           , localOption (QuickCheckMaxSize 10) $
+             testGroup "lexer tests" Lexer.tests
            , testGroup "operations tests" Operations.tests
            , localOption (QuickCheckMaxSize 10) $
              testGroup "scope tests" Scope.tests
