@@ -9,8 +9,8 @@ import Angle.Types.Lang
 import TestHelper
 
 
-testAddList :: [LangLit] -> [LangLit] -> Property
-testAddList xs ys = monadicIO $ do
+testAddList :: TinyList LangLit -> TinyList LangLit -> Property
+testAddList (TinyList xs) (TinyList ys) = monadicIO $ do
                       res <- run $ runExec $ addLit (LitList xs:ys)
                       assertEqual (LitList (xs++ys)) res
 

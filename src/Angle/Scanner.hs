@@ -98,12 +98,16 @@ incCol (SourcePos (ln,cn,si)) = SourcePos (ln,cn+1,si+1)
 -- | Holds information about the current position in source.
 data ScanState = ScanState
          { sourcePos :: SourcePos
+         , sourceRemaining :: String
+         , sourceScanned :: String
          -- ^ The current position in source.
          } deriving (Show, Eq)
 
 
 -- | The environment variables that the scanner can access.
-data ScanEnv = ScanEnv { sourceText :: String } deriving (Show, Eq)
+data ScanEnv = ScanEnv
+  { sourceText :: String
+  } deriving (Show, Eq)
 
 
 -- | Collects results from the scanner and
@@ -212,16 +216,20 @@ basicErr = ScanError { errMsg=""
 scanChar :: Scanner Char
 scanChar = do
   st <- get
-  sourceString <- liftM sourceText ask
-  let pos  = sourcePos st
+  let remSource = sourceRemaining st
+      pos  = sourcePos st
       indx = sourceIndex pos
-  if indx >= genericLength sourceString
+  if remSource == ""
   then unexpectedErr "end of stream"
   else do
-    let chr = sourceString `genericIndex` indx
-    put st{sourcePos=if chr == '\n'
-                     then incNL pos
-                     else incCol pos}
+    let chr = head remSource
+    put st{ sourcePos=if chr == '\n'
+                      then incNL pos
+                      else incCol pos
+          , sourceRemaining=tail remSource
+          , sourceScanned=chr : sourceScanned st
+          }
+
     return chr
 
 
@@ -230,8 +238,12 @@ scanChar = do
 -- Assumes reasonable default state.
 evalScan :: String -> Scanner a -> Either ScanError a
 evalScan str sc = runReader (evalStateT (runExceptT (runScanner sc)) defaultState) env
-  where defaultState = ScanState { sourcePos = beginningOfFile }
-        env = ScanEnv { sourceText = str }
+  where defaultState = ScanState { sourcePos = beginningOfFile
+                                 , sourceRemaining = str
+                                 , sourceScanned = ""
+                                 }
+        env = ScanEnv { sourceText = str
+                      }
 
 
 -- | If the scan fails, specify what was expected.
