@@ -11,22 +11,34 @@ License     : GNU GPL, version 3
 Maintainer  : GuiltyDolphin@gmail.com
 Stability   : alpha
 
-Defines the language scanner.
-TODO
+Defines the language 'Scanner'.
+
+__TODO__
+
+= __TODO__
+
+__TODO__
 -}
 module Angle.Scanner
-  ( SourcePos(..)
-  , beginningOfFile
-  , lineNo
-  , colNo
-  , evalScan
-  , (<?>)
+  (
   -- * Types
-  , Scanner
-  , ScanError(..)
-  , sourcePos
-  , unexpectedErr
+
+  -- ** Scanner
+    Scanner
+  , evalScan
   , scanChar
+
+  -- ** Errors
+  , ScanError(..)
+  , (<?>)
+  , unexpectedErr
+
+  -- ** Position
+  , SourcePos(..)
+  , beginningOfFile
+  , colNo
+  , lineNo
+  , sourcePos
   ) where
 
 
