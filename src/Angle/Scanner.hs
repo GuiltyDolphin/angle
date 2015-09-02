@@ -3,18 +3,28 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
--- Change imports
+{-|
+Module      : Angle.Scanner
+Description : Defines the Scanner type.
+Copyright   : Copyright (C) 2015 Ben Moon
+License     : GNU GPL, version 3
+Maintainer  : GuiltyDolphin@gmail.com
+Stability   : alpha
+
+Defines the language scanner.
+TODO
+-}
 module Angle.Scanner
   ( SourcePos(..)
   , beginningOfFile
   , lineNo
   , colNo
+  , evalScan
+  , (<?>)
   -- * Types
   , Scanner
-  , ScanEnv(..)
   , ScanError(..)
-  , ScanState(..)
-  , runScanner
+  , sourcePos
   , unexpectedErr
   , scanChar
   ) where
@@ -131,6 +141,7 @@ emptyErrh :: ScanError -> Scanner a
 emptyErrh = throwError
 
 
+-- | Type for tracking information about lexical errors.
 data ScanError = ScanError
     { expectedMsg :: String -- ^Human readable statement of
                             -- an expected value
@@ -200,3 +211,23 @@ scanChar = do
                      then incNL pos
                      else incCol pos}
     return chr
+
+
+-- | Used for evaluating a single Scanner with a given string.
+--
+-- Assumes reasonable default state.
+evalScan :: String -> Scanner a -> Either ScanError a
+evalScan str sc = runReader (evalStateT (runExceptT (runScanner sc)) defaultState) env
+  where defaultState = ScanState { sourcePos = beginningOfFile }
+        env = ScanEnv { sourceText = str }
+
+
+-- | If the scan fails, specify what was expected.
+infix 0 <?>
+(<?>) :: Scanner a -> String -> Scanner a
+sc <?> msg = do
+  oldPos <- liftM sourcePos get
+  sc `catchError` (\e -> do
+    newPos <- liftM sourcePos get
+    if newPos == oldPos then throwError $ e {expectedMsg=msg}--expectedErr msg
+    else throwError e)

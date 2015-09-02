@@ -4,6 +4,18 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-|
+Module      : Angle.Parse.Types.Internal
+Description : Defines types used for executing Angle programs.
+Copyright   : Copyright (C) 2015 Ben Moon
+License     : GNU GPL, version 3
+Maintainer  : GuiltyDolphin@gmail.com
+Stability   : alpha
+
+Defines the base types (ExecIO and Env) for executing Angle programs.
+
+Also defines functions for working with iterable types in Angle.
+-}
 module Angle.Parse.Types.Internal
     ( ExecIO
     , runExecIOBasic
@@ -27,6 +39,7 @@ import Angle.Parse.Scope
 import Angle.Types.Lang
 
 
+-- | Angle program execution monad.
 newtype ExecIO a = ExecIO
     { runExecIO :: ExceptT AngleError (StateT Env IO) a }
     deriving ( Functor, Applicative, Monad
@@ -52,6 +65,7 @@ instance MonadState Env ExecIO where
     put x = ExecIO $ lift $ put x
 
 
+-- | Environment in which Angle programs execute.
 data Env = Env { currentScope :: Scope
                , sourceText :: String
                , envSourceRef :: SourceRef
@@ -60,14 +74,17 @@ data Env = Env { currentScope :: Scope
                } deriving (Show, Eq)
 
 
+-- | Run Angle program with a custom environment.
 runExecIOEnv :: Env -> ExecIO a -> IO (Either AngleError a)
 runExecIOEnv e x = evalStateT (runExceptT $ runExecIO x) e
 
 
+-- | Run Angle program with a basic environment.
 runExecIOBasic :: ExecIO a -> IO (Either AngleError a)
 runExecIOBasic = runExecIOEnv basicEnv
 
 
+-- | Basic environment.
 basicEnv :: Env
 basicEnv = Env { currentScope = emptyScope
                , sourceText = ""
@@ -85,10 +102,12 @@ basicEnv = Env { currentScope = emptyScope
 -- Throw the 'error' in the return statement,
 -- then catch it in the calling expression.
 
+-- | Set the current value in the execution environment.
 returnVal :: LangLit -> ExecIO LangLit
 returnVal v = putEnvValue v >> return v
 
 
+-- | Retrieve the current environment value.
 getEnvValue :: ExecIO LangLit
 getEnvValue = liftM envValue get
 
@@ -97,6 +116,7 @@ putEnvValue :: LangLit -> ExecIO ()
 putEnvValue v = modify (\e -> e {envValue=v})
 
 
+-- | Convert a list or range into a list of literals.
 fromIter :: LangLit -> ExecIO [LangLit]
 fromIter (LitList xs) = return xs
 fromIter (LitStr xs) = return $ map LitChar xs
@@ -106,6 +126,7 @@ fromIter (LitRange x (Just y) (Just z)) = iterFromThenTo x y z
 fromIter _ = throwImplementationErr "fromIter: TODO: define this!"
 
 
+-- | Convert a list or range into a literal list.
 iterToLit :: LangLit -> ExecIO LangLit
 iterToLit = liftM LitList . fromIter
 

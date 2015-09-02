@@ -178,26 +178,6 @@ manyTill' :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
 manyTill' ti sc = manyTill ti sc <* ti
 
 
--- | If the scan fails, specify what was expected.
-infix 0 <?>
-(<?>) :: Scanner a -> String -> Scanner a
-sc <?> msg = do
-  oldPos <- liftM sourcePos get
-  sc `catchError` (\e -> do
-    newPos <- liftM sourcePos get
-    if newPos == oldPos then throwError $ e {expectedMsg=msg}--expectedErr msg
-    else throwError e)
-
-
--- | Used for evaluating a single Scanner with a given string.
---
--- Assumes reasonable default state.
-evalScan :: String -> Scanner a -> Either ScanError a
-evalScan str sc = runReader (evalStateT (runExceptT (runScanner sc)) defaultState) env
-  where defaultState = ScanState { sourcePos = beginningOfFile }
-        env = ScanEnv { sourceText = str }
-
-
 
 
 
