@@ -238,7 +238,7 @@ data NameError = NameNotDefined LangIdent
                | NameNotDefinedFun LangIdent
                | NameNotDefinedLit LangIdent
                | NameNotOp LangIdent
-               | AssignToBuiltin LangIdent
+               | AssignToBuiltin LangIdent (Maybe String)
 
 
 -- | Given identifier has no definition.
@@ -257,8 +257,8 @@ nameNotDefinedLitErr = nameErr . NameNotDefinedLit
 
 
 -- | Attempt to re-assign a builtin variable.
-assignToBuiltinErr :: LangIdent -> ParserError
-assignToBuiltinErr = nameErr . AssignToBuiltin
+assignToBuiltinErr :: LangIdent -> Maybe String -> ParserError
+assignToBuiltinErr name = nameErr . AssignToBuiltin name
 
 
 instance Show NameError where
@@ -266,7 +266,8 @@ instance Show NameError where
     show (NameNotDefinedFun (LangIdent name)) = "not a valid function: " ++ name
     show (NameNotDefinedLit (LangIdent name)) = "no value assigned: "    ++ name
     show (NameNotOp       (LangIdent name)) = "not a valid operator: " ++ name
-    show (AssignToBuiltin (LangIdent name)) = "cannot assign to builtin: " ++ name
+    show (AssignToBuiltin (LangIdent name) reason) = "cannot assign to builtin: " ++ name
+                                                       ++ maybe "" ("\n" ++) reason
 
 
 -- | Errors involving operator and function calls.

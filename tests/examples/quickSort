@@ -1,4 +1,4 @@
-defun quickSort(xs) {
+defun quickSort(!xs) {
   if (<= length(xs) 1) then return xs;
   first = index(0, xs);
   rest = index(1, -1, xs);
@@ -7,7 +7,7 @@ defun quickSort(xs) {
   (++ smallers first biggers);
 }
 
-defun filter(f, xs) {
+defun filter($f, xs) {
   res = [];
   for elt in xs do {
     if f(elt) then res = (+ res elt);
@@ -15,5 +15,5 @@ defun filter(f, xs) {
   res;
 }
 
-toSort = asType([], index(1, args));
-print(quickSort(toSort));
+# toSort = asType([], index(1, args));
+# print(quickSort(toSort));

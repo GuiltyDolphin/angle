@@ -1,0 +1,143 @@
+{-|
+Module      : Angle.REPL
+Description : REPL for the Angle programming language.
+Copyright   : Copyright (C) 2015 Ben Moon
+License     : GNU GPL, version 3
+Maintainer  : GuiltyDolphin@gmail.com
+Stability   : alpha
+
+Defines the REPL for use with the Angle programming language.
+-}
+module Angle.REPL (runInteractive) where
+
+import Control.Monad
+import Control.Monad.Error
+import Control.Monad.State
+import Data.Either (lefts, rights)
+import Data.List (foldl', elemIndices)
+import System.Console.GetOpt
+import System.Environment (getProgName, getArgs)
+import System.Exit (exitSuccess)
+import System.IO (hPutStrLn, stderr, stdout, hFlush)
+
+import Angle.Parse.Types
+import Angle.Types.Lang
+import Angle.Lex.Lexer
+import Angle.Parse.Exec
+import Angle.Parse.Builtins
+
+import Angle.Options
+
+
+-- | When user is entering input over multiple lines, consolidate this
+-- into a single statement.
+collectLine :: String -> Int -> ExecIO String
+collectLine s multi =
+  if multi + incMultiBy s > 0
+  then do
+    nxt <- liftIO getLine
+    liftM (s++) $ collectLine nxt (multi + incMultiBy s)
+  else return s
+
+
+-- | Parse and execute a line of user input.
+runLine :: String -> ExecIO ()
+runLine s = do
+  r <- collectLine s 0
+  case evalScan r stmt of
+              Left err -> liftIO $ print err
+              Right res -> do
+                toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
+                liftIO $ printSyn toPrint
+
+
+incMultiBy :: String -> Int
+incMultiBy xs = count '{' xs - count '}' xs
+
+
+count :: Eq a => a -> [a] -> Int
+count x = length . elemIndices x
+
+
+printSyn :: (ShowSyn a) => a -> IO ()
+printSyn = putStrLn . showSyn
+
+
+withSource :: String -> ExecIO ()
+withSource s =
+  case evalScan ('{':s++"}") stmt of
+    Left err -> liftIO (print err) >> interactiveMode
+    Right res -> do
+                 toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
+                 liftIO $ printSyn toPrint
+                 interactiveMode
+
+
+-- | Run interactive mode using the files as initial input.
+interactiveWithFiles :: [FilePath] -> ExecIO ()
+interactiveWithFiles fs = do
+    fileSources <- liftIO $ mapM readFile fs
+    let asStmts = map (`evalScan` program) fileSources
+    if not . null $ lefts asStmts
+    then liftIO $ mapM_ (putStrLn . ("failed to load file: " ++))
+        [x ++ "\n" ++ show r | (x,Left r) <- zip fs asStmts]
+    else do
+        let overStmt = MultiStmt (rights asStmts)
+        -- execStmt overStmt
+        toPrint <- execStmt overStmt
+            `catchError` (\e -> liftIO (print e) >> throwError e)
+        liftIO $ printSyn toPrint
+        -- runExecIOEnv initialEnvNotMain (execStmt overStmt)
+        interactiveMode
+        return ()
+    return ()
+-- withSource s =
+--   case evalScan ('{':s++"}") stmt of
+--     Left err -> liftIO (print err) >> interactiveMode
+--     Right res -> do
+--                  toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
+--                  liftIO $ printSyn toPrint
+--                  interactiveMode
+
+
+-- | Runs a REPL using the Angle programming language.
+interactiveMode :: ExecIO ()
+interactiveMode = do
+  userInput <- liftIO $ prompt "> "
+  unless (userInput=="exit")
+           (do
+             runLine userInput `catchError` const interactiveMode
+             interactiveMode)
+
+
+prompt :: String -> IO String
+prompt s = do
+    putStr s
+    hFlush stdout
+    getLine
+
+
+runWithSource :: String -> IO ()
+runWithSource s = do
+  runExecIOEnv startEnv $ withSource s
+  return ()
+
+
+-- | Run Angle in interactive mode.
+runInteractive :: Options -> IO ()
+runInteractive opts = do
+  let Options { optVerbose = verbose
+              , optFiles = files
+              } = opts
+  when (length files > 1)
+      (putStrLn $ "Warning: Running interactive with multiple files, "
+          ++ "this may go badly!")
+  if not $ null files
+  then runExecIOEnv initialEnvNotMain (interactiveWithFiles files)
+  else runExecIOEnv initialEnvNotMain interactiveMode
+  return ()
+
+
+-- | Run Angle on the given source text.
+runSource :: String -> IO ()
+runSource = runWithSource

@@ -23,7 +23,7 @@ testAndLitBool xs = monadicIO $ do
 
 tests :: [TestTree]
 tests = [ testGroup "add"
-          [ testProperty "add list" testAddList
+          [ -- testProperty "add list" testAddList
           ]
         , testGroup "and"
           [ testProperty "andLit (with bools)" testAndLitBool

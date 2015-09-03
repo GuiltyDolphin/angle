@@ -47,7 +47,6 @@ import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Trans.Except
-import Data.List (genericIndex, genericLength)
 
 
 -- | Represents a position in source.
@@ -79,8 +78,8 @@ colNo (SourcePos (_, cn, _)) = cn
 
 
 -- | Retrieve the source index from a source position.
-sourceIndex :: SourcePos -> Int
-sourceIndex (SourcePos (_, _, si)) = si
+-- sourceIndex :: SourcePos -> Int
+-- sourceIndex (SourcePos (_, _, si)) = si
 
 
 -- | Reset the column number whilst incrementing the
@@ -218,7 +217,6 @@ scanChar = do
   st <- get
   let remSource = sourceRemaining st
       pos  = sourcePos st
-      indx = sourceIndex pos
   if remSource == ""
   then unexpectedErr "end of stream"
   else do

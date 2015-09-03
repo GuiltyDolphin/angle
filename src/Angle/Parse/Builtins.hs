@@ -36,8 +36,16 @@ module Angle.Parse.Builtins
     , builtinGetArgs
     , builtinInput
     , builtinIsNull
-    , startEnv
     , argsToString
+
+    -- ** Assignment handling
+    , handleBuiltinAssignFun
+    , handleBuiltinAssignLit
+
+    -- ** Default environments
+    , startEnv
+    , initialEnvNotMain
+    , initialEnvMain
     ) where
 
 
@@ -87,10 +95,27 @@ builtinsVars = bindEnvFromList $
 
 -- | Starting environment with builtin functions defined.
 startEnv :: Env
-startEnv = basicEnv
-           { currentScope = emptyScope
-                            { lambdaBindings = builtinsVars
-                            } }
+startEnv = basicEnv { currentScope = startScope }
+
+
+startScope :: Scope
+startScope = emptyScope { lambdaBindings = builtinsVars }
+
+
+-- | Starting environment for programs not running as main.
+initialEnvNotMain :: Env
+initialEnvNotMain = startEnv
+    { currentScope = setVarLitInScope (LangIdent "main")
+       (VarVal (Just (LitBool False)) True) (currentScope startEnv)
+    }
+
+
+-- | Starting environment for programs running as main.
+initialEnvMain :: Env
+initialEnvMain = startEnv
+    { currentScope = setVarLitInScope (LangIdent "main")
+        (VarVal (Just (LitBool True)) True) (currentScope startEnv)
+    }
 
 
 -- | True if the identifier represents a builtin function.
@@ -259,6 +284,11 @@ builtinGetArgs :: [LangLit] -> ExecIO LangLit
 builtinGetArgs _ = liftM (LitList . map LitStr) $ liftIO getArgs
 
 
+-- | Handler for assignments to builtin variables as literals.
+handleBuiltinAssignLit :: LangIdent -> LangLit -> ExecIO a
+handleBuiltinAssignLit n@(LangIdent "main") _ = throwParserError $ assignToBuiltinErr n (Just "assigned by execution program")
 
 
-
+-- | Handler for assignments to builtin variables as functions.
+handleBuiltinAssignFun :: LangIdent -> Lambda -> ExecIO a
+handleBuiltinAssignFun n _ = throwParserError $ assignToBuiltinErr n Nothing

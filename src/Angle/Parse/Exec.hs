@@ -90,10 +90,6 @@ modifyScope f = do
   put env {currentScope=newScope'}
 
 
-assignVarLit :: LangIdent -> LangLit -> ExecIO LangLit
-assignVarLit n v = assignVar valueBindings setVarLitInScope n v >> returnVal v
-
-
 lookupVarCurrentScope :: (Scope -> BindEnv a) -> LangIdent -> ExecIO (Maybe (VarVal a))
 lookupVarCurrentScope binds name = do
   currScope <- liftM currentScope get
@@ -103,19 +99,29 @@ lookupVarCurrentScope binds name = do
 
 
 assignVarLambda :: LangIdent -> Lambda -> ExecIO ()
-assignVarLambda = assignVar lambdaBindings setVarFunInScope
+assignVarLambda =
+    assignVar lambdaBindings handleBuiltinAssignFun setVarFunInScope
+
+
+assignVarLit :: LangIdent -> LangLit -> ExecIO LangLit
+assignVarLit n v = assignVar valueBindings handleBuiltinAssignLit
+    setVarLitInScope n v >> returnVal v
 
 
 assignVar
   :: (Scope -> BindEnv a)
+     -> (LangIdent -> b -> ExecIO b)
      -> (LangIdent -> VarVal b -> Scope -> Scope)
      -> LangIdent
      -> b -- ^ Value to assign.
      -> ExecIO ()
-assignVar binds setf name val = do
+assignVar binds handleBuiltin setf name val = do
   current <- lookupVarCurrentScope binds name
-  when (maybe False varBuiltin current) $ throwParserError . assignToBuiltinErr $ name
-  modifyScope $ setf name emptyVar {varDef=Just val}
+  -- when (maybe False varBuiltin current) $ handleBuiltinAssign name val
+  val' <- if maybe False varBuiltin current
+         then handleBuiltin name val
+         else return val
+  modifyScope $ setf name emptyVar {varDef=Just val'}
 
 
 -- TODO: Should this just stay in the current scope if there

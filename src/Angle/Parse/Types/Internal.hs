@@ -157,6 +157,7 @@ iterFromThenTo (LitFloat x) (LitFloat y) (LitFloat z) = return $ map LitFloat $ 
 iterFromThenTo (LitChar x) (LitChar y) (LitChar z) = return $ map LitChar $ enumFromThenTo x (succ z) y
 iterFromThenTo _ _ _ = throwImplementationErr "iterFromThenTo: define failure"
 
+
 iterFrom :: LangLit -> ExecIO [LangLit]
 iterFrom (LitInt x) = return $ map LitInt $ enumFrom x
 iterFrom (LitChar x) = return $ map LitChar $ enumFrom x
