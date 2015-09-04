@@ -136,7 +136,7 @@ stmtBreak = sBreak <|> sContinue
 
 stmtComment :: Scanner SingStmt
 stmtComment = StmtComment
-              <$> (char '#' *> manyTill' tokEndComment anyChar)
+              <$> (char '#' *> manyTill tokEndComment anyChar <* tokEndComment)
     where
       tokEndComment = void (char '\n')
                       <|> void tokEOF

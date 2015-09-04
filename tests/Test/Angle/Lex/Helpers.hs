@@ -54,6 +54,10 @@ testCond :: Fun Char Bool -> Char -> Property
 testCond f c = apply f c ==> evalScan [c] (cond (apply f)) == Right c
 
 
+testCharFrom :: NonEmptyList Char -> Bool
+testCharFrom (NonEmpty cs) = evalScan cs (charFrom cs) == Right (head cs)
+
+
 tests :: [TestTree]
 tests = [ testGroup "basics"
           [ testProperty "cond" testCond
@@ -63,6 +67,7 @@ tests = [ testGroup "basics"
           , testProperty "string" testString
           , testProperty "anyChar" testAnyChar
           , testProperty "anyCharEmpty" testAnyCharEmpty
+          , testProperty "charFrom" testCharFrom
           ]
         ]
 

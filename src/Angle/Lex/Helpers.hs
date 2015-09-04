@@ -26,7 +26,6 @@ module Angle.Lex.Helpers
     , choice
     , followed
     , manyTill
-    , manyTill'
     , noneFrom
     , notScan
     , sepWith
@@ -162,11 +161,6 @@ sepWith sep sc = tryScan (do
 -- | Collect sc until `ti' succeeds.
 manyTill :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
 manyTill ti sc = many (notScan ti *> sc)
-
-
--- | Like `manyTill', but also consume @ti@.
-manyTill' :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
-manyTill' ti sc = manyTill ti sc <* ti
 
 
 
