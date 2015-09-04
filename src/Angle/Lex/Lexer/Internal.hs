@@ -39,7 +39,6 @@ module Angle.Lex.Lexer.Internal
 
 import Control.Applicative
 import Control.Monad.State
-import Data.Char (readLitChar)
 
 import Angle.Lex.Helpers
 import Angle.Lex.Token

@@ -2,8 +2,6 @@ module Test.Angle.Parse.Exec
     ( tests
     ) where
 
-import Data.List (foldl1)
-
 import TestHelper
 
 import Angle.Types.Lang

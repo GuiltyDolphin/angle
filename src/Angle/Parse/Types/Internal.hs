@@ -134,6 +134,7 @@ isInfiniteRange (LitRange _ Nothing _) = True
 isInfiniteRange (LitRange x (Just y) (Just z))
     = (y' > x' && z' - x' < 0) || (y' < x' && z' - x' > 0) || (z' - x') == 0
   where [x',y',z'] = map fromEnumL [x,y,z]
+isInfiniteRange _ = error "isInfiniteRange: Passed a non-range"
 
 
 -- | Retrieve enum value from literal, literal must be
@@ -158,11 +159,12 @@ iterFromThenTo (LitChar x) (LitChar y) (LitChar z) = return $ map LitChar $ enum
 iterFromThenTo _ _ _ = throwImplementationErr "iterFromThenTo: define failure"
 
 
-iterFrom :: LangLit -> ExecIO [LangLit]
-iterFrom (LitInt x) = return $ map LitInt $ enumFrom x
-iterFrom (LitChar x) = return $ map LitChar $ enumFrom x
-iterFrom (LitFloat x) = return $ map LitFloat $ enumFrom x
-iterFrom _ = throwImplementationErr "iterFrom: define failure"
+-- Potential: looping to infinity (and beyond)
+-- iterFrom :: LangLit -> ExecIO [LangLit]
+-- iterFrom (LitInt x) = return $ map LitInt $ enumFrom x
+-- iterFrom (LitChar x) = return $ map LitChar $ enumFrom x
+-- iterFrom (LitFloat x) = return $ map LitFloat $ enumFrom x
+-- iterFrom _ = throwImplementationErr "iterFrom: define failure"
 
 
 iterFromTo :: LangLit -> LangLit -> ExecIO [LangLit]

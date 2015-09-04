@@ -210,7 +210,7 @@ builtinLength [LitList xs] = return . LitInt $ length xs
 builtinLength [x@(LitRange{})] | isInfiniteRange x = return $ LitKeyword $ LangIdent "infinite"
 builtinLength [LitRange x (Just y) Nothing] = return . LitInt $ (fromEnumL y + 1) - fromEnumL x
 builtinLength [LitRange x (Just y) (Just z)] = return .
-  LitInt $ ceiling (fromIntegral div1 / fromIntegral div2)
+  LitInt $ ceiling ((fromIntegral div1 / fromIntegral div2) :: Double)
   where
     div1 = (fromEnumL y + 1) - fromEnumL x
     div2 = fromEnumL z - fromEnumL x
@@ -288,6 +288,7 @@ builtinGetArgs _ = liftM (LitList . map LitStr) $ liftIO getArgs
 -- | Handler for assignments to builtin variables as literals.
 handleBuiltinAssignLit :: LangIdent -> LangLit -> ExecIO a
 handleBuiltinAssignLit n@(LangIdent "main") _ = throwParserError $ assignToBuiltinErr n (Just "assigned by execution program")
+handleBuiltinAssignLit n _ = throwParserError $ assignToBuiltinErr n Nothing
 
 
 -- | Handler for assignments to builtin variables as functions.

@@ -58,7 +58,7 @@ escapedStr xs = "\"" ++ xs ++ "\""
 
 
 
-newtype NoQuoteString = NoQuoteString { getNoQuoteString :: String }
+newtype NoQuoteString = NoQuoteString String
   deriving (Show, Eq)
 
 instance Arbitrary NoQuoteString where

@@ -4,10 +4,10 @@ module Test.Angle.Parse.Scope
     ( tests
     ) where
 
-import Data.Maybe (fromJust)
+-- import Data.Maybe (fromJust)
 
-import Angle.Parse.Scope
-import Angle.Types.Lang
+-- import Angle.Parse.Scope
+-- import Angle.Types.Lang
 import TestHelper
 
 

@@ -27,7 +27,7 @@ testTokCharAscii (AsciiChar c) = evalScan (show c) tokChar == Right c
 
 
 
-newtype AsciiChar = AsciiChar {getAsciiChar :: Char}
+newtype AsciiChar = AsciiChar Char
   deriving (Show, Eq, Ord)
 
 

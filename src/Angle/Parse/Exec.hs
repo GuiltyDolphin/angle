@@ -432,7 +432,7 @@ builtinEval xs = do
   case r of
     Left _    -> throwParserError . callBuiltinErr $ "eval: no parse"
     Right res -> execStmt res
-    where st = argsToString xs
+  where st = argsToString xs
 
 
 validRangeLit :: LangLit -> Bool

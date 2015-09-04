@@ -32,11 +32,10 @@ library
                      , Angle.Scanner
                      , Angle.Parse.Scope
                      , Angle.Parse.Operations
-                     , Angle.Parse.Interp
                      , Angle.Parse.Builtins
                      , Angle.Parse.Types
                      , Angle.Parse.Types.Internal
-  other-modules:       Angle.Parse.REPL
+  other-modules:
   other-extensions:    GeneralizedNewtypeDeriving, MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances
   build-depends:       base >=4.7 && <4.8
                      , cmdargs >= 0.10.13
@@ -46,7 +45,7 @@ library
                      , transformers-compat >= 0.3.3.3
   hs-source-dirs:      src
   default-language:    Haskell2010
-  ghc-options:         -Wall -fno-warn-unused-do-bind
+  ghc-options:         -Wall -fno-warn-unused-do-bind -Werror
 
 
 executable angle
@@ -54,6 +53,7 @@ executable angle
   hs-source-dirs:      angle-commandline
   other-modules:       Angle.REPL
                      , Angle.Options
+                     , Angle.Interpreter
   default-language:    Haskell2010
   build-depends:       base
                      , angle
@@ -63,7 +63,7 @@ executable angle
                      , transformers-compat >= 0.3.3.3
   default-language:    Haskell2010
   buildable:           True
-  ghc-options:         -Wall -fno-warn-unused-do-bind
+  ghc-options:         -Wall -fno-warn-unused-do-bind -Werror
 
 
 test-suite properties
@@ -88,7 +88,7 @@ test-suite properties
                        , mtl >= 2.1.3.1
                        , tasty >= 0.10.1.2
                        , tasty-quickcheck >= 0.8.3.2
-  ghc-options:         -Wall -fno-warn-unused-do-bind -fno-warn-orphans
+  ghc-options:         -Wall -fno-warn-unused-do-bind -fno-warn-orphans -Werror
   default-language:    Haskell2010
 -- Note: Taken out -Werror
 

@@ -23,7 +23,6 @@ module TestHelper
 import Control.Applicative ((<*>), (<$>))
 import Control.Monad.State
 import Data.Char (isAlpha, isAlphaNum)
-import Data.List (zipWith4)
 import qualified Data.Map as M
 
 import Test.QuickCheck
@@ -34,7 +33,6 @@ import Test.Tasty.QuickCheck
 import Angle.Lex.Helpers (evalScan, Scanner)
 import Angle.Lex.Token (keywords)
 import Angle.Parse.Scope
-import Angle.Parse.Error
 import Angle.Parse.Types.Internal
 import Angle.Scanner (SourcePos(..))
 import Angle.Types.Lang
@@ -100,7 +98,6 @@ instance Arbitrary LangStruct where
     shrink (StructWhile x y) = shrink2 StructWhile x y
     shrink (StructIf x y z) = shrink3 StructIf x y z
     shrink (StructDefun x y) = shrink2 StructDefun x y
-    shrink _ = undefined
 
 
 instance Arbitrary Lambda where
@@ -157,12 +154,6 @@ shrink3 :: (Arbitrary c, Arbitrary b, Arbitrary a) =>
 shrink3 f x y z = zipWith3 f (shrink x) (shrink y) (shrink z)
 
 
-shrink4
-  :: (Arbitrary d, Arbitrary c, Arbitrary b, Arbitrary a) =>
-     (a -> b -> c -> d -> e) -> a -> b -> c -> d -> [e]
-shrink4 f w x y z = zipWith4 f (shrink w) (shrink x) (shrink y) (shrink z)
-
-
 instance Arbitrary ConstrRef where
     arbitrary = liftArby ConstrRef
     shrink (ConstrRef x) = shrink1 ConstrRef x
@@ -216,10 +207,6 @@ liftArby2 f = liftM2 f arbitrary arbitrary
 
 liftArby3 :: (Arbitrary a, Arbitrary b, Arbitrary c) => (a -> b -> c -> d) -> Gen d
 liftArby3 f = liftM3 f arbitrary arbitrary arbitrary
-
-
-liftArby4 :: (Arbitrary a, Arbitrary b, Arbitrary c, Arbitrary d) => (a -> b -> c -> d -> e) -> Gen e
-liftArby4 f = liftM4 f arbitrary arbitrary arbitrary arbitrary
 
 
 newtype ValidLitStr =
