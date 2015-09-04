@@ -43,15 +43,17 @@ runFile fp abort = do
     source' <- tryIOError $ readFile fp
     case source' of
         Left e -> handleNoFile fp abort e
-        Right source ->
-            case evalScan source program of
-                Left err -> handleSyntax fp err abort
-                Right toExec -> do
-                    res <- runExecIOEnv initialEnvMain (execStmt toExec)
-                    case res of
-                        Left err -> handleRuntime fp err abort
-                        Right _ -> return ()
-
+        Right source -> runLex source
+  where
+    runLex source =
+        case evalScan source program of
+            Left err -> handleSyntax fp err abort
+            Right toExec -> executeProg toExec
+    executeProg toExec = do
+        res <- runExecIOEnv initialEnvMain (execStmt toExec)
+        case res of
+            Left err -> handleRuntime fp err abort
+            Right _ -> return ()
 
 handleSyntax :: FilePath -> ScanError -> Bool -> IO ()
 handleSyntax fp e abort = do

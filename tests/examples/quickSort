@@ -15,5 +15,10 @@ defun filter($f, xs) {
   res;
 }
 
+if main then {
+  toSort = eval(input("Enter list to sort: "), ";");
+  # toSort = eval((++ input("Enter list to sort: ") ";"));
+  print(quickSort(toSort));
+}
+
 # toSort = asType([], index(1, args));
-# print(quickSort(toSort));

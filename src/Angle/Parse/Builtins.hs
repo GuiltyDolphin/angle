@@ -57,6 +57,7 @@ module Angle.Parse.Builtins
 import Control.Monad
 import Control.Monad.State
 import System.Environment
+import System.IO (hFlush, stdout)
 
 import Angle.Parse.Error
 import Angle.Parse.Scope
@@ -147,7 +148,7 @@ builtinPrint xs = liftIO (putStrLn res) >> returnVal (LitStr res)
 -- not automatically append a newline and returns the result
 -- from STDIN.
 builtinInput :: [LangLit] -> ExecIO LangLit
-builtinInput xs = liftM LitStr (liftIO $ putStr res >> liftIO getLine) >>= returnVal
+builtinInput xs = liftM LitStr (liftIO $ putStr res >> hFlush stdout >> getLine) >>= returnVal
     where res = argsToString xs
 
 
