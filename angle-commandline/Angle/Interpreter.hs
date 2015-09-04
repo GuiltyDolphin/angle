@@ -11,7 +11,6 @@ Defines the file runner for use with the Angle programming language.
 module Angle.Interpreter (runInterpreter) where
 
 import Control.Monad
-import System.IO
 import System.IO.Error
 import System.Exit
 
@@ -26,8 +25,7 @@ import Angle.Lex.Lexer
 
 runInterpreter :: Options -> IO ()
 runInterpreter opts = do
-    let Options { optVerbose = verbose
-                , optFiles = files
+    let Options { optFiles = files
                 , optAbort = abort
                 } = opts
 
@@ -63,15 +61,15 @@ handleSyntax fp e abort = do
 
 handleRuntime :: FilePath -> AngleError -> Bool -> IO ()
 handleRuntime fp e abort = do
-    putStrLn "Runtime error" >> print e
+    putStrLn ("Runtime error in file " ++ fp) >> print e
     when abort $ exitWith $ ExitFailure 101
 
 
 handleNoFile :: FilePath -> Bool -> IOError -> IO ()
-handleNoFile fp abort e | isDoesNotExistError e = handleNoFile' fp abort
+handleNoFile fp abort e | isDoesNotExistError e = handleNoFile'
                         | otherwise = ioError e
   where
-    handleNoFile' fp abort = do
+    handleNoFile' = do
         putStrLn $ "No such file: " ++ fp
         when abort $ exitWith $ ExitFailure 102
 

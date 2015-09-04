@@ -32,7 +32,7 @@ module Angle.Parse.Types.Internal
 
 
 import Control.Applicative
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.Trans.Except
 import Control.Monad.State
 

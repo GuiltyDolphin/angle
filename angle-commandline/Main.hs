@@ -13,13 +13,6 @@ interactively and non-interactively.
 module Main (main) where
 
 import Control.Monad
-import Control.Monad.State
-import Control.Monad.Error
-import System.Console.GetOpt
-import System.IO (hPutStrLn, stderr, stdout, hFlush)
-import System.Environment (getProgName, getArgs)
-import System.Exit (exitSuccess)
-import Data.List (foldl', elemIndices)
 
 import Angle.Options
 import Angle.REPL (runInteractive)

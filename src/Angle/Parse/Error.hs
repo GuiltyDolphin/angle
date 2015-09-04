@@ -61,7 +61,7 @@ module Angle.Parse.Error
     ) where
 
 
-import Control.Monad.Error
+import Control.Monad.Except
 import Data.Function (on)
 import Data.Maybe (catMaybes)
 
@@ -135,9 +135,7 @@ data ParserError = TypeError TypeError
                  | DefaultError String
                  | LitError LitError
                  | KeywordError KeywordError
-                 | UserError String -- TODO: Add keyword and
-                                  -- structures for allowing
-                                  -- the user to throw errors
+                 | UserError String
 
 
 -- | Expression produced an invalid type.
@@ -173,11 +171,6 @@ instance Show ParserError where
     show (LitError x) = "literal error: " ++ show x
     show (UserError x) = "user error: " ++ x
     show (KeywordError x) = "keyword error: " ++ show x
-
-
-instance Error ParserError where
-    noMsg = DefaultError ""
-    strMsg = DefaultError
 
 
 -- | Errors involving types.

@@ -454,7 +454,6 @@ instance ShowSyn LangIdent where
     showSyn = getIdent
 
 
--- TODO: Check this out... It looks a bit weird.
 instance ShowSyn ArgSig where
     showSyn (ArgSig args catchArg) =
         showSynSep "("

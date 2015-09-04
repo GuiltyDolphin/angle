@@ -80,9 +80,6 @@ divLit = onlyNumOp divLitNum
     where divLitNum = onNum div (/)
 
 
--- TODO: Note - currently floats /= integers, might
---  want to change this?
-
 -- | Equality operator
 --
 -- On any types: true if all of the values are equal

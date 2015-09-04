@@ -62,33 +62,6 @@ newtype BindEnv a = BindEnv
 
 type BindMap a = M.Map LangIdent (VarVal a)
 
--- Scope API:
--- - changing scope
---   - new scope
---     (newScope :: Maybe Scope -> Scope)
---   - global scope
---     (globalScope :: Scope -> Scope)
---   - parent scope
---     (parentScope :: Scope -> Maybe Scope)
--- - setting variables
---   - in current scope (maybe only applies to an Exec?)
---     - function value
---     - literal value
--- - executing in different scopes
---   - in a new scope
---   - in the global scope
---   - in the current scope
---   - in the parent scope
--- - resolving variables
---   - check current scope, then outer scopes
---     (resolve :: Ident -> Scope -> Maybe VarVal)
---   - only check current scope
---     (resolveCurrent :: Ident -> Scope -> Maybe VarVal)
---   - only check global scope
---     (resolveGlobal :: Ident -> Scope -> Maybe VarVal)
--- TODO/NOTES
--- - Resolving literals & functions rather than just name
-
 
 -- | Contains variable-value bindings, along with a reference
 -- to a parent scope.

@@ -49,11 +49,6 @@ module Angle.Parse.Builtins
     ) where
 
 
--- TODO:
--- - inClass(x,..cls) - builtin function for checking
---    if x satisfies the given classes.
-
-
 import Control.Monad
 import Control.Monad.State
 import System.Environment
@@ -235,11 +230,6 @@ builtinStr [] = return $ LitStr ""
 builtinStr xs | length xs > 1 = throwParserError $ wrongNumberOfArgumentsErr 1 (length xs)
               | otherwise = return $ toLitStr (head xs)
 
-
--- TODO:
--- - Currently wraps back round with negatives
---   e.g. index(-5,-1,[1,2,3]); -> [2, 3]
--- - should probably work more like Pyhon's indexing system.
 
 -- | Builtin @index@ function.
 --

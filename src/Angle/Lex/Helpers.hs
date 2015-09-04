@@ -40,14 +40,13 @@ module Angle.Lex.Helpers
     , Scanner
     , SourcePos
     , sourcePos
-    , strMsg
     , unexpectedErr
     , (<?>)
     ) where
 
 
 import Control.Applicative
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.State
 
 import Angle.Scanner
@@ -130,12 +129,6 @@ lookAhead sc = do
   return res
 
 
--- TODO: Might want to have (Show a) =>
---  to allow a reasonable error message where
---  the character is printed
--- TODO: Try to find a way of setting the
---  unexpected error message to the originally
---  expected error message
 -- | Succeeds only if `sc' does not succeed.
 notScan :: (Show a) => Scanner a -> Scanner ()
 notScan sc = tryScan (do

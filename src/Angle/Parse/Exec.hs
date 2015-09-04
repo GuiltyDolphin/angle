@@ -16,12 +16,6 @@ module Angle.Parse.Exec
     ( execStmt
     ) where
 
-
--- TODO:
--- - For loops produce values, are they not expressions?
---   - Should be able to have for loops etc in places
---     where expressions can be placed.
-
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State
@@ -110,7 +104,7 @@ assignVarLit n v = assignVar valueBindings handleBuiltinAssignLit
 
 assignVar
   :: (Scope -> BindEnv a)
-     -> (LangIdent -> b -> ExecIO b)
+     -> (LangIdent -> b -> ExecIO b) -- ^ Builtin handler function.
      -> (LangIdent -> VarVal b -> Scope -> Scope)
      -> LangIdent
      -> b -- ^ Value to assign.
@@ -124,8 +118,6 @@ assignVar binds handleBuiltin setf name val = do
   modifyScope $ setf name emptyVar {varDef=Just val'}
 
 
--- TODO: Should this just stay in the current scope if there
--- is no parent scope?
 -- | Changes the current scope to the parent scope.
 upScope :: ExecIO ()
 upScope = do
@@ -392,12 +384,6 @@ execStructFor name e s = do
   return (LitList res)
 
 
--- TODO:
--- * This is a bit... Verbose
---   Might be better way?
--- * For loop will always loop once with empty list,
---   meaning that the while loop will always excute one too
---   many times.
 execStructWhile :: Expr -> Stmt -> ExecIO LangLit
 execStructWhile ex s = do
   pos <- liftM envSourceRef get

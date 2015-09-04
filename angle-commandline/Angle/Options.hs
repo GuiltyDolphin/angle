@@ -14,20 +14,17 @@ module Angle.Options
   , getOptions
   ) where
 
-import Control.Monad
-import Control.Monad.State
-import Control.Monad.Error
 import System.Console.GetOpt
-import System.IO (hPutStrLn, stderr, stdout, hFlush)
-import System.Environment (getProgName, getArgs)
+import System.IO (hPutStrLn, stderr)
+import System.Environment (getArgs)
 import System.Exit (exitSuccess)
-import Data.List (foldl', elemIndices)
+import Data.List (foldl')
 
 
 data Options = Options
   { optVerbose :: Bool
   , optFiles :: [FilePath]
-  , optOutput :: String -> IO ()
+  , optOutput :: Maybe FilePath
   , optInteractive :: Bool
   , optAbort :: Bool
   }
@@ -36,7 +33,7 @@ data Options = Options
 defaultOptions :: Options
 defaultOptions = Options { optVerbose = False
                          , optFiles = []
-                         --, optOutput = putStr
+                         , optOutput = Nothing
                          , optInteractive = False
                          , optAbort = False
                          }
@@ -83,7 +80,7 @@ usage = "Usage:  angle [OPTION...] files..."
 getOptions :: IO Options
 getOptions = do
     args <- getArgs
-    (opts, nonOpts) <-
+    (opts, _) <-
         case getOpt RequireOrder options args of
             (opt,nonOpt,[]) -> return (opt,nonOpt)
             (_,_,errs) -> ioError

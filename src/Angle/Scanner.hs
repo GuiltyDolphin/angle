@@ -43,10 +43,10 @@ module Angle.Scanner
 
 
 import Control.Applicative
-import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Trans.Except
+import Control.Monad.Except
 
 
 -- | Represents a position in source.

@@ -12,13 +12,9 @@ module Angle.REPL (runInteractive) where
 
 import Control.Monad
 import Control.Monad.Error
-import Control.Monad.State
 import Data.Either (lefts, rights)
-import Data.List (foldl', elemIndices)
-import System.Console.GetOpt
-import System.Environment (getProgName, getArgs)
-import System.Exit (exitSuccess)
-import System.IO (hPutStrLn, stderr, stdout, hFlush)
+import Data.List (elemIndices)
+import System.IO (stdout, hFlush)
 
 import Angle.Parse.Types
 import Angle.Types.Lang
@@ -61,16 +57,6 @@ count x = length . elemIndices x
 
 printSyn :: (ShowSyn a) => a -> IO ()
 printSyn = putStrLn . showSyn
-
-
-withSource :: String -> ExecIO ()
-withSource s =
-  case evalScan ('{':s++"}") stmt of
-    Left err -> liftIO (print err) >> interactiveMode
-    Right res -> do
-                 toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
-                 liftIO $ printSyn toPrint
-                 interactiveMode
 
 
 -- | Run interactive mode using the files as initial input.
@@ -117,17 +103,10 @@ prompt s = do
     getLine
 
 
-runWithSource :: String -> IO ()
-runWithSource s = do
-  runExecIOEnv startEnv $ withSource s
-  return ()
-
-
 -- | Run Angle in interactive mode.
 runInteractive :: Options -> IO ()
 runInteractive opts = do
-  let Options { optVerbose = verbose
-              , optFiles = files
+  let Options { optFiles = files
               } = opts
   when (length files > 1)
       (putStrLn $ "Warning: Running interactive with multiple files, "
@@ -136,8 +115,3 @@ runInteractive opts = do
   then runExecIOEnv initialEnvNotMain (interactiveWithFiles files)
   else runExecIOEnv initialEnvNotMain interactiveMode
   return ()
-
-
--- | Run Angle on the given source text.
-runSource :: String -> IO ()
-runSource = runWithSource

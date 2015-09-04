@@ -45,19 +45,6 @@ import Angle.Lex.Token
 import Angle.Types.Lang
 
 
-
--- TODO:
---
--- * Fix missing semi-colon at end of multi-stmt
---   - e.g. {1;2} -> 1, but should error.
--- * Fix if stmt issue
---   - e.g. defun foo(x) {if (> x 1) print("yup"); else print("nope!";}
---    lexes, and it shouldn't!
---    also, it always prints "yup"
--- * Spaces will not be parsed after comments
-
-
-
 -- | Single statement or a multi-statement.
 --
 -- See 'singleStmt' for the syntax of singular statments.
@@ -94,14 +81,11 @@ singleStmt = do
              }
 
 
--- TODO: Is it wise to allow empty multi-statements?
 -- | Statement consisting of zero or more statements.
 multiStmt :: Scanner Stmt
 multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
 
 
--- TODO: Last statement in a multi-statement block, or at
--- end of file, shouldn't need to have a newline or semi-colon
 -- | Singular statement.
 --
 -- Takes the following forms:
@@ -333,7 +317,6 @@ litChar :: Scanner LangLit
 litChar = liftM LitChar tokChar
 
 
--- TODO: Add additional `step' to ranges (1..7..3)
 -- | Dotted range of values.
 --
 -- Ranges have a single mandatory part and two optional parts, in the
@@ -468,11 +451,6 @@ makeOp :: Scanner a -> Op -> Scanner Op
 makeOp sc op = sc >> return op
 
 
--- TODO: This conflicts with literal -ve for integers,
--- either make it so that literals use the operator (probably
--- slower) or resolve the conflict!
--- Probably fixed.
-
 opAdd, opAnd, opConcat, opDiv, opEq,
   opGreater, opGreaterEq, opLess, opLessEq,
   opMult, opNeg, opNot, opOr, opSub
@@ -535,16 +513,6 @@ multOp :: Scanner Op -> Scanner LangOp
 multOp sc = MultiOp
             <$> (sc <* tokSpace)
             <*> sepWith (some tokWhitespace) expr
-
-
--- TODO:
--- Things to add
---  Passing functions as arguments:
---   foo($x, y, $z) -> x and z passed as functions
---  Lambdas
---   ((x,y,z) (+ x y z)) -> x y z arguments, then body
---   Can pass as arguments:
---   foo($((x) (+ x 1))) -> lambda: $((x) (+ x 1)) passed as arg.
 
 
 constrRef :: Scanner ConstrRef
