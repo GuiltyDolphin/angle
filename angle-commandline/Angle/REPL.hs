@@ -16,11 +16,11 @@ import Data.Either (lefts, rights)
 import Data.List (elemIndices)
 import System.IO (stdout, hFlush)
 
-import Angle.Parse.Types
+import Angle.Exec.Types
 import Angle.Types.Lang
 import Angle.Lex.Lexer
-import Angle.Parse.Exec
-import Angle.Parse.Builtins
+import Angle.Exec.Exec
+import Angle.Exec.Builtins
 
 import Angle.Options
 

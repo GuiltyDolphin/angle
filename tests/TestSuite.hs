@@ -6,9 +6,9 @@ import TestHelper
 import qualified Test.Angle.Lex.Helpers as Helpers
 import qualified Test.Angle.Lex.Lexer as Lexer
 import qualified Test.Angle.Lex.Token as Token
-import qualified Test.Angle.Parse.Operations as Operations
-import qualified Test.Angle.Parse.Scope as Scope
-import qualified Test.Angle.Parse.Exec as Exec
+import qualified Test.Angle.Exec.Operations as Operations
+import qualified Test.Angle.Exec.Scope as Scope
+import qualified Test.Angle.Exec.Exec as Exec
 
 
 main :: IO ()

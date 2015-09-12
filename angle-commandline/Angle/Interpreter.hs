@@ -15,11 +15,11 @@ import System.IO.Error
 import System.Exit
 
 import Angle.Options
-import Angle.Parse.Error
+import Angle.Exec.Error
 import Angle.Scanner
-import Angle.Parse.Exec
-import Angle.Parse.Builtins
-import Angle.Parse.Types
+import Angle.Exec.Exec
+import Angle.Exec.Builtins
+import Angle.Exec.Types
 import Angle.Lex.Lexer
 
 
@@ -79,10 +79,10 @@ handleNoFile fp abort e | isDoesNotExistError e = handleNoFile'
 -- import System.Exit
 --
 -- import Angle.Lex.Lexer
--- import Angle.Parse.Exec
+-- import Angle.Exec.Exec
 -- import Angle.Scanner (ScanError)
--- import Angle.Parse.Error
--- import Angle.Parse.Types
+-- import Angle.Exec.Error
+-- import Angle.Exec.Types
 -- import Angle.Types.Lang
 --
 --

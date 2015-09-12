@@ -32,12 +32,12 @@ import Test.Tasty.QuickCheck
 
 import Angle.Lex.Helpers (evalScan, Scanner)
 import Angle.Lex.Token (keywords)
-import Angle.Parse.Scope
-import Angle.Parse.Types.Internal
+import Angle.Exec.Scope
+import Angle.Exec.Types.Internal
 import Angle.Scanner (SourcePos(..))
 import Angle.Types.Lang
 import Angle.Lex.Lexer (program)
-import Angle.Parse.Exec (execStmt)
+import Angle.Exec.Exec (execStmt)
 
 
 instance Arbitrary LangLit where

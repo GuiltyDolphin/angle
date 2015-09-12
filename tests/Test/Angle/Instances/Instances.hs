@@ -3,7 +3,7 @@ module Angle.Instances.Tests
     ) where
 
 
-import Angle.Parse.Parser
+import Angle.Exec.Parser
 import Angle.Types.Lang
 
 import Control.Monad

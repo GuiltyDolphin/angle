@@ -26,15 +26,15 @@ library
                      , Angle.Lex.Lexer.Internal
                      , Angle.Lex.Helpers
                      , Angle.Types.Lang
-                     , Angle.Parse.Exec
-                     , Angle.Parse.Error
+                     , Angle.Exec.Exec
+                     , Angle.Exec.Error
                      , Angle.Lex.Token
                      , Angle.Scanner
-                     , Angle.Parse.Scope
-                     , Angle.Parse.Operations
-                     , Angle.Parse.Builtins
-                     , Angle.Parse.Types
-                     , Angle.Parse.Types.Internal
+                     , Angle.Exec.Scope
+                     , Angle.Exec.Operations
+                     , Angle.Exec.Builtins
+                     , Angle.Exec.Types
+                     , Angle.Exec.Types.Internal
   other-modules:
   other-extensions:    GeneralizedNewtypeDeriving, MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances
   build-depends:       base >=4.7 && <4.8
@@ -72,9 +72,9 @@ test-suite properties
   other-modules:       Test.Angle.Lex.Lexer
                      , Test.Angle.Lex.Token
                      , TestHelper
-                     , Test.Angle.Parse.Scope
-                     , Test.Angle.Parse.Operations
-                     , Test.Angle.Parse.Exec
+                     , Test.Angle.Exec.Scope
+                     , Test.Angle.Exec.Operations
+                     , Test.Angle.Exec.Exec
   if !flag(test-properties)
     buildable: False
   else
