@@ -6,7 +6,7 @@ License     : GNU GPL, version 3
 Maintainer  : GuiltyDolphin@gmail.com
 Stability   : alpha
 
-TODO
+Definitions for basic parsers to be used by the main parser.
 -}
 module Angle.Parse.Token
     (

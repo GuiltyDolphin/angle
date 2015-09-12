@@ -13,11 +13,16 @@ Stability   : alpha
 
 Defines the language 'Scanner'.
 
-__TODO__
+The main features are:
 
-= __TODO__
+* 'Scanner' @a@ - the type that represents a parser that will
+turn the input stream into a type @a@.
 
-__TODO__
+* 'scanChar' - base function for yielding characters from the input
+stream.
+
+* 'evalScan' @stream parser@ - runs @parser@ on @stream@, producing a
+result wrappied in 'Either'.
 -}
 module Angle.Scanner
   (
