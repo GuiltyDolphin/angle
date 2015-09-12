@@ -54,10 +54,10 @@ module Angle.Exec.Error
     , AngleError
     , CanError(..)
     , CanErrorWithPos(..)
-    , ParserError
+    , ExecError
     , throwError
     , throwImplementationErr
-    , throwParserError
+    , throwExecError
     ) where
 
 
@@ -90,10 +90,10 @@ class (CanError m) => CanErrorWithPos m where
 
 
 -- | General error structure.
-data AngleError = ParserError
-    { parserErrSourceRef :: SourceRef
-    , parserErrErr :: ParserError
-    , parserErrSourceText :: String
+data AngleError = ExecError
+    { execErrSourceRef :: SourceRef
+    , execErrErr :: ExecError
+    , execErrSourceText :: String
     }
                 | ImplementationError String
                 | ControlException ControlException
@@ -109,9 +109,9 @@ controlException = ControlException
 
 instance Show AngleError where
     show (ImplementationError x) = "Implementation error: " ++ x
-    show (ParserError { parserErrErr=ee
-                      , parserErrSourceRef=SourceRef (start,_)
-                      , parserErrSourceText=es
+    show (ExecError { execErrErr=ee
+                      , execErrSourceRef=SourceRef (start,_)
+                      , execErrSourceText=es
                       })
         = cEp ++ cEt ++ cEe
           where
@@ -129,7 +129,7 @@ instance Show AngleError where
 
 
 -- | Base for errors that occur during execution of code.
-data ParserError = TypeError TypeError
+data ExecError = TypeError TypeError
                  | NameError NameError
                  | CallError CallError
                  | DefaultError String
@@ -139,31 +139,31 @@ data ParserError = TypeError TypeError
 
 
 -- | Expression produced an invalid type.
-typeErr :: TypeError -> ParserError
+typeErr :: TypeError -> ExecError
 typeErr    = TypeError
 
 
 -- | Issue with identifier.
-nameErr :: NameError -> ParserError
+nameErr :: NameError -> ExecError
 nameErr    = NameError
 
 
 -- | Bad function call.
-callErr :: CallError -> ParserError
+callErr :: CallError -> ExecError
 callErr    = CallError
 
 
 -- | Invalid literal.
-litErr :: LitError -> ParserError
+litErr :: LitError -> ExecError
 litErr     = LitError
 
 
 -- | Misused keyword.
-keywordErr :: KeywordError -> ParserError
+keywordErr :: KeywordError -> ExecError
 keywordErr = KeywordError
 
 
-instance Show ParserError where
+instance Show ExecError where
     show (TypeError e)    = "wrong type in expression: " ++ show e
     show (NameError v)    = "name error: " ++ show v
     show (CallError x)    = "call error: " ++ show x
@@ -185,33 +185,33 @@ data TypeError = TypeMismatch   LangType LangType
 
 
 -- | Wrong type has been passed and required type is known.
-typeUnexpectedErr :: LangType -> LangType -> ParserError
+typeUnexpectedErr :: LangType -> LangType -> ExecError
 typeUnexpectedErr t1 = typeErr . TypeUnexpected t1
 
 
 -- | Wrong type has been passed and required type is not known.
-typeNotValidErr :: LangLit -> ParserError
+typeNotValidErr :: LangLit -> ExecError
 typeNotValidErr     = typeErr . TypeNotValid . typeOf
 
 
 -- | Expecting types to be the same.
-typeMismatchOpErr :: LangLit -> LangLit -> ParserError
+typeMismatchOpErr :: LangLit -> LangLit -> ExecError
 typeMismatchOpErr x y = typeErr $ (TypeMismatchOp `on` typeOf) x y
 
 
 -- | Expecting value to satisfy given parameter constraint.
-typeExpectConstrErr :: LangLit -> LangIdent -> ParserError
+typeExpectConstrErr :: LangLit -> LangIdent -> ExecError
 typeExpectConstrErr cls = typeErr . TypeExpectConstr cls
 
 
 -- | Function used as parameter constraint did not return boolean
 -- value.
-typeConstrWrongReturnErr :: LangIdent -> LangType -> ParserError
+typeConstrWrongReturnErr :: LangIdent -> LangType -> ExecError
 typeConstrWrongReturnErr cls = typeErr . TypeConstrWrongReturn cls
 
 
 -- | Value did not satisfy given annotation constraint.
-typeAnnWrongErr :: AnnType -> AnnType -> ParserError
+typeAnnWrongErr :: AnnType -> AnnType -> ExecError
 typeAnnWrongErr e = typeErr . TypeAnnWrong e
 
 
@@ -235,22 +235,22 @@ data NameError = NameNotDefined LangIdent
 
 
 -- | Given identifier has no definition.
-nameNotDefinedErr :: LangIdent -> ParserError
+nameNotDefinedErr :: LangIdent -> ExecError
 nameNotDefinedErr  = nameErr . NameNotDefined
 
 
 -- | Given identifier has no lambda assigned.
-nameNotDefinedFunErr :: LangIdent -> ParserError
+nameNotDefinedFunErr :: LangIdent -> ExecError
 nameNotDefinedFunErr = nameErr . NameNotDefinedFun
 
 
 -- | Given identifier has no value assigned.
-nameNotDefinedLitErr :: LangIdent -> ParserError
+nameNotDefinedLitErr :: LangIdent -> ExecError
 nameNotDefinedLitErr = nameErr . NameNotDefinedLit
 
 
 -- | Attempt to re-assign a builtin variable.
-assignToBuiltinErr :: LangIdent -> Maybe String -> ParserError
+assignToBuiltinErr :: LangIdent -> Maybe String -> ExecError
 assignToBuiltinErr name = nameErr . AssignToBuiltin name
 
 
@@ -271,17 +271,17 @@ data CallError = WrongNumberOfArguments Int Int
 
 
 -- | Attempted to pass an invalid number of arguments to a function.
-wrongNumberOfArgumentsErr :: Int -> Int -> ParserError
+wrongNumberOfArgumentsErr :: Int -> Int -> ExecError
 wrongNumberOfArgumentsErr expect = callErr . WrongNumberOfArguments expect
 
 
 -- | Error when calling builtin.
-callBuiltinErr :: String -> ParserError
+callBuiltinErr :: String -> ExecError
 callBuiltinErr = callErr . BuiltIn
 
 
 -- | Order of arguments not valid in scenario.
-malformedSignatureErr :: String -> ParserError
+malformedSignatureErr :: String -> ExecError
 malformedSignatureErr = callErr . MalformedSignature
 
 
@@ -297,7 +297,7 @@ data KeywordError = ReturnFromGlobal
 
 
 -- | Return keyword used in wrong place.
-returnFromGlobalErr :: ParserError
+returnFromGlobalErr :: ExecError
 returnFromGlobalErr = keywordErr ReturnFromGlobal
 
 
@@ -305,14 +305,14 @@ instance Show KeywordError where
     show ReturnFromGlobal = "return from outermost scope"
 
 
--- | Raise a 'ParserError' into an 'AngleError'.
-throwParserError :: (CanErrorWithPos m, Monad m) => ParserError -> m a
-throwParserError e = do
+-- | Raise a 'ExecError' into an 'AngleError'.
+throwExecError :: (CanErrorWithPos m, Monad m) => ExecError -> m a
+throwExecError e = do
   errPosRef <- getErrorPos
   errSource <- getErrorSource
-  throwAE ParserError { parserErrSourceRef = errPosRef
-                         , parserErrSourceText = errSource
-                         , parserErrErr = e
+  throwAE ExecError { execErrSourceRef = errPosRef
+                         , execErrSourceText = errSource
+                         , execErrErr = e
                          }
 
 
@@ -328,12 +328,12 @@ data LitError = IndexOutOfBoundsError Int
 
 
 -- | Attempt to access a non-existant index of a list.
-indexOutOfBoundsErr :: Int -> ParserError
+indexOutOfBoundsErr :: Int -> ExecError
 indexOutOfBoundsErr = litErr . IndexOutOfBoundsError
 
 
 -- | Types are not uniform in range.
-badRangeErr :: LangType -> Maybe LangType -> Maybe LangType -> ParserError
+badRangeErr :: LangType -> Maybe LangType -> Maybe LangType -> ExecError
 badRangeErr t1 t2 = litErr . BadRange t1 t2
 
 

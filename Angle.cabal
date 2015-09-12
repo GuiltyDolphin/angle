@@ -3,8 +3,7 @@
 
 name:                angle
 version:             0.1.0.0
--- synopsis:
-description:         A small, general-purpose programming language.
+synopsis:            A small, general-purpose programming language.
 license:             GPL-3
 license-file:        LICENSE
 author:              Ben Moon
@@ -14,6 +13,8 @@ copyright:           Ben Moon 2015
 build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
+description:         An implementation of a small, weak and dynamically typed,
+                     interpreted, functional programming language.
 
 
 flag test-properties
@@ -44,7 +45,7 @@ library
                      , transformers-compat >= 0.3.3.3
   hs-source-dirs:      src
   default-language:    Haskell2010
-  ghc-options:         -Wall -fno-warn-unused-do-bind -Werror
+  ghc-options:         -Wall -fno-warn-unused-do-bind
 
 
 executable angle
@@ -62,7 +63,7 @@ executable angle
                      , transformers-compat >= 0.3.3.3
   default-language:    Haskell2010
   buildable:           True
-  ghc-options:         -Wall -fno-warn-unused-do-bind -Werror
+  ghc-options:         -Wall -fno-warn-unused-do-bind
 
 
 test-suite properties
@@ -87,9 +88,8 @@ test-suite properties
                        , mtl >= 2.2.1
                        , tasty >= 0.10.1.2
                        , tasty-quickcheck >= 0.8.3.2
-  ghc-options:         -Wall -fno-warn-unused-do-bind -fno-warn-orphans -Werror
+  ghc-options:         -Wall -fno-warn-unused-do-bind -fno-warn-orphans
   default-language:    Haskell2010
--- Note: Taken out -Werror
 
 
 benchmark lexing

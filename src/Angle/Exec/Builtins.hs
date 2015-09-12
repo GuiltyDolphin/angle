@@ -164,7 +164,7 @@ builtinAsType :: [LangLit] -> ExecIO LangLit
 builtinAsType [x] = return x
 builtinAsType [x,y] = asType x y
 builtinAsType (x:xs) = liftM LitList $ mapM (asType x) xs
-builtinAsType _ = throwParserError $ callBuiltinErr "asType: invalid call"
+builtinAsType _ = throwExecError $ callBuiltinErr "asType: invalid call"
 
 
 asType :: LangLit -> LangLit -> ExecIO LangLit
@@ -209,7 +209,7 @@ builtinLength [LitRange x (Just y) (Just z)] = return .
   where
     div1 = (fromEnumL y + 1) - fromEnumL x
     div2 = fromEnumL z - fromEnumL x
-builtinLength _ = throwParserError $ callBuiltinErr "length: invalid call"
+builtinLength _ = throwExecError $ callBuiltinErr "length: invalid call"
 
 
 -- | Builtin @isNull@ function.
@@ -227,7 +227,7 @@ builtinIsNull xs = return . LitList $ map (LitBool . isNull) xs
 -- @str(x)@ is the same as @asType("", x)@
 builtinStr :: [LangLit] -> ExecIO LangLit
 builtinStr [] = return $ LitStr ""
-builtinStr xs | length xs > 1 = throwParserError $ wrongNumberOfArgumentsErr 1 (length xs)
+builtinStr xs | length xs > 1 = throwExecError $ wrongNumberOfArgumentsErr 1 (length xs)
               | otherwise = return $ toLitStr (head xs)
 
 
@@ -241,19 +241,19 @@ builtinStr xs | length xs > 1 = throwParserError $ wrongNumberOfArgumentsErr 1 (
 -- end of the list. With @-1@ being the last element.
 builtinIndex :: [LangLit] -> ExecIO LangLit
 builtinIndex [LitInt x,LitList xs]
-    | x >= length xs = throwParserError $ indexOutOfBoundsErr x
+    | x >= length xs = throwExecError $ indexOutOfBoundsErr x
     | x < 0 = return $ xs !! (length xs + x)
     | otherwise = return $ xs !! x
 builtinIndex [LitInt x,LitInt y,LitList xs]
     | x >= length xs || y > length xs
-        = throwParserError $ indexOutOfBoundsErr x
+        = throwExecError $ indexOutOfBoundsErr x
     | x < 0 = builtinIndex
               [LitInt (length xs + x), LitInt y, LitList xs]
     | y < 0 = builtinIndex
               [LitInt x, LitInt (length xs + y), LitList xs]
     | otherwise
         = return . LitList $ splice x y xs
-builtinIndex _ = throwParserError $ callBuiltinErr "index: invalid call signature"
+builtinIndex _ = throwExecError $ callBuiltinErr "index: invalid call signature"
 
 
 splice :: Int -> Int -> [a] -> [a]
@@ -277,10 +277,10 @@ builtinGetArgs _ = liftM (LitList . map LitStr) $ liftIO getArgs
 
 -- | Handler for assignments to builtin variables as literals.
 handleBuiltinAssignLit :: LangIdent -> LangLit -> ExecIO a
-handleBuiltinAssignLit n@(LangIdent "main") _ = throwParserError $ assignToBuiltinErr n (Just "assigned by execution program")
-handleBuiltinAssignLit n _ = throwParserError $ assignToBuiltinErr n Nothing
+handleBuiltinAssignLit n@(LangIdent "main") _ = throwExecError $ assignToBuiltinErr n (Just "assigned by execution program")
+handleBuiltinAssignLit n _ = throwExecError $ assignToBuiltinErr n Nothing
 
 
 -- | Handler for assignments to builtin variables as functions.
 handleBuiltinAssignFun :: LangIdent -> Lambda -> ExecIO a
-handleBuiltinAssignFun n _ = throwParserError $ assignToBuiltinErr n Nothing
+handleBuiltinAssignFun n _ = throwExecError $ assignToBuiltinErr n Nothing

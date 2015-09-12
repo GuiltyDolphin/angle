@@ -57,9 +57,9 @@ lookupVar binds name = do
     Just x  -> return $ varDef x
 
 
-lookupVarF :: (Scope -> BindEnv a) -> (LangIdent -> ParserError) -> LangIdent -> ExecIO a
+lookupVarF :: (Scope -> BindEnv a) -> (LangIdent -> ExecError) -> LangIdent -> ExecIO a
 lookupVarF binds err name = lookupVar binds name
-                        >>= maybe (throwParserError $ err name)
+                        >>= maybe (throwExecError $ err name)
                             return
 
 
@@ -136,7 +136,7 @@ bindArgs args (ArgSig
       la = length args
       lp = length params
   when (la > lp && isNothing catchParam || la < lp)
-           (throwParserError $ wrongNumberOfArgumentsErr lp la)
+           (throwExecError $ wrongNumberOfArgumentsErr lp la)
   catchBind <- case catchParam of
                  Nothing -> return []
                  Just cp -> do
@@ -175,7 +175,7 @@ checkSatConstr :: LangLit -> Maybe LangIdent -> ExecIO ()
 checkSatConstr _ Nothing = return ()
 checkSatConstr v (Just clsName) = do
   res <- satConstr v clsName
-  unless res (throwParserError $ typeExpectConstrErr v clsName)
+  unless res (throwExecError $ typeExpectConstrErr v clsName)
 
 
 execConstr :: LangLit -> LangIdent -> ExecIO LangLit
@@ -184,7 +184,7 @@ execConstr val clsName = do
   res <- callLambda cls [ExprLit val]
   case res of
     x@(LitBool _) -> return x
-    y             -> throwParserError
+    y             -> throwExecError
                      $ typeConstrWrongReturnErr clsName (typeOf y)
 
 
@@ -201,7 +201,7 @@ satType _ _ = False
 checkSatType :: CanErrorWithPos m => LangLit -> AnnType -> m ()
 checkSatType val typ = do
   let res = satType val typ
-  unless res $ throwParserError $ typeAnnWrongErr typ $ typeAnnOf val
+  unless res $ throwExecError $ typeAnnWrongErr typ $ typeAnnOf val
 
 
 -- | True if the given class returns true when
@@ -327,7 +327,7 @@ execSingStmt (StmtComment _) = return LitNull
 execSingStmt (StmtReturn x) = do
   isGlob <- liftM (isOutermostScope . currentScope) get
   if isGlob
-      then throwParserError returnFromGlobalErr
+      then throwExecError returnFromGlobalErr
       else execExpr x >>= throwReturn
 execSingStmt (StmtBreak x False)
     = case x of
@@ -368,7 +368,7 @@ execStructIf if' thn els = do
     (LitBool False) -> case els of
                          Nothing -> return LitNull
                          Just s  -> execStmt s
-    x               -> throwParserError $ typeUnexpectedErr (typeOf x) LTBool
+    x               -> throwExecError $ typeUnexpectedErr (typeOf x) LTBool
 
 
 execStructFor :: LangIdent -> Expr -> Stmt -> ExecIO LangLit
@@ -416,7 +416,7 @@ builtinEval :: [LangLit] -> ExecIO LangLit
 builtinEval xs = do
   let r = evalScan st program
   case r of
-    Left _    -> throwParserError . callBuiltinErr $ "eval: no parse"
+    Left _    -> throwExecError . callBuiltinErr $ "eval: no parse"
     Right res -> execStmt res
   where st = argsToString xs
 
@@ -437,6 +437,6 @@ checkLitRange :: LangLit -> ExecIO ()
 checkLitRange r@(LitRange x y z)
     = unless (validRangeLit r)
       (if enumType x
-       then throwParserError $ badRangeErr (typeOf x) (fmap typeOf y) (fmap typeOf z)
-       else throwParserError $ typeExpectConstrErr x (LangIdent "enum"))
+       then throwExecError $ badRangeErr (typeOf x) (fmap typeOf y) (fmap typeOf z)
+       else throwExecError $ typeExpectConstrErr x (LangIdent "enum"))
 checkLitRange _ = throwImplementationErr "checkLitRange: Attempting to check a non-range"
