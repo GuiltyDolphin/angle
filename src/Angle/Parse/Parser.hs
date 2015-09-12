@@ -1,17 +1,17 @@
 {-|
-Module      : Angle.Lex.Lexer
-Description : Exports functions from Angle.Lex.Lexer.Internal
+Module      : Angle.Parse.Parser
+Description : Exports functions from Angle.Parse.Parser.Internal
 Copyright   : Copyright (C) 2015 Ben Moon
 License     : GNU GPL, version 3
 Maintainer  : GuiltyDolphin@gmail.com
 Stability   : alpha
 
 -}
-module Angle.Lex.Lexer
+module Angle.Parse.Parser
     ( litList
     , evalScan
     , program
     , stmt
     ) where
 
-import Angle.Lex.Lexer.Internal
+import Angle.Parse.Parser.Internal

@@ -1,4 +1,4 @@
-import Angle.Lex.Lexer.Internal
+import Angle.Parse.Parser.Internal
 
 import Criterion.Main
 import Criterion.Types

@@ -22,13 +22,13 @@ flag test-properties
 
 
 library
-  exposed-modules:     Angle.Lex.Lexer
-                     , Angle.Lex.Lexer.Internal
-                     , Angle.Lex.Helpers
+  exposed-modules:     Angle.Parse.Parser
+                     , Angle.Parse.Parser.Internal
+                     , Angle.Parse.Helpers
                      , Angle.Types.Lang
                      , Angle.Exec.Exec
                      , Angle.Exec.Error
-                     , Angle.Lex.Token
+                     , Angle.Parse.Token
                      , Angle.Scanner
                      , Angle.Exec.Scope
                      , Angle.Exec.Operations
@@ -69,8 +69,8 @@ test-suite properties
   type:                exitcode-stdio-1.0
   main-is:             TestSuite.hs
   hs-source-dirs:      tests
-  other-modules:       Test.Angle.Lex.Lexer
-                     , Test.Angle.Lex.Token
+  other-modules:       Test.Angle.Parse.Parser
+                     , Test.Angle.Parse.Token
                      , TestHelper
                      , Test.Angle.Exec.Scope
                      , Test.Angle.Exec.Operations

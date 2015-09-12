@@ -20,7 +20,7 @@ import Angle.Scanner
 import Angle.Exec.Exec
 import Angle.Exec.Builtins
 import Angle.Exec.Types
-import Angle.Lex.Lexer
+import Angle.Parse.Parser
 
 
 runInterpreter :: Options -> IO ()
@@ -78,7 +78,7 @@ handleNoFile fp abort e | isDoesNotExistError e = handleNoFile'
 -- import System.Environment
 -- import System.Exit
 --
--- import Angle.Lex.Lexer
+-- import Angle.Parse.Parser
 -- import Angle.Exec.Exec
 -- import Angle.Scanner (ScanError)
 -- import Angle.Exec.Error

@@ -1,11 +1,11 @@
 {-# LANGUAGE FlexibleInstances #-}
-module Test.Angle.Lex.Helpers
+module Test.Angle.Parse.Helpers
     ( tests
     ) where
 
 import Test.QuickCheck.Function
 
-import Angle.Lex.Helpers
+import Angle.Parse.Helpers
 import TestHelper
 
 

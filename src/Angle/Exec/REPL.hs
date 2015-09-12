@@ -11,7 +11,7 @@ import Data.List (elemIndices)
 import System.Console.CmdArgs hiding (program)
 import qualified System.Console.CmdArgs as CA
 
-import Angle.Lex.Lexer
+import Angle.Parse.Parser
 import Angle.Exec.Builtins
 import Angle.Exec.Exec
 import Angle.Exec.Types

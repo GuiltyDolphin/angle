@@ -30,13 +30,13 @@ import Test.QuickCheck.Monadic
 import Test.Tasty
 import Test.Tasty.QuickCheck
 
-import Angle.Lex.Helpers (evalScan, Scanner)
-import Angle.Lex.Token (keywords)
+import Angle.Parse.Helpers (evalScan, Scanner)
+import Angle.Parse.Token (keywords)
 import Angle.Exec.Scope
 import Angle.Exec.Types.Internal
 import Angle.Scanner (SourcePos(..))
 import Angle.Types.Lang
-import Angle.Lex.Lexer (program)
+import Angle.Parse.Parser (program)
 import Angle.Exec.Exec (execStmt)
 
 

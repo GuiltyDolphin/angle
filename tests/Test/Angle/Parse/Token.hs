@@ -1,11 +1,11 @@
-module Test.Angle.Lex.Token
+module Test.Angle.Parse.Token
     ( tests
     ) where
 
 import Control.Monad (liftM)
 import Numeric (showFFloat)
 
-import Angle.Lex.Token
+import Angle.Parse.Token
 import TestHelper
 
 

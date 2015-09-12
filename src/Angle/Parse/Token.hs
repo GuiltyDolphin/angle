@@ -1,5 +1,5 @@
 {-|
-Module      : Angle.Lex.Token
+Module      : Angle.Parse.Token
 Description : Definitons for language tokens.
 Copyright   : Copyright (C) 2015 Ben Moon
 License     : GNU GPL, version 3
@@ -8,7 +8,7 @@ Stability   : alpha
 
 TODO
 -}
-module Angle.Lex.Token
+module Angle.Parse.Token
     (
     -- ** Whitespace
       tokNSpaced
@@ -47,7 +47,7 @@ import Control.Monad
 import Data.Char
 import Numeric
 
-import Angle.Lex.Helpers
+import Angle.Parse.Helpers
 
 
 -- | Start of a multi-stmt.

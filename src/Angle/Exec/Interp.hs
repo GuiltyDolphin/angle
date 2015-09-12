@@ -8,7 +8,7 @@ import Control.Monad.State
 import System.Environment
 import System.Exit
 
-import Angle.Lex.Lexer
+import Angle.Parse.Parser
 import Angle.Exec.Exec
 import Angle.Scanner (ScanError)
 import Angle.Exec.Error

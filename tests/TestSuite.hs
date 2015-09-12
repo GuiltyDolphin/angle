@@ -3,9 +3,9 @@ module Main
     ) where
 
 import TestHelper
-import qualified Test.Angle.Lex.Helpers as Helpers
-import qualified Test.Angle.Lex.Lexer as Lexer
-import qualified Test.Angle.Lex.Token as Token
+import qualified Test.Angle.Parse.Helpers as Helpers
+import qualified Test.Angle.Parse.Parser as Parser
+import qualified Test.Angle.Parse.Token as Token
 import qualified Test.Angle.Exec.Operations as Operations
 import qualified Test.Angle.Exec.Scope as Scope
 import qualified Test.Angle.Exec.Exec as Exec
@@ -25,7 +25,7 @@ allTests = localOption (Timeout (toMicroSeconds 3) "") $
            testGroup "all tests"
            [ testGroup "helpers tests" Helpers.tests
            , localOption (QuickCheckMaxSize 10) $
-             testGroup "lexer tests" Lexer.tests
+             testGroup "lexer tests" Parser.tests
            , testGroup "operations tests" Operations.tests
            , localOption (QuickCheckMaxSize 10) $
              testGroup "scope tests" Scope.tests

@@ -18,7 +18,7 @@ import System.IO (stdout, hFlush)
 
 import Angle.Exec.Types
 import Angle.Types.Lang
-import Angle.Lex.Lexer
+import Angle.Parse.Parser
 import Angle.Exec.Exec
 import Angle.Exec.Builtins
 

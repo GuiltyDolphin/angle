@@ -1,10 +1,10 @@
-module Test.Angle.Lex.Lexer
+module Test.Angle.Parse.Parser
     ( tests
     ) where
 
 import Control.Monad (liftM)
 
-import Angle.Lex.Lexer.Internal
+import Angle.Parse.Parser.Internal
 import qualified Test.QuickCheck.Property as P
 import Angle.Types.Lang
 import TestHelper

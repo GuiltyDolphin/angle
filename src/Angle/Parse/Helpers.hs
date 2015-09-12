@@ -1,5 +1,5 @@
 {-|
-Module      : Angle.Lex.Helpers
+Module      : Angle.Parse.Helpers
 Description : Defines functions for working with the scanner.
 Copyright   : Copyright (C) 2015 Ben Moon
 License     : GNU GPL, version 3
@@ -12,7 +12,7 @@ Provided functions are split into two categories:
 
 [@advanced@] higher-order scanners.
 -}
-module Angle.Lex.Helpers
+module Angle.Parse.Helpers
     (
     -- ** Basic
       anyChar

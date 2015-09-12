@@ -21,7 +21,7 @@ import Control.Monad
 import Control.Monad.State
 import Data.Maybe (isNothing)
 
-import Angle.Lex.Lexer (program, evalScan)
+import Angle.Parse.Parser (program, evalScan)
 import Angle.Exec.Builtins
 import Angle.Exec.Error
 import Angle.Exec.Operations

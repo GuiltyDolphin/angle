@@ -1,17 +1,17 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-|
-Module      : Angle.Lex.Lexer.Internal
+Module      : Angle.Parse.Parser.Internal
 Description : Module defining functions for parsing Angle code.
 Copyright   : Copyright (C) 2015 Ben Moon
 License     : GNU GPL, version 3
 Maintainer  : GuiltyDolphin@gmail.com
 Stability   : alpha
 
-Uses parsers from "Angle.Lex.Token" and "Angle.Lex.Helpers", as well
+Uses parsers from "Angle.Parse.Token" and "Angle.Parse.Helpers", as well
 as custom lexing functions to define all the necessary functions for
 converting Angle source code into Haskell types.
 -}
-module Angle.Lex.Lexer.Internal
+module Angle.Parse.Parser.Internal
     ( program
     , evalScan
 
@@ -40,8 +40,8 @@ module Angle.Lex.Lexer.Internal
 import Control.Applicative
 import Control.Monad.State
 
-import Angle.Lex.Helpers
-import Angle.Lex.Token
+import Angle.Parse.Helpers
+import Angle.Parse.Token
 import Angle.Types.Lang
 
 
