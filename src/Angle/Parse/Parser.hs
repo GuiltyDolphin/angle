@@ -9,7 +9,7 @@ Stability   : alpha
 -}
 module Angle.Parse.Parser
     ( litList
-    , evalScan
+    , evalParse
     , program
     , stmt
     ) where

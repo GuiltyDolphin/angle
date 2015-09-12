@@ -21,7 +21,7 @@ import Control.Monad
 import Control.Monad.State
 import Data.Maybe (isNothing)
 
-import Angle.Parse.Parser (program, evalScan)
+import Angle.Parse.Parser (program, evalParse)
 import Angle.Exec.Builtins
 import Angle.Exec.Error
 import Angle.Exec.Operations
@@ -414,7 +414,7 @@ callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a buil
 
 builtinEval :: [LangLit] -> ExecIO LangLit
 builtinEval xs = do
-  let r = evalScan st program
+  let r = evalParse st program
   case r of
     Left _    -> throwExecError . callBuiltinErr $ "eval: no parse"
     Right res -> execStmt res

@@ -3,7 +3,7 @@ import Control.Monad
 import Criterion.Main
 import Criterion.Types
 
-import Angle.Scanner (scanChar, evalScan)
+import Angle.Scanner (scanChar, evalParse)
 
 
 main :: IO ()
@@ -25,6 +25,6 @@ main = defaultMainWith config
     config = defaultConfig { timeLimit = 1 }
 
 
-scanSingleLength n = evalScan (replicate n 'A') scanChar
+scanSingleLength n = evalParse (replicate n 'A') scanChar
 
-scanSingleLengthFull n = evalScan (replicate n 'A') (replicateM n scanChar)
+scanSingleLengthFull n = evalParse (replicate n 'A') (replicateM n scanChar)

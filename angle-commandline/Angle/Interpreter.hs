@@ -44,7 +44,7 @@ runFile fp abort = do
         Right source -> runLex source
   where
     runLex source =
-        case evalScan source program of
+        case evalParse source program of
             Left err -> handleSyntax fp err abort
             Right toExec -> executeProg toExec
     executeProg toExec = do
@@ -53,7 +53,7 @@ runFile fp abort = do
             Left err -> handleRuntime fp err abort
             Right _ -> return ()
 
-handleSyntax :: FilePath -> ScanError -> Bool -> IO ()
+handleSyntax :: FilePath -> ParseError -> Bool -> IO ()
 handleSyntax fp e abort = do
     putStrLn ("Syntax error in file " ++ fp) >> print e
     when abort $ exitWith $ ExitFailure 100
@@ -80,14 +80,14 @@ handleNoFile fp abort e | isDoesNotExistError e = handleNoFile'
 --
 -- import Angle.Parse.Parser
 -- import Angle.Exec.Exec
--- import Angle.Scanner (ScanError)
+-- import Angle.Scanner (ParseError)
 -- import Angle.Exec.Error
 -- import Angle.Exec.Types
 -- import Angle.Types.Lang
 --
 --
--- stringToStmt :: String -> Either ScanError Stmt
--- stringToStmt s = evalScan s program
+-- stringToStmt :: String -> Either ParseError Stmt
+-- stringToStmt s = evalParse s program
 --
 --
 -- runStmt :: String -> Stmt -> [String] -> IO (Either AngleError LangLit)

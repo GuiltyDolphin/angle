@@ -32,12 +32,12 @@ replOptions = ReplOptions
 
 --processLine :: String -> IO ()
 --processLine s = do
---  case evalScan s program of
+--  case evalParse s program of
 --    Left err -> print err
 --    Right res -> runExecIOEnv startEnv (execStmt res) >>= print
 
 -- execLine :: Env -> String -> IO Env
--- execLine e s = case evalScan s program of
+-- execLine e s = case evalParse s program of
 --                  Left err -> print err
 --                  Right res -> runExecIOEnv (execStmt e) res >>= print
 
@@ -60,7 +60,7 @@ collectLine s multi =
 runLine :: String -> ExecIO ()
 runLine s = do
   r <- collectLine s 0
-  case evalScan r stmt of
+  case evalParse r stmt of
               Left err -> liftIO $ print err
               Right res -> do
                 toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
@@ -89,7 +89,7 @@ printSyn = putStrLn . showSyn
 
 withSource :: String -> ExecIO ()
 withSource s =
-  case evalScan ('{':s++"}") stmt of
+  case evalParse ('{':s++"}") stmt of
     Left err -> liftIO (print err) >> mainProg
     Right res -> do
                  toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
@@ -137,4 +137,4 @@ main = do
 --    lexer to re-parse a small section of code between the
 --    statement boundaries and asks for smaller and smaller
 --    chunks until the position of the bad token is resolved.
---    (resolvePosition :: Scanner a -> String -> (SourcePos, SourcePos))
+--    (resolvePosition :: Parser a -> String -> (SourcePos, SourcePos))

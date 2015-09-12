@@ -1,6 +1,6 @@
 {-|
 Module      : Angle.Parse.Helpers
-Description : Defines functions for working with the scanner.
+Description : Defines functions for working with the parser.
 Copyright   : Copyright (C) 2015 Ben Moon
 License     : GNU GPL, version 3
 Maintainer  : GuiltyDolphin@gmail.com
@@ -10,7 +10,7 @@ Provided functions are split into two categories:
 
 [@basic@] the functions that work on standard types.
 
-[@advanced@] higher-order scanners.
+[@advanced@] higher-order parsers.
 -}
 module Angle.Parse.Helpers
     (
@@ -27,16 +27,16 @@ module Angle.Parse.Helpers
     , followed
     , manyTill
     , noneFrom
-    , notScan
+    , notParse
     , sepWith
     , surrounded
-    , tryScan
+    , tryParse
     , within
     , lookAhead
 
     -- ** Other
-    , evalScan
-    , Scanner
+    , evalParse
+    , Parser
     , SourcePos
     , sourcePos
     , unexpectedErr
@@ -53,17 +53,17 @@ import Angle.Scanner
 
 -- | Succeeds if the predicate function returns
 -- true when passed the next character.
-cond :: (Char -> Bool) -> Scanner Char
-cond f = tryScan $ do
+cond :: (Char -> Bool) -> Parser Char
+cond f = tryParse $ do
   ch <- scanChar
   if f ch then return ch
   else unexpectedErr ("character: " ++ show ch)
 
 
--- | Attempt to satisfy the provided scanner, but revert
+-- | Attempt to satisfy the provided parser, but revert
 -- the state upon failure.
-tryScan :: Scanner a -> Scanner a
-tryScan sc = do
+tryParse :: Parser a -> Parser a
+tryParse sc = do
   st <- get
   sc `catchError` (\e -> do
     put st
@@ -71,56 +71,56 @@ tryScan sc = do
 
 
 -- | Match the specified character.
-char :: Char -> Scanner Char
+char :: Char -> Parser Char
 char ch = cond (==ch) <?> show ch
 
 
 -- | Matches if character is an element of the provided string.
-charFrom :: String -> Scanner Char
+charFrom :: String -> Parser Char
 charFrom str = cond (`elem` str)
 
 
 -- | Match `str' in its entirety.
-string :: String -> Scanner String
-string str = tryScan (mapM char str) <?> str
+string :: String -> Parser String
+string str = tryParse (mapM char str) <?> str
 
 
 -- | @within start end sc@ matches @sc@ between @start@ and @end@.
-within :: Scanner a -> Scanner b -> Scanner c -> Scanner c
+within :: Parser a -> Parser b -> Parser c -> Parser c
 within start end sc = start *> sc <* end
 
 
 -- | @surrounded x@ is the same as @within x x@.
-surrounded :: Scanner a -> Scanner b -> Scanner b
+surrounded :: Parser a -> Parser b -> Parser b
 surrounded surr = within surr surr
 
 
--- | Parses second scanner before first scanner, returning the result
--- of the second scanner.
-followed :: Scanner a -> Scanner b -> Scanner b
+-- | Parses second parser before first parser, returning the result
+-- of the second parser.
+followed :: Parser a -> Parser b -> Parser b
 followed f sc = sc <* f
 
 
--- | Use first Scanner that succeeds.
-choice :: [Scanner a] -> Scanner a
+-- | Use first Parser that succeeds.
+choice :: [Parser a] -> Parser a
 choice = msum
 
 
 
 
 -- | Succeeds if it does not parse the specified character.
-notChar :: Char -> Scanner Char
+notChar :: Char -> Parser Char
 notChar ch = cond (/=ch)
 
 
 -- | Matches any character, only fails when there is no more input.
-anyChar :: Scanner Char
+anyChar :: Parser Char
 anyChar = scanChar <?> "any character"
 
 
--- | Succeeds if the passed scanner succeeds, but does not consume
+-- | Succeeds if the parser succeeds, but does not consume
 -- input upon success.
-lookAhead :: Scanner a -> Scanner a
+lookAhead :: Parser a -> Parser a
 lookAhead sc = do
   pos <- get
   res <- sc
@@ -129,25 +129,25 @@ lookAhead sc = do
 
 
 -- | Succeeds only if `sc' does not succeed.
-notScan :: (Show a) => Scanner a -> Scanner ()
-notScan sc = tryScan (do
-  res <- optional (tryScan (lookAhead sc))
+notParse :: (Show a) => Parser a -> Parser ()
+notParse sc = tryParse (do
+  res <- optional (tryParse (lookAhead sc))
   case res of Nothing -> return ()
               Just x -> unexpectedErr (show x))
 
 
--- | @noneFrom sc scs@ builds a list of scanners by
--- applying @sc@ to each of @scs@, the resultant scanner
--- then succeeds only if all of the resultant scanners
+-- | @noneFrom sc scs@ builds a list of parsers by
+-- applying @sc@ to each of @scs@, the resultant parser
+-- then succeeds only if all of the resultant parsers
 -- fail.
-noneFrom :: (Show a) => (a -> Scanner a) -> [a] -> Scanner ()
-noneFrom scf = notScan . oneFrom
+noneFrom :: (Show a) => (a -> Parser a) -> [a] -> Parser ()
+noneFrom scf = notParse . oneFrom
   where oneFrom xs = choice $ map scf xs
 
 
 -- | List of `sc' separated with `sep'.
-sepWith :: Scanner a -> Scanner b -> Scanner [b]
-sepWith sep sc = tryScan (do
+sepWith :: Parser a -> Parser b -> Parser [b]
+sepWith sep sc = tryParse (do
   fsm <- optional sc
   case fsm of
     Nothing -> return []
@@ -159,8 +159,8 @@ sepWith sep sc = tryScan (do
 
 
 -- | Collect sc until `ti' succeeds.
-manyTill :: (Show b) => Scanner b -> Scanner a -> Scanner [a]
-manyTill ti sc = many (notScan ti *> sc)
+manyTill :: (Show b) => Parser b -> Parser a -> Parser [a]
+manyTill ti sc = many (notParse ti *> sc)
 
 
 

@@ -30,20 +30,20 @@ testShowSynLambda :: Lambda -> P.Result
 testShowSynLambda x = prettySyn x lambda -- showSynTest x lambda
 
 
-showSynTest :: (ShowSyn a, Eq a) => a -> Scanner a -> Bool
-showSynTest x sc = evalScan (showSyn x) sc == Right x
+showSynTest :: (ShowSyn a, Eq a) => a -> Parser a -> Bool
+showSynTest x sc = evalParse (showSyn x) sc == Right x
 
 
-prettySyn :: (ShowSyn a, Eq a) => a -> Scanner a -> P.Result
+prettySyn :: (ShowSyn a, Eq a) => a -> Parser a -> P.Result
 prettySyn = withPretty f p
     where p x sc = either (const $ "Could not parse: \n" ++ showSyn x)
-                     showSyn (evalScan (showSyn x) sc)
+                     showSyn (evalParse (showSyn x) sc)
           f = showSynTest
 
 
-withPretty :: (a -> Scanner b -> Bool) -- ^ Test function to apply
-           -> (a -> Scanner b -> String) -- ^ Prettify function
-           -> a -> Scanner b -> P.Result
+withPretty :: (a -> Parser b -> Bool) -- ^ Test function to apply
+           -> (a -> Parser b -> String) -- ^ Prettify function
+           -> a -> Parser b -> P.Result
 withPretty f pretty x sc = P.result
                              { P.ok = Just b
                              , P.reason = if b
@@ -66,12 +66,12 @@ instance Arbitrary NoQuoteString where
 
 
 testLitStrEmpty :: Bool
-testLitStrEmpty = evalScan "\"\"" litStr == Right (LitStr "")
+testLitStrEmpty = evalParse "\"\"" litStr == Right (LitStr "")
 
 
 testLitStr :: String -> Property
 testLitStr x = "\"\\" `noneElem` x ==> litStrShow x litStr
--- testLitStr x = '"' `notElem` x ==> evalScan (escapedStr x) litStr == Right (LitStr x)
+-- testLitStr x = '"' `notElem` x ==> evalParse (escapedStr x) litStr == Right (LitStr x)
 --
 
 
@@ -79,39 +79,39 @@ noneElem :: (Eq a) => [a] -> [a] -> Bool
 noneElem xs ys = all (`notElem` ys) xs
 
 
-litStrShow :: String -> Scanner LangLit -> P.Result
+litStrShow :: String -> Parser LangLit -> P.Result
 litStrShow = withPretty f p
-    where f x sc = evalScan (escapedStr x) sc == Right (LitStr x)
-          p x sc = either (const "got an error!\n") showSyn (evalScan (escapedStr x) sc)
+    where f x sc = evalParse (escapedStr x) sc == Right (LitStr x)
+          p x sc = either (const "got an error!\n") showSyn (evalParse (escapedStr x) sc)
 
 
 testLitInt :: Int -> Bool
-testLitInt x = evalScan (show x) litInt == Right (LitInt x)
+testLitInt x = evalParse (show x) litInt == Right (LitInt x)
 
 
 testLitBool :: Bool
-testLitBool = evalScan "true" litBool == Right (LitBool True)
-              && evalScan "false" litBool == Right (LitBool False)
+testLitBool = evalParse "true" litBool == Right (LitBool True)
+              && evalParse "false" litBool == Right (LitBool False)
 
 
 -- testRange :: LangLit -> LangLit -> LangLit -> Bool
--- testRange x y z = evalScan toTest litRange == Right expected
+-- testRange x y z = evalParse toTest litRange == Right expected
 --     where toTest = concat ["(", showSyn x, "..", showSyn y, "..", showSyn z, ")"]
 --           expected = LitRange x y (Just z)
 
 
 testEmptyCall :: Bool
-testEmptyCall = evalScan "foo()" exprFunCall
+testEmptyCall = evalParse "foo()" exprFunCall
  == Right (ExprFunCall (LangIdent "foo") [])
 
 
 testOpAdd :: Bool
-testOpAdd = evalScan "(+ 1 2)" langOp
+testOpAdd = evalParse "(+ 1 2)" langOp
  == Right (MultiOp OpAdd [ExprLit (LitInt 1), ExprLit (LitInt 2)])
 
 
 testOpNeg :: Bool
-testOpNeg = evalScan "-x" langOp ==  Right (SpecOp OpNeg (ExprIdent (LangIdent "x")))
+testOpNeg = evalParse "-x" langOp ==  Right (SpecOp OpNeg (ExprIdent (LangIdent "x")))
 
 
 tests :: [TestTree]

@@ -4,8 +4,8 @@ module TestHelper
     ( module Test.Tasty
     , module Test.Tasty.QuickCheck
     , assert
-    , Scanner
-    , evalScan
+    , Parser
+    , evalParse
     , monadicEither
 --    , monadicExec
     , monadicIO
@@ -30,7 +30,7 @@ import Test.QuickCheck.Monadic
 import Test.Tasty
 import Test.Tasty.QuickCheck
 
-import Angle.Parse.Helpers (evalScan, Scanner)
+import Angle.Parse.Helpers (evalParse, Parser)
 import Angle.Parse.Token (keywords)
 import Angle.Exec.Scope
 import Angle.Exec.Types.Internal
@@ -329,7 +329,7 @@ runExec e = do
 
 
 runEx :: String -> PropertyM IO LangLit
-runEx s = let (Right r) = evalScan s program in run $ runExec $ execStmt r
+runEx s = let (Right r) = evalParse s program in run $ runExec $ execStmt r
 
 -- monadicExec :: PropertyM ExecIO a -> PropertyM ExecIO (IO (Either AngleError a))
 -- monadicExec e = do

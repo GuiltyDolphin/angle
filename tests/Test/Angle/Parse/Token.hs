@@ -10,19 +10,19 @@ import TestHelper
 
 
 testTokInt :: Int -> Bool
-testTokInt x = evalScan (show x) tokInt == Right x
+testTokInt x = evalParse (show x) tokInt == Right x
 
 
 testTokFloat :: Double -> Bool
-testTokFloat x = evalScan (showFFloat Nothing x "") tokFloat == Right x
+testTokFloat x = evalParse (showFFloat Nothing x "") tokFloat == Right x
 
 
 testTokChar :: Char -> Bool
-testTokChar c = evalScan (show c) tokChar == Right c
+testTokChar c = evalParse (show c) tokChar == Right c
 
 
 testTokCharAscii :: AsciiChar -> Bool
-testTokCharAscii (AsciiChar c) = evalScan (show c) tokChar == Right c
+testTokCharAscii (AsciiChar c) = evalParse (show c) tokChar == Right c
 
 
 

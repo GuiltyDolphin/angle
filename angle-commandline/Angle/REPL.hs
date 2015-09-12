@@ -40,7 +40,7 @@ collectLine s multi =
 runLine :: String -> ExecIO ()
 runLine s = do
   r <- collectLine s 0
-  case evalScan r stmt of
+  case evalParse r stmt of
               Left err -> liftIO $ print err
               Right res -> do
                 toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
@@ -63,7 +63,7 @@ printSyn = putStrLn . showSyn
 interactiveWithFiles :: [FilePath] -> ExecIO ()
 interactiveWithFiles fs = do
     fileSources <- liftIO $ mapM readFile fs
-    let asStmts = map (`evalScan` program) fileSources
+    let asStmts = map (`evalParse` program) fileSources
     if not . null $ lefts asStmts
     then liftIO $ mapM_ (putStrLn . ("failed to load file: " ++))
         [x ++ "\n" ++ show r | (x,Left r) <- zip fs asStmts]
@@ -78,7 +78,7 @@ interactiveWithFiles fs = do
         return ()
     return ()
 -- withSource s =
---   case evalScan ('{':s++"}") stmt of
+--   case evalParse ('{':s++"}") stmt of
 --     Left err -> liftIO (print err) >> interactiveMode
 --     Right res -> do
 --                  toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)

@@ -16,4 +16,4 @@ main = defaultMainWith config
     config = defaultConfig { timeLimit = 1 }
 
 
-lexListInt xs = evalScan (show xs) langLit
+lexListInt xs = evalParse (show xs) langLit

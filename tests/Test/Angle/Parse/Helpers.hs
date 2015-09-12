@@ -21,41 +21,41 @@ instance Show CharScan where
 
 
 testChar :: Char -> Bool
-testChar x = evalScan [x] (char x) == Right x
+testChar x = evalParse [x] (char x) == Right x
 
 
 testString :: String -> Bool
-testString s = evalScan s (string s) == Right s
+testString s = evalParse s (string s) == Right s
 
 
-instance Arbitrary (Scanner Char) where
+instance Arbitrary (Parser Char) where
     arbitrary = do
       c <- arbitrary
       oneof [return $ char c, return $ notChar c]
 
 
-instance Arbitrary (Scanner String) where
+instance Arbitrary (Parser String) where
     arbitrary = do
       s <- arbitrary
       oneof [return $ string s]
 
 
 testAnyCharEmpty :: Bool
-testAnyCharEmpty = case evalScan "" anyChar of
+testAnyCharEmpty = case evalParse "" anyChar of
                      Right _ -> False
                      Left _ -> True
 
 
 testAnyChar :: Char -> Bool
-testAnyChar c = evalScan [c] anyChar == Right c
+testAnyChar c = evalParse [c] anyChar == Right c
 
 
 testCond :: Fun Char Bool -> Char -> Property
-testCond f c = apply f c ==> evalScan [c] (cond (apply f)) == Right c
+testCond f c = apply f c ==> evalParse [c] (cond (apply f)) == Right c
 
 
 testCharFrom :: NonEmptyList Char -> Bool
-testCharFrom (NonEmpty cs) = evalScan cs (charFrom cs) == Right (head cs)
+testCharFrom (NonEmpty cs) = evalParse cs (charFrom cs) == Right (head cs)
 
 
 tests :: [TestTree]

@@ -7,7 +7,7 @@ import TestHelper
 import Angle.Types.Lang
 
 
---filterFun = evalScan
+--filterFun = evalParse
 --  [ "defun filter($f, xs) {"
 --  , "res = [];"
 --  , "for elt in xs do {"

@@ -92,9 +92,9 @@ test-suite properties
   default-language:    Haskell2010
 
 
-benchmark lexing
+benchmark parsing
   type:                exitcode-stdio-1.0
-  main-is:             lexing.hs
+  main-is:             parsing.hs
   hs-source-dirs:      benchmarks
   build-depends:       base
                      , criterion

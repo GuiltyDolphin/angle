@@ -10,14 +10,14 @@ import System.Exit
 
 import Angle.Parse.Parser
 import Angle.Exec.Exec
-import Angle.Scanner (ScanError)
+import Angle.Scanner (ParseError)
 import Angle.Exec.Error
 import Angle.Exec.Types
 import Angle.Types.Lang
 
 
-stringToStmt :: String -> Either ScanError Stmt
-stringToStmt s = evalScan s program
+stringToStmt :: String -> Either ParseError Stmt
+stringToStmt s = evalParse s program
 
 
 runStmt :: String -> Stmt -> [String] -> IO (Either AngleError LangLit)
