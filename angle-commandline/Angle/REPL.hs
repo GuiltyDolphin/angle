@@ -11,7 +11,7 @@ Defines the REPL for use with the Angle programming language.
 module Angle.REPL (runInteractive) where
 
 import Control.Monad
-import Control.Monad.Error
+import Control.Monad.Except
 import Data.Either (lefts, rights)
 import Data.List (elemIndices)
 import System.IO (stdout, hFlush)
