@@ -2,7 +2,7 @@
 --  see http://haskell.org/cabal/users-guide/
 
 name:                angle
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            A small, general-purpose programming language.
 license:             GPL-3
 license-file:        LICENSE
