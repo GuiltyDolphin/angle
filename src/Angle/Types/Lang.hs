@@ -102,6 +102,7 @@ module Angle.Types.Lang
     ) where
 
 import Numeric (showFFloat)
+import System.IO (Handle)
 
 import Angle.Scanner (SourcePos, beginningOfFile)
 
@@ -331,6 +332,7 @@ data LangLit = LitStr String -- ^ Strings.
                        -- explicitly.
              | LitLambda Lambda -- ^ A function without a name.
              | LitKeyword LangIdent
+             | LitHandle Handle
                deriving (Show, Eq)
 
 
@@ -354,6 +356,7 @@ instance ShowSyn LangLit where
     showSyn LitNull = "null"
     showSyn (LitLambda x) = showSyn x
     showSyn (LitKeyword x) = ':' : showSyn x
+    showSyn (LitHandle h) = show h
 
 
 -- | The types of the values that can be used in Angle.
@@ -371,6 +374,7 @@ data LangType = LTStr
               | LTNull
               | LTKeyword
               | LTLambda
+              | LTHandle
                 deriving (Eq)
 
 
@@ -386,6 +390,7 @@ typeOf (LitRange{})  = LTRange
 typeOf LitNull       = LTNull
 typeOf (LitLambda{}) = LTLambda
 typeOf (LitKeyword _) = LTKeyword
+typeOf (LitHandle _) = LTHandle
 
 
 -- | Determine the required annotation restriction of a
@@ -406,6 +411,7 @@ instance Show LangType where
     show LTLambda = "function"
     show LTKeyword = "keyword"
     show LTChar = "char"
+    show LTHandle = "handle"
 
 
 -- | Expressions must be evaluable to some literal, although

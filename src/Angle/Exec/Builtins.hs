@@ -36,6 +36,9 @@ module Angle.Exec.Builtins
     , builtinGetArgs
     , builtinInput
     , builtinIsNull
+    , builtinOpen
+    , builtinRead
+    , builtinWrite
     , argsToString
 
     -- ** Assignment handling
@@ -52,7 +55,17 @@ module Angle.Exec.Builtins
 import Control.Monad
 import Control.Monad.State
 import System.Environment
-import System.IO (hFlush, stdout)
+import System.IO ( hFlush
+                 , hGetLine
+                 , hGetContents
+                 , hGetChar
+                 , hPutStr
+                 , stdout
+                 , stdin
+                 , stderr
+                 , openFile
+                 , Handle
+                 , IOMode(..))
 
 import Angle.Exec.Error
 import Angle.Exec.Scope
@@ -89,13 +102,27 @@ builtinsVars = bindEnvFromList $
                map (builtinVar . LangIdent) builtins
 
 
+builtinValue :: LangIdent -> LangLit -> (LangIdent, VarVal LangLit)
+builtinValue name val = (name, VarVal
+                                 { varDef = Just val
+                                 , varBuiltin = True })
+
+
+builtinsValues :: BindEnv LangLit
+builtinsValues = bindEnvFromList $
+                 map (\(x,y) -> builtinValue (LangIdent x) y) builtinValues
+
+
 -- | Starting environment with builtin functions defined.
 startEnv :: Env
 startEnv = basicEnv { currentScope = startScope }
 
 
 startScope :: Scope
-startScope = emptyScope { lambdaBindings = builtinsVars }
+startScope = emptyScope
+    { lambdaBindings = builtinsVars
+    , valueBindings = builtinsValues
+    }
 
 
 -- | Starting environment for programs not running as main.
@@ -114,6 +141,14 @@ initialEnvMain = startEnv
     }
 
 
+-- | Builtin file handles
+builtinHandles :: [(String, LangLit)]
+builtinHandles = [ ("stdin", LitHandle stdin)
+                 , ("stdout", LitHandle stdout)
+                 , ("stderr", LitHandle stderr)
+                 ]
+
+
 -- | True if the identifier represents a builtin function.
 isBuiltin :: LangIdent -> Bool
 isBuiltin = (`elem`builtins) . getIdent
@@ -125,7 +160,13 @@ builtins = [ "print", "str"
            , "index", "length"
            , "input", "eval"
            , "isNull"
-           , "asType", "getArgs"]
+           , "asType", "getArgs"
+           , "read", "write", "open"]
+
+
+-- | List of builtin variables and their values.
+builtinValues :: [(String, LangLit)]
+builtinValues = builtinHandles
 
 
 -- | Builtin @print@ function.
@@ -273,6 +314,50 @@ toLitStr x = LitStr $ showSyn x
 -- @getArgs()@ returns the arguments passed to the program.
 builtinGetArgs :: [LangLit] -> ExecIO LangLit
 builtinGetArgs _ = liftM (LitList . map LitStr) $ liftIO getArgs
+
+
+-- | Builtin @open@ function.
+--
+-- @open(file, mode)@ returns a file handle for @file@ in @mode@.
+--
+-- Modes are as follows:
+--
+-- ['<'] read only mode
+--
+-- ['>'] write mode (clobbers)
+--
+-- ['>>'] append mode
+--
+-- ['<>'] read-write mode
+builtinOpen :: [LangLit] -> ExecIO LangLit
+builtinOpen [LitStr fn, LitStr "<"] = liftM LitHandle $ liftIO (openFile fn ReadMode)
+builtinOpen [LitStr fn, LitStr ">"] = liftM LitHandle $ liftIO (openFile fn WriteMode)
+builtinOpen [LitStr fn, LitStr ">>"] = liftM LitHandle $ liftIO (openFile fn AppendMode)
+builtinOpen [LitStr fn, LitStr "<>"] = liftM LitHandle $ liftIO (openFile fn ReadWriteMode)
+builtinOpen _ = throwExecError $ callBuiltinErr "open: invalid call signature"
+
+-- Builtin @read@ function.
+--
+-- @read(handle)@ returns the unread part of the characters managed by @handle@.
+--
+-- @read(handle, integer)@ reads @integer@ lines from @handle@ and returns them as a new-line separated string.
+--
+-- @read(handle, integer, 'c')@ reads @integer@ characters from @handle@ and returns them in a string.
+builtinRead :: [LangLit] -> ExecIO LangLit
+builtinRead [LitHandle h] = liftM LitStr $ liftIO (hGetContents h)
+builtinRead [LitHandle h, LitInt n] = liftM LitStr $ liftIO (liftM unlines $ replicateM n (hGetLine h))
+builtinRead [LitHandle h, LitInt n, LitStr "c"] = liftM LitStr $ liftIO (replicateM n (hGetChar h))
+builtinRead (s@(LitStr _):xs) = builtinOpen [s, LitStr "<"] >>= (builtinRead . (:xs))
+builtinRead _ = throwExecError $ callBuiltinErr "read: invalid call signature"
+
+
+-- Builtin @write@ function.
+--
+-- @write(handle, string)@ writes @string@ to @handle@.
+builtinWrite :: [LangLit] -> ExecIO LangLit
+builtinWrite [LitHandle h, l@(LitStr s)] = liftIO (hPutStr h s) >> return l;
+builtinWrite [h@(LitStr _), m@(LitStr _), l@(LitStr s)] = builtinOpen [h, m] >>= (builtinWrite . (:[l]))
+builtinWrite _ = throwExecError $ callBuiltinErr "write: invalid call signature"
 
 
 -- | Handler for assignments to builtin variables as literals.
