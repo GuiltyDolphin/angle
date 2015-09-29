@@ -39,6 +39,7 @@ module Angle.Exec.Builtins
     , builtinOpen
     , builtinRead
     , builtinWrite
+    , builtinShell
     , argsToString
 
     -- ** Assignment handling
@@ -66,6 +67,7 @@ import System.IO ( hFlush
                  , openFile
                  , Handle
                  , IOMode(..))
+import System.Process (readProcess)
 
 import Angle.Exec.Error
 import Angle.Exec.Scope
@@ -161,7 +163,8 @@ builtins = [ "print", "str"
            , "input", "eval"
            , "isNull"
            , "asType", "getArgs"
-           , "read", "write", "open"]
+           , "read", "write", "open"
+           , "shell"]
 
 
 -- | List of builtin variables and their values.
@@ -358,6 +361,25 @@ builtinWrite :: [LangLit] -> ExecIO LangLit
 builtinWrite [LitHandle h, l@(LitStr s)] = liftIO (hPutStr h s) >> return l;
 builtinWrite [h@(LitStr _), m@(LitStr _), l@(LitStr s)] = builtinOpen [h, m] >>= (builtinWrite . (:[l]))
 builtinWrite _ = throwExecError $ callBuiltinErr "write: invalid call signature"
+
+
+-- Builtin @shell@ function.
+--
+-- @shell(executable, arguments, stdin)@ runs the shell command
+-- @executable@ with @args@ and @stdin@ and returns the result in a
+-- string.
+--
+-- @shell(executable) = shell(executable, [], "")@
+--
+-- @shell(executable, arguments) = shell(executable, arguments, "")@
+--
+-- @shell(executable, stdin) = shell(executable, [], stdin)@
+builtinShell :: [LangLit] -> ExecIO LangLit
+builtinShell [p@(LitStr _)] = builtinShell [p, LitList [], LitStr ""]
+builtinShell [p@(LitStr _), l@(LitList _)] = builtinShell [p, l, LitStr ""]
+builtinShell [p@(LitStr _), sIn@(LitStr _)] = builtinShell [p, LitList [], sIn]
+builtinShell [LitStr p, LitList args, LitStr sIn] = liftM LitStr $ liftIO $ readProcess p xs sIn
+  where xs = map ((\(LitStr x) -> x) . toLitStr) args
 
 
 -- | Handler for assignments to builtin variables as literals.
