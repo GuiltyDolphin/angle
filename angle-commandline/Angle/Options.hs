@@ -80,10 +80,10 @@ usage = "Usage:  angle [OPTION...] files..."
 getOptions :: IO Options
 getOptions = do
     args <- getArgs
-    (opts, _) <-
+    (opts, nonOpts) <-
         case getOpt RequireOrder options args of
             (opt,nonOpt,[]) -> return (opt,nonOpt)
             (_,_,errs) -> ioError
                 (userError (concat errs ++ usageInfo usage options))
-    foldl' (>>=) (return defaultOptions) opts
+    foldl' (>>=) (return defaultOptions { optFiles = nonOpts }) opts
 
