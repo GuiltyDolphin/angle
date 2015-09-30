@@ -109,10 +109,10 @@ singStmt :: Parser SingStmt
 singStmt = many (surrounded whitespace stmtComment) >>
            stmtStruct
            <|> stmtReturn <* singStmtEnd
+           <|> stmtRaise <* singStmtEnd
            <|> stmtBreak <* singStmtEnd
            <|> stmtAssign <* singStmtEnd
            <|> stmtExpr   <* singStmtEnd
-           <|> stmtRaise <* singStmtEnd
            <?> "statement"
 
 
@@ -158,6 +158,7 @@ stmtExpr = liftM StmtExpr expr
 
 stmtRaise :: Parser SingStmt
 stmtRaise = string "raise " >> liftM (StmtRaise . getLitKeyword) litKeyword
+
 
 -- | Language structure.
 --
