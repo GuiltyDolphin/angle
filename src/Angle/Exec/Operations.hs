@@ -40,7 +40,7 @@ import Angle.Exec.Error
 --
 -- On numeric types: performs arithmetic addition.
 addLit :: MultiOperator
-addLit (LitList x:xs) = return $ LitList (x++xs)
+addLit (LitList x:xs@(_:_)) = return $ LitList (x++xs)
 addLit xs             = onlyNumOp addLitNum xs
     where addLitNum = onNum (+) (+)
 
@@ -49,7 +49,8 @@ addLit xs             = onlyNumOp addLitNum xs
 --
 -- On booleans: performs logical and of the values.
 andLit :: MultiOperator
-andLit []               = return $ LitBool True
+andLit []                 = return $ LitBool True
+andLit [LitList xs]       = andLit xs
 andLit (x@(LitBool _):xs) = foldM andLitBool x xs
     where andLitBool = onLitBool (&&)
 andLit (x:_) = throwExecError $ typeNotValidErr x
@@ -85,6 +86,7 @@ divLit = onlyNumOp divLitNum
 -- On any types: true if all of the values are equal
 eqLit :: MultiOperator
 eqLit [] = return $ LitBool True
+eqLit [LitList xs] = eqLit xs
 eqLit (x:xs) = return . LitBool . all (==x) $ xs
 
 
@@ -138,10 +140,11 @@ multLit = onlyNumOp multLitNum
 --
 -- On numerics: returns the negative value.
 negLit :: UnaryOperator
-negLit (LitList xs) = return $ LitList (reverse xs)
-negLit (LitInt x)   = return $ LitInt (-x)
-negLit (LitFloat x) = return $ LitFloat (-x)
-negLit x            = throwExecError $ typeNotValidErr x
+negLit (LitList xs)  = return $ LitList (reverse xs)
+negLit (LitInt x)    = return $ LitInt (-x)
+negLit (LitFloat x)  = return $ LitFloat (-x)
+negLit x@(LitBool _) = notLit x
+negLit x             = throwExecError $ typeNotValidErr x
 
 
 -- | Logical not operator.
@@ -157,6 +160,7 @@ notLit x = throwExecError $ typeNotValidErr x
 -- On booleans: performs logical OR.
 orLit :: MultiOperator
 orLit []                 = return $ LitBool False
+orLit [LitList xs]       = orLit xs
 orLit (x@(LitBool _):xs) = foldM orLitBool x xs
     where orLitBool = onLitBool (||)
 orLit (x:_)              = throwExecError $ typeNotValidErr x
@@ -168,7 +172,7 @@ orLit (x:_)              = throwExecError $ typeNotValidErr x
 --
 -- On numerics: subtracts all tailing numerics from the first numeric.
 subLit :: MultiOperator
-subLit (x@(LitList _):ys)
+subLit (x@(LitList _):ys@(_:_))
     | allType LTInt ys
     = foldM (flip $ \(LitInt x) -> langListDrop x ) x ys
       where langListDrop n (LitList zs)
@@ -233,7 +237,12 @@ type Binary a b = a -> a -> b
 
 -- | Given a comparison function, produces an operator
 -- that produces a comparison between `LangLit's.
+--
+-- When the operand is a single list, then the list will be
+-- flattened until either a non-list value is found, or there
+-- is more than one operand.
 compOp :: CompFunc -> MultiOperator
+compOp f [LitList xs]      = compOp f xs
 compOp f (x@(LitStr _):xs) = foldM (compStr f) x xs
  where compStr :: CompFunc -> BinaryOperator
        compStr g (LitStr y) (LitStr z)
@@ -262,9 +271,14 @@ onNumBool i f = numOpLit i f LitBool LitBool
 -- | Operator (or remaining cases of a) that can only
 -- act upon numeric types.
 --
+-- When the operand is a single list, then the list will be
+-- flattened until either a non-list value is found, or there
+-- is more than one operand.
+--
 -- Throws a `TypeNotValidError' if invalid literals are passed.
 onlyNumOp :: (CanErrorWithPos m) => (LangLit -> LangLit -> m LangLit) -> [LangLit] -> m LangLit
-onlyNumOp f (x@(LitInt _):xs) = foldM f x xs
+onlyNumOp f [LitList xs]        = onlyNumOp f xs
+onlyNumOp f (x@(LitInt _):xs)   = foldM f x xs
 onlyNumOp f (x@(LitFloat _):xs) = foldM f x xs
-onlyNumOp _ (x:_)              = throwExecError $ typeNotValidErr x
+onlyNumOp _ (x:_)               = throwExecError $ typeNotValidErr x
 onlyNumOp _ [] = throwImplementationErr "onlyNumOp - got empty list"
