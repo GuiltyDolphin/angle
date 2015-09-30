@@ -300,6 +300,9 @@ builtinIndex [LitInt x,LitList xs]
     | x >= length xs = throwExecError $ indexOutOfBoundsErr x
     | x < 0 = return $ xs !! (length xs + x)
     | otherwise = return $ xs !! x
+builtinIndex [x, LitStr s] = builtinIndex [x,LitList $ map LitChar s]  >>= joinList
+  where
+    joinList x = builtinAsType [LitStr "", x]
 builtinIndex [LitInt x,LitInt y,LitList xs]
     | x >= length xs || y > length xs
         = throwExecError $ indexOutOfBoundsErr x
@@ -309,6 +312,9 @@ builtinIndex [LitInt x,LitInt y,LitList xs]
               [LitInt x, LitInt (length xs + y), LitList xs]
     | otherwise
         = return . LitList $ splice x y xs
+builtinIndex [x,y,LitStr s] = builtinIndex [x, y, LitList $ map LitChar s] >>= joinList
+  where
+    joinList x = builtinAsType [LitStr "", x]
 builtinIndex _ = throwExecError $ callBuiltinErr "index: invalid call signature"
 
 

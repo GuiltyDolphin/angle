@@ -195,7 +195,7 @@ data LangStruct = StructFor LangIdent Expr Stmt
                 | StructWhile Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)
                 | StructDefun LangIdent Lambda
-                | StructTryCatch Stmt [LangIdent] Stmt
+                | StructTryCatch Stmt [([LangIdent], Stmt)]
                   deriving (Show, Eq)
 
 
@@ -214,11 +214,12 @@ instance ShowSyn LangStruct where
             Just x  -> " else " ++ showSyn x
     showSyn (StructDefun n c)
         = concat ["defun ", showSyn n, showLambdaFun c]
-    showSyn (StructTryCatch s es ex) = "try " ++ showSyn s ++ "\ncatch " ++ es' ++ "\n" ++ showSyn ex
+    showSyn (StructTryCatch s es) = "try " ++ showSyn s ++ concatMap showCatch es
       where
-        es' = if length es == 1
-              then showSyn . LitKeyword $ head es
-              else showSyn . LitList . map LitKeyword $ es
+        showCatch (toCatch, b) = "\ncatch " ++ es' toCatch ++ show b
+        es' toCatch = if length toCatch == 1
+                then showSyn . LitKeyword $ head toCatch
+                else showSyn . LitList . map LitKeyword $ toCatch
 
 
 

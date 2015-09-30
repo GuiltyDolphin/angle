@@ -245,12 +245,15 @@ structTryCatch :: Parser LangStruct
 structTryCatch = do
     string "try "
     tryCode <- stmt
-    string "catch "
-    toCatch <- singleE <|> exceptionList
-    exceptCode <- stmt
-    return $ StructTryCatch tryCode toCatch exceptCode
+    catchers <- many catchSec
+    return $ StructTryCatch tryCode catchers
   where exceptionList = tokList $ sepWith tokEltSep (liftM getLitKeyword litKeyword)
         singleE = liftM ((:[]) . getLitKeyword) litKeyword
+        catchSec = do
+          string "catch "
+          toCatch <- singleE <|> exceptionList
+          exceptCode <- stmt
+          return (toCatch, exceptCode)
 
 
 -- | A program consists of a series of statements.

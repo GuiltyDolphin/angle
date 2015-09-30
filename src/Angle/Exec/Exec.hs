@@ -366,8 +366,8 @@ execLangStruct (StructIf if' thn els)
     = execStructIf if' thn els
 execLangStruct (StructDefun name cs)
     = assignVarLambda name cs *> return LitNull
-execLangStruct (StructTryCatch b es ex)
-    = execStructTryCatch b es ex
+execLangStruct (StructTryCatch b cs)
+    = execStructTryCatch b cs
 
 
 execStructIf :: Expr -> Stmt -> Maybe Stmt -> ExecIO LangLit
@@ -405,13 +405,17 @@ execStructWhile ex s = do
                       (StructIf ex s (Just (SingleStmt (StmtBreak Nothing False) pos)))) pos)
 
 
-
-execStructTryCatch :: Stmt -> [LangIdent] -> Stmt -> ExecIO LangLit
-execStructTryCatch b es ex = execStmt b `catchAE` genHandle
+execStructTryCatch :: Stmt -> [([LangIdent], Stmt)] -> ExecIO LangLit
+execStructTryCatch b catchers = execStmt b `catchAE` genHandle
   where
-    genHandle e = if errToKeyword e `elem` es || genErrKeyword e `elem` es
-                  then execStmt ex
-                  else throwError e
+    genHandle e = checkCatch e catchers
+    checkCatch e [] = throwError e
+    checkCatch e ((toCatch, ex):es) = if catches
+                                      then execStmt ex
+                                      else checkCatch e es
+      where catches = errToKeyword e `elem` toCatch || genErrKeyword e `elem` toCatch
+                    || LangIdent "error" `elem` toCatch
+
 
 
 builtinArgs :: [Expr] -> ExecIO [LangLit]
