@@ -431,6 +431,7 @@ callBuiltin (LangIdent "isNull") xs = builtinArgs xs >>= builtinIsNull
 callBuiltin (LangIdent "open") xs = builtinArgs xs >>= builtinOpen
 callBuiltin (LangIdent "read") xs = builtinArgs xs >>= builtinRead
 callBuiltin (LangIdent "write") xs = builtinArgs xs >>= builtinWrite
+callBuiltin (LangIdent "close") xs = builtinArgs xs >>= builtinClose
 callBuiltin (LangIdent "shell") xs = builtinArgs xs >>= builtinShell
 callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
 

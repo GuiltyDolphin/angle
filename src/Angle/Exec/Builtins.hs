@@ -39,6 +39,7 @@ module Angle.Exec.Builtins
     , builtinOpen
     , builtinRead
     , builtinWrite
+    , builtinClose
     , builtinShell
     , argsToString
 
@@ -61,6 +62,7 @@ import System.IO ( hFlush
                  , hGetContents
                  , hGetChar
                  , hPutStr
+                 , hClose
                  , stdout
                  , stdin
                  , stderr
@@ -173,7 +175,7 @@ builtins = [ "print", "str"
            , "input", "eval"
            , "isNull"
            , "asType", "getArgs"
-           , "read", "write", "open"
+           , "read", "write", "open", "close"
            , "shell"]
 
 
@@ -371,6 +373,16 @@ builtinWrite :: [LangLit] -> ExecIO LangLit
 builtinWrite [LitHandle h, l@(LitStr s)] = withIOError (hPutStr h s) >> return l;
 builtinWrite [h@(LitStr _), m@(LitStr _), l@(LitStr s)] = builtinOpen [h, m] >>= (builtinWrite . (:[l]))
 builtinWrite _ = throwExecError $ callBuiltinErr "write: invalid call signature"
+
+
+-- Builtin @close@ function.
+--
+-- @close(handle)@ closes @handle@ for reading and writing.
+builtinClose :: [LangLit] -> ExecIO LangLit
+builtinClose xs = mapM_ bClose xs >> return LitNull
+  where
+    bClose (LitHandle x) = withIOError $ hClose x
+    bClose x = throwExecError $ typeUnexpectedErr (typeOf x) LTHandle
 
 
 -- Builtin @shell@ function.
