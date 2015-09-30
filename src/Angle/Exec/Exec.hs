@@ -341,8 +341,6 @@ execSingStmt (StmtRaise e) = raiseException e
 
 raiseException :: LangIdent -> ExecIO LangLit
 raiseException e = do
-  env <- get
-  put env { unhandledExceptions = nub (e:unhandledExceptions env) }
   return (LitKeyword e)
   throwExecError (userErr e)
 
@@ -408,20 +406,10 @@ execStructWhile ex s = do
 
 
 
--- execStructTryCatch :: Stmt -> [LangIdent] -> Stmt -> ExecIO LangLit
--- execStructTryCatch b es ex = do
---     v <- execStmt b
---     env <- get
---     let toHandle = unhandledExceptions env
---     if null (toHandle \\ es) && (not . null $ toHandle)
---     then do
---         put env { unhandledExceptions = [] }
---         execStmt ex
---     else return v
 execStructTryCatch :: Stmt -> [LangIdent] -> Stmt -> ExecIO LangLit
 execStructTryCatch b es ex = execStmt b `catchAE` genHandle
   where
-    genHandle e = if errToKeyword e `elem` es
+    genHandle e = if errToKeyword e `elem` es || genErrKeyword e `elem` es
                   then execStmt ex
                   else throwError e
 

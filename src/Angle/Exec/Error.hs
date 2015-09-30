@@ -53,6 +53,16 @@ module Angle.Exec.Error
     -- ** User errors
     , userErr
     , errToKeyword
+    , genErrKeyword
+
+    -- ** IO errors
+    , alreadyExistsErr
+    , doesNotExistErr
+    , alreadyInUseErr
+    , deviceFullErr
+    , eofErr
+    , illegalOperationErr
+    , permissionErr
 
     -- ** Classes, base types and basic functions
     , AngleError
@@ -68,6 +78,7 @@ module Angle.Exec.Error
 import Control.Monad.Except
 import Data.Function (on)
 import Data.Maybe (catMaybes)
+import qualified System.IO.Error as IO
 
 import Angle.Scanner
 import Angle.Types.Lang
@@ -97,6 +108,9 @@ class (CanError m) => CanErrorWithPos m where
 -- construct.
 class KWError e where
     errToKeyword :: e -> LangIdent
+    genErrKeyword :: e -> LangIdent
+    -- ^ General keyword that can be used to handle multiple exceptions
+    -- of this type.
 
 
 -- | General error structure.
@@ -139,9 +153,13 @@ instance Show AngleError where
 
 
 instance KWError AngleError where
-    errToKeyword (ImplementationError x) = error $ "Implementation error: " ++ show x
+    errToKeyword (ImplementationError x) = error $ "(Attempt to handle) Implementation error: " ++ show x
     errToKeyword (ExecError { execErrErr = e }) = errToKeyword e
     errToKeyword (ControlException{}) = error "Attempt to handle control exception"
+
+    genErrKeyword (ImplementationError x) = error $ "(Attempt to handle) Implementation error: " ++ show x
+    genErrKeyword (ExecError { execErrErr = e }) = genErrKeyword e
+    genErrKeyword (ControlException{}) = error "Attempt to handle control exception"
 
 
 -- | Base for errors that occur during execution of code.
@@ -150,6 +168,7 @@ data ExecError = TypeError TypeError
                  | CallError CallError
                  | LitError LitError
                  | KeywordError KeywordError
+                 | EIOError EIOError
                  | UserError LangIdent
 
 
@@ -178,6 +197,11 @@ keywordErr :: KeywordError -> ExecError
 keywordErr = KeywordError
 
 
+-- | IO Error.
+eioErr :: EIOError -> ExecError
+eioErr = EIOError
+
+
 userErr :: LangIdent -> ExecError
 userErr = UserError
 
@@ -187,6 +211,7 @@ instance Show ExecError where
     show (NameError v)    = "name error: " ++ show v
     show (CallError x)    = "call error: " ++ show x
     show (LitError x) = "literal error: " ++ show x
+    show (EIOError e) = "io error: " ++ show e
     show (UserError (LangIdent x)) = "user error: " ++ x
     show (KeywordError x) = "keyword error: " ++ show x
 
@@ -196,8 +221,17 @@ instance KWError ExecError where
     errToKeyword (NameError e) = errToKeyword e
     errToKeyword (CallError e) = errToKeyword e
     errToKeyword (LitError e) = errToKeyword e
+    errToKeyword (EIOError e) = errToKeyword e
     errToKeyword (UserError e) = e
     errToKeyword (KeywordError e) = errToKeyword e
+
+    genErrKeyword (TypeError e) = genErrKeyword e
+    genErrKeyword (NameError e) = genErrKeyword e
+    genErrKeyword (CallError e) = genErrKeyword e
+    genErrKeyword (LitError e) = genErrKeyword e
+    genErrKeyword (EIOError e) = genErrKeyword e
+    genErrKeyword (UserError{}) = LangIdent "user"
+    genErrKeyword (KeywordError e) = genErrKeyword e
 
 
 -- | Errors involving types.
@@ -262,6 +296,7 @@ instance KWError TypeError where
     errToKeyword (TypeExpectConstr{}) = LangIdent "typeExpectConstr"
     errToKeyword (TypeConstrWrongReturn{}) = LangIdent "TypeConstrWrongReturn"
     errToKeyword (TypeAnnWrong{}) = LangIdent "typeAnnWrong"
+    genErrKeyword _ = LangIdent "typeError"
 
 
 -- | Errors involving identifiers and names.
@@ -307,6 +342,7 @@ instance KWError NameError where
     errToKeyword (NameNotDefinedLit{}) = LangIdent "nameNotDefinedLit"
     errToKeyword (NameNotOp{}) = LangIdent "nameNotOp"
     errToKeyword (AssignToBuiltin{}) = LangIdent "assignToBuiltin"
+    genErrKeyword _ = LangIdent "nameError"
 
 
 -- | Errors involving operator and function calls.
@@ -341,6 +377,7 @@ instance KWError CallError where
     errToKeyword (WrongNumberOfArguments{}) = LangIdent "wrongNumberOfArguments"
     errToKeyword (BuiltIn{}) = LangIdent "builtin"
     errToKeyword (MalformedSignature{}) = LangIdent "malformedSignature"
+    genErrKeyword _ = LangIdent "callError"
 
 
 -- | Errors involving keywords.
@@ -359,6 +396,7 @@ instance Show KeywordError where
 
 instance KWError KeywordError where
     errToKeyword ReturnFromGlobal = LangIdent "returnFromGlobal"
+    genErrKeyword _ = LangIdent "keywordError"
 
 
 -- | Raise a 'ExecError' into an 'AngleError'.
@@ -401,6 +439,90 @@ instance Show LitError where
 instance KWError LitError where
     errToKeyword (IndexOutOfBoundsError{}) = LangIdent "indexOutOfBounds"
     errToKeyword (BadRange{}) = LangIdent "badRange"
+    genErrKeyword _ = LangIdent "litError"
+
+
+
+-- | Errors that occur during IO operations.
+data EIOError = AlreadyExists IOError
+              | DoesNotExist IOError
+              | AlreadyInUse IOError
+              | DeviceFull IOError
+              | EOF IOError
+              | IllegalOperation IOError
+              | Permission IOError
+              deriving (Eq)
+
+
+alreadyExistsErr :: IOError -> ExecError
+alreadyExistsErr = eioErr . AlreadyExists
+
+
+doesNotExistErr :: IOError -> ExecError
+doesNotExistErr = eioErr . DoesNotExist
+
+
+alreadyInUseErr :: IOError -> ExecError
+alreadyInUseErr = eioErr . AlreadyInUse
+
+
+deviceFullErr :: IOError -> ExecError
+deviceFullErr = eioErr . DeviceFull
+
+
+eofErr :: IOError -> ExecError
+eofErr = eioErr . EOF
+
+
+illegalOperationErr :: IOError -> ExecError
+illegalOperationErr = eioErr . IllegalOperation
+
+
+permissionErr :: IOError -> ExecError
+permissionErr = eioErr . Permission
+
+
+genShow e = concat [ "location: ", show $ IO.ioeGetLocation e
+                   , "\ntype: " , show $ IO.ioeGetErrorType e
+                   , "\nerror string: " , show $ IO.ioeGetErrorString e
+                   , "\nhandle: " , show $ IO.ioeGetHandle e
+                   , "\nfile name: " , show $ IO.ioeGetFileName e]
+
+
+eioErrorShow :: IOError -> String
+eioErrorShow e = l ++ fn ++ s
+  where
+    fn = case IO.ioeGetFileName e of
+                Nothing -> ""
+                Just n -> show n ++ ": "
+    l = case IO.ioeGetLocation e of
+           "openFile" -> "open file: "
+           "readFile" -> "read file: "
+           "readProcess: runInteractiveProcess: exec" -> "shell: "
+           x -> x ++ ": "
+    s = IO.ioeGetErrorString e
+
+
+instance Show EIOError where
+    show (AlreadyExists e) = eioErrorShow e
+    show (DoesNotExist e) = eioErrorShow e
+    show (AlreadyInUse e) = eioErrorShow e
+    show (DeviceFull e) = eioErrorShow e
+    show (EOF e) = eioErrorShow e
+    show (IllegalOperation e) = eioErrorShow e
+    show (Permission e) = eioErrorShow e
+
+
+instance KWError EIOError where
+    errToKeyword (AlreadyExists{}) = LangIdent "alreadyExists"
+    errToKeyword (DoesNotExist{}) = LangIdent "doesNotExist"
+    errToKeyword (AlreadyInUse{}) = LangIdent "alreadyInUse"
+    errToKeyword (DeviceFull{}) = LangIdent "deviceFull"
+    errToKeyword (EOF{}) = LangIdent "eof"
+    errToKeyword (IllegalOperation{}) = LangIdent "illegalOperation"
+    errToKeyword (Permission{}) = LangIdent "permission"
+
+    genErrKeyword _ = LangIdent "ioError"
 
 
 -- | Used for control-flow within the language.

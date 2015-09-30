@@ -67,6 +67,16 @@ import System.IO ( hFlush
                  , openFile
                  , Handle
                  , IOMode(..))
+import System.IO.Error ( IOError
+                       , catchIOError
+                       , tryIOError
+                       , isAlreadyExistsError
+                       , isDoesNotExistError
+                       , isAlreadyInUseError
+                       , isFullError
+                       , isEOFError
+                       , isIllegalOperation
+                       , isPermissionError)
 import System.Process (readProcess)
 
 import Angle.Exec.Error
@@ -177,7 +187,7 @@ builtinValues = builtinHandles
 -- @print(..x)@: converts each element of @..x@ to a string
 -- before printing the concatenated result followed by a newline to STDOUT.
 builtinPrint :: [LangLit] -> ExecIO LangLit
-builtinPrint xs = liftIO (putStrLn res) >> returnVal (LitStr res)
+builtinPrint xs = withIOError (putStrLn res) >> returnVal (LitStr res)
     where res = argsToString xs
 
 
@@ -187,7 +197,7 @@ builtinPrint xs = liftIO (putStrLn res) >> returnVal (LitStr res)
 -- not automatically append a newline and returns the result
 -- from STDIN.
 builtinInput :: [LangLit] -> ExecIO LangLit
-builtinInput xs = liftM LitStr (liftIO $ putStr res >> hFlush stdout >> getLine) >>= returnVal
+builtinInput xs = liftM LitStr (withIOError $ putStr res >> hFlush stdout >> getLine) >>= returnVal
     where res = argsToString xs
 
 
@@ -316,7 +326,7 @@ toLitStr x = LitStr $ showSyn x
 --
 -- @getArgs()@ returns the arguments passed to the program.
 builtinGetArgs :: [LangLit] -> ExecIO LangLit
-builtinGetArgs _ = liftM (LitList . map LitStr) $ liftIO getArgs
+builtinGetArgs _ = liftM (LitList . map LitStr) $ withIOError getArgs
 
 
 -- | Builtin @open@ function.
@@ -333,10 +343,10 @@ builtinGetArgs _ = liftM (LitList . map LitStr) $ liftIO getArgs
 --
 -- ['<>'] read-write mode
 builtinOpen :: [LangLit] -> ExecIO LangLit
-builtinOpen [LitStr fn, LitStr "<"] = liftM LitHandle $ liftIO (openFile fn ReadMode)
-builtinOpen [LitStr fn, LitStr ">"] = liftM LitHandle $ liftIO (openFile fn WriteMode)
-builtinOpen [LitStr fn, LitStr ">>"] = liftM LitHandle $ liftIO (openFile fn AppendMode)
-builtinOpen [LitStr fn, LitStr "<>"] = liftM LitHandle $ liftIO (openFile fn ReadWriteMode)
+builtinOpen [LitStr fn, LitStr "<"] = liftM LitHandle $ withIOError $ openFile fn ReadMode
+builtinOpen [LitStr fn, LitStr ">"] = liftM LitHandle $ withIOError $ openFile fn WriteMode
+builtinOpen [LitStr fn, LitStr ">>"] = liftM LitHandle $ withIOError $ openFile fn AppendMode
+builtinOpen [LitStr fn, LitStr "<>"] = liftM LitHandle $ withIOError $ openFile fn ReadWriteMode
 builtinOpen _ = throwExecError $ callBuiltinErr "open: invalid call signature"
 
 -- Builtin @read@ function.
@@ -347,9 +357,9 @@ builtinOpen _ = throwExecError $ callBuiltinErr "open: invalid call signature"
 --
 -- @read(handle, integer, 'c')@ reads @integer@ characters from @handle@ and returns them in a string.
 builtinRead :: [LangLit] -> ExecIO LangLit
-builtinRead [LitHandle h] = liftM LitStr $ liftIO (hGetContents h)
-builtinRead [LitHandle h, LitInt n] = liftM LitStr $ liftIO (liftM unlines $ replicateM n (hGetLine h))
-builtinRead [LitHandle h, LitInt n, LitStr "c"] = liftM LitStr $ liftIO (replicateM n (hGetChar h))
+builtinRead [LitHandle h] = liftM LitStr $ withIOError $ hGetContents h
+builtinRead [LitHandle h, LitInt n] = liftM LitStr $ withIOError $ liftM unlines $ replicateM n $ hGetLine h
+builtinRead [LitHandle h, LitInt n, LitStr "c"] = liftM LitStr $ withIOError $ replicateM n $ hGetChar h
 builtinRead (s@(LitStr _):xs) = builtinOpen [s, LitStr "<"] >>= (builtinRead . (:xs))
 builtinRead _ = throwExecError $ callBuiltinErr "read: invalid call signature"
 
@@ -358,7 +368,7 @@ builtinRead _ = throwExecError $ callBuiltinErr "read: invalid call signature"
 --
 -- @write(handle, string)@ writes @string@ to @handle@.
 builtinWrite :: [LangLit] -> ExecIO LangLit
-builtinWrite [LitHandle h, l@(LitStr s)] = liftIO (hPutStr h s) >> return l;
+builtinWrite [LitHandle h, l@(LitStr s)] = withIOError (hPutStr h s) >> return l;
 builtinWrite [h@(LitStr _), m@(LitStr _), l@(LitStr s)] = builtinOpen [h, m] >>= (builtinWrite . (:[l]))
 builtinWrite _ = throwExecError $ callBuiltinErr "write: invalid call signature"
 
@@ -378,7 +388,7 @@ builtinShell :: [LangLit] -> ExecIO LangLit
 builtinShell [p@(LitStr _)] = builtinShell [p, LitList [], LitStr ""]
 builtinShell [p@(LitStr _), l@(LitList _)] = builtinShell [p, l, LitStr ""]
 builtinShell [p@(LitStr _), sIn@(LitStr _)] = builtinShell [p, LitList [], sIn]
-builtinShell [LitStr p, LitList args, LitStr sIn] = liftM LitStr $ liftIO $ readProcess p xs sIn
+builtinShell [LitStr p, LitList args, LitStr sIn] = liftM LitStr $ withIOError $ readProcess p xs sIn
   where xs = map ((\(LitStr x) -> x) . toLitStr) args
 
 
@@ -391,3 +401,24 @@ handleBuiltinAssignLit n _ = throwExecError $ assignToBuiltinErr n Nothing
 -- | Handler for assignments to builtin variables as functions.
 handleBuiltinAssignFun :: LangIdent -> Lambda -> ExecIO a
 handleBuiltinAssignFun n _ = throwExecError $ assignToBuiltinErr n Nothing
+
+
+handleIOError :: IOError -> ExecIO a
+handleIOError e = throwExecError $ err e
+  where
+    err | isAlreadyExistsError e = alreadyExistsErr
+        | isDoesNotExistError e = doesNotExistErr
+        | isAlreadyInUseError e = alreadyInUseErr
+        | isFullError e = deviceFullErr
+        | isEOFError e = eofErr
+        | isIllegalOperation e = illegalOperationErr
+        | isPermissionError e = permissionErr
+        | otherwise = error "Cannot handle user io exceptions"
+
+
+withIOError :: IO a -> ExecIO a
+withIOError x = do
+    r <- liftIO $ tryIOError x
+    case r of
+        Right res -> return res
+        Left e -> handleIOError e
