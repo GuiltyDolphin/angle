@@ -112,6 +112,7 @@ singStmt = many (surrounded whitespace stmtComment) >>
            <|> stmtBreak <* singStmtEnd
            <|> stmtAssign <* singStmtEnd
            <|> stmtExpr   <* singStmtEnd
+           <|> stmtRaise <* singStmtEnd
            <?> "statement"
 
 
@@ -155,6 +156,9 @@ stmtExpr :: Parser SingStmt
 stmtExpr = liftM StmtExpr expr
 
 
+stmtRaise :: Parser SingStmt
+stmtRaise = string "raise " >> liftM (StmtRaise . getLitKeyword) litKeyword
+
 -- | Language structure.
 --
 -- Possible forms are:
@@ -181,6 +185,7 @@ langStruct =     structFor
              <|> structIf
              <|> structUnless
              <|> structDefun
+             <|> structTryCatch
              <?> "language construct"
 
 
@@ -232,6 +237,19 @@ structDefun = StructDefun
               <*> (Lambda
                    <$> callList <* tokStmtBetween
                    <*> stmt)
+
+
+-- | Exception handling.
+structTryCatch :: Parser LangStruct
+structTryCatch = do
+    string "try "
+    tryCode <- stmt
+    string "catch "
+    toCatch <- singleE <|> exceptionList
+    exceptCode <- stmt
+    return $ StructTryCatch tryCode toCatch exceptCode
+  where exceptionList = tokList $ sepWith tokEltSep (liftM getLitKeyword litKeyword)
+        singleE = liftM ((:[]) . getLitKeyword) litKeyword
 
 
 -- | A program consists of a series of statements.

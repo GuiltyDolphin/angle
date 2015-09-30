@@ -51,6 +51,8 @@ the provided value as the function's value.
 immediately, whereas continue starts the next iteration of the loop,
 skipping the rest of the loop body.
 
+[@raise@] allows the user to throw exceptions.
+
 
 == Language structures #structures#
 In Angle, there exist language structures for performing certain tasks.
@@ -68,6 +70,8 @@ will execute if the condition does not hold.
 
 [@function definitions@ : 'StructDefun'] allows the assignment of previously
 non-existant lambda bodies to a name.
+
+[@try catch@ : 'StructTryCatch'] allows basic handling of exceptions.
 -}
 module Angle.Types.Lang
     ( Expr(..)
@@ -170,6 +174,7 @@ instance ShowSyn SingStmt where
       where
         retVal = maybe "" ((" "++) . showSyn) x
     showSyn (StmtBreak Nothing True) = "continue;\n"
+    showSyn (StmtRaise e) = "raise " ++ showSyn e ++ ";\n"
     showSyn (StmtBreak _ _) = error "showSyn: StmtBreak not a valid combination!"
 
 
@@ -181,6 +186,7 @@ data SingStmt = StmtAssign LangIdent Expr
               | StmtReturn Expr
               | StmtBreak { breakValue :: Maybe Expr
                           , breakContinue :: Bool }
+              | StmtRaise LangIdent
                 deriving (Show, Eq)
 
 
@@ -189,6 +195,7 @@ data LangStruct = StructFor LangIdent Expr Stmt
                 | StructWhile Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)
                 | StructDefun LangIdent Lambda
+                | StructTryCatch Stmt [LangIdent] Stmt
                   deriving (Show, Eq)
 
 
@@ -207,6 +214,12 @@ instance ShowSyn LangStruct where
             Just x  -> " else " ++ showSyn x
     showSyn (StructDefun n c)
         = concat ["defun ", showSyn n, showLambdaFun c]
+    showSyn (StructTryCatch s es ex) = "try " ++ showSyn s ++ "\ncatch " ++ es' ++ "\n" ++ showSyn ex
+      where
+        es' = if length es == 1
+              then showSyn . LitKeyword $ head es
+              else showSyn . LitList . map LitKeyword $ es
+
 
 
 showSynSep :: ShowSyn a => String -> String -> String -> [a] -> String
@@ -331,7 +344,7 @@ data LangLit = LitStr String -- ^ Strings.
                        -- that fails to return a value
                        -- explicitly.
              | LitLambda Lambda -- ^ A function without a name.
-             | LitKeyword LangIdent
+             | LitKeyword { getLitKeyword :: LangIdent }
              | LitHandle Handle
                deriving (Show, Eq)
 

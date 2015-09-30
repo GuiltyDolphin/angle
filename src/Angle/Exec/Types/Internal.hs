@@ -73,6 +73,7 @@ data Env = Env { currentScope :: Scope
                , envSourceRef :: SourceRef
                , envSynRep :: String
                , envValue :: LangLit
+               , unhandledExceptions :: [LangIdent]
                } deriving (Show, Eq)
 
 
@@ -93,6 +94,7 @@ basicEnv = Env { currentScope = emptyScope
                , envSourceRef = startRef
                , envSynRep = ""
                , envValue = LitNull
+               , unhandledExceptions = []
                }
 
 

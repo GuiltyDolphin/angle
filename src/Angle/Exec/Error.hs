@@ -50,6 +50,10 @@ module Angle.Exec.Error
     , throwContinue
     , throwReturn
 
+    -- ** User errors
+    , userErr
+    , errToKeyword
+
     -- ** Classes, base types and basic functions
     , AngleError
     , CanError(..)
@@ -87,6 +91,12 @@ instance CanError (Either AngleError) where
 class (CanError m) => CanErrorWithPos m where
     getErrorPos :: m SourceRef
     getErrorSource :: m String
+
+
+-- | Errors that can be caught by the user via the try...catch
+-- construct.
+class KWError e where
+    errToKeyword :: e -> LangIdent
 
 
 -- | General error structure.
@@ -128,14 +138,19 @@ instance Show AngleError where
         error "show: control exception made it to show"
 
 
+instance KWError AngleError where
+    errToKeyword (ImplementationError x) = error $ "Implementation error: " ++ show x
+    errToKeyword (ExecError { execErrErr = e }) = errToKeyword e
+    errToKeyword (ControlException{}) = error "Attempt to handle control exception"
+
+
 -- | Base for errors that occur during execution of code.
 data ExecError = TypeError TypeError
                  | NameError NameError
                  | CallError CallError
-                 | DefaultError String
                  | LitError LitError
                  | KeywordError KeywordError
-                 | UserError String
+                 | UserError LangIdent
 
 
 -- | Expression produced an invalid type.
@@ -163,14 +178,26 @@ keywordErr :: KeywordError -> ExecError
 keywordErr = KeywordError
 
 
+userErr :: LangIdent -> ExecError
+userErr = UserError
+
+
 instance Show ExecError where
     show (TypeError e)    = "wrong type in expression: " ++ show e
     show (NameError v)    = "name error: " ++ show v
     show (CallError x)    = "call error: " ++ show x
-    show (DefaultError s) = "defaultError: " ++ s
     show (LitError x) = "literal error: " ++ show x
-    show (UserError x) = "user error: " ++ x
+    show (UserError (LangIdent x)) = "user error: " ++ x
     show (KeywordError x) = "keyword error: " ++ show x
+
+
+instance KWError ExecError where
+    errToKeyword (TypeError e) = errToKeyword e
+    errToKeyword (NameError e) = errToKeyword e
+    errToKeyword (CallError e) = errToKeyword e
+    errToKeyword (LitError e) = errToKeyword e
+    errToKeyword (UserError e) = e
+    errToKeyword (KeywordError e) = errToKeyword e
 
 
 -- | Errors involving types.
@@ -226,6 +253,17 @@ instance Show TypeError where
     show (TypeAnnWrong t1 t2) = "bad type in function call, expecting " ++ show t1 ++ " but got " ++ show t2
 
 
+instance KWError TypeError where
+    errToKeyword (TypeMismatch{}) = LangIdent "typeMismatch"
+    errToKeyword (TypeUnexpected{}) = LangIdent "typeUnexpected"
+    errToKeyword (TypeNotValid{}) = LangIdent "typeNotValid"
+    errToKeyword (TypeCast{}) = LangIdent "typeCast"
+    errToKeyword (TypeMismatchOp{}) = LangIdent "typeMismatchOp"
+    errToKeyword (TypeExpectConstr{}) = LangIdent "typeExpectConstr"
+    errToKeyword (TypeConstrWrongReturn{}) = LangIdent "TypeConstrWrongReturn"
+    errToKeyword (TypeAnnWrong{}) = LangIdent "typeAnnWrong"
+
+
 -- | Errors involving identifiers and names.
 data NameError = NameNotDefined LangIdent
                | NameNotDefinedFun LangIdent
@@ -263,6 +301,14 @@ instance Show NameError where
                                                        ++ maybe "" ("\n" ++) reason
 
 
+instance KWError NameError where
+    errToKeyword (NameNotDefined{}) = LangIdent "nameNotDefined"
+    errToKeyword (NameNotDefinedFun{}) = LangIdent "nameNotDefinedFun"
+    errToKeyword (NameNotDefinedLit{}) = LangIdent "nameNotDefinedLit"
+    errToKeyword (NameNotOp{}) = LangIdent "nameNotOp"
+    errToKeyword (AssignToBuiltin{}) = LangIdent "assignToBuiltin"
+
+
 -- | Errors involving operator and function calls.
 data CallError = WrongNumberOfArguments Int Int
                | BuiltIn String
@@ -291,6 +337,12 @@ instance Show CallError where
     show (MalformedSignature x) = "malformed signature: " ++ x
 
 
+instance KWError CallError where
+    errToKeyword (WrongNumberOfArguments{}) = LangIdent "wrongNumberOfArguments"
+    errToKeyword (BuiltIn{}) = LangIdent "builtin"
+    errToKeyword (MalformedSignature{}) = LangIdent "malformedSignature"
+
+
 -- | Errors involving keywords.
 data KeywordError = ReturnFromGlobal
                     deriving (Eq)
@@ -303,6 +355,10 @@ returnFromGlobalErr = keywordErr ReturnFromGlobal
 
 instance Show KeywordError where
     show ReturnFromGlobal = "return from outermost scope"
+
+
+instance KWError KeywordError where
+    errToKeyword ReturnFromGlobal = LangIdent "returnFromGlobal"
 
 
 -- | Raise a 'ExecError' into an 'AngleError'.
@@ -340,6 +396,11 @@ badRangeErr t1 t2 = litErr . BadRange t1 t2
 instance Show LitError where
     show (IndexOutOfBoundsError x) = "index out of bounds: " ++ show x
     show (BadRange t1 t2 t3) = "bad range: all types should be same, but got: " ++ show t1 ++ concatMap ((", "++) . show) (catMaybes [t2,t3])
+
+
+instance KWError LitError where
+    errToKeyword (IndexOutOfBoundsError{}) = LangIdent "indexOutOfBounds"
+    errToKeyword (BadRange{}) = LangIdent "badRange"
 
 
 -- | Used for control-flow within the language.

@@ -19,6 +19,7 @@ module Angle.Exec.Exec
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State
+import Data.List (nub, (\\))
 import Data.Maybe (isNothing)
 
 import Angle.Parse.Parser (program, evalParse)
@@ -335,6 +336,15 @@ execSingStmt (StmtBreak x False)
         Just v  -> execExpr v
                    >>= returnVal >>= (throwBreak . Just)
 execSingStmt (StmtBreak _ True) = throwContinue
+execSingStmt (StmtRaise e) = raiseException e
+
+
+raiseException :: LangIdent -> ExecIO LangLit
+raiseException e = do
+  env <- get
+  put env { unhandledExceptions = nub (e:unhandledExceptions env) }
+  return (LitKeyword e)
+  throwExecError (userErr e)
 
 
 -- Possible:
@@ -358,6 +368,8 @@ execLangStruct (StructIf if' thn els)
     = execStructIf if' thn els
 execLangStruct (StructDefun name cs)
     = assignVarLambda name cs *> return LitNull
+execLangStruct (StructTryCatch b es ex)
+    = execStructTryCatch b es ex
 
 
 execStructIf :: Expr -> Stmt -> Maybe Stmt -> ExecIO LangLit
@@ -393,6 +405,25 @@ execStructWhile ex s = do
                      (SingleStmt
                      (StmtStruct
                       (StructIf ex s (Just (SingleStmt (StmtBreak Nothing False) pos)))) pos)
+
+
+
+-- execStructTryCatch :: Stmt -> [LangIdent] -> Stmt -> ExecIO LangLit
+-- execStructTryCatch b es ex = do
+--     v <- execStmt b
+--     env <- get
+--     let toHandle = unhandledExceptions env
+--     if null (toHandle \\ es) && (not . null $ toHandle)
+--     then do
+--         put env { unhandledExceptions = [] }
+--         execStmt ex
+--     else return v
+execStructTryCatch :: Stmt -> [LangIdent] -> Stmt -> ExecIO LangLit
+execStructTryCatch b es ex = execStmt b `catchAE` genHandle
+  where
+    genHandle e = if errToKeyword e `elem` es
+                  then execStmt ex
+                  else throwError e
 
 
 builtinArgs :: [Expr] -> ExecIO [LangLit]
