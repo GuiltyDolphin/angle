@@ -135,7 +135,7 @@ bindArgs args (ArgSig
   let toCheck = zip args params
       la = length args
       lp = length params
-  when (la > lp && isNothing catchParam || la < lp)
+  when ((la > lp && isNothing catchParam) || la < lp)
            (throwExecError $ wrongNumberOfArgumentsErr lp la)
   catchBind <- case catchParam of
                  Nothing -> return []
@@ -301,7 +301,9 @@ callLambda (Lambda
             { lambdaArgs=params
             , lambdaBody=body}) args
     = do
-  bindArgs args params
+  fullArgs <- expandParams args
+  -- bindArgs args params
+  bindArgs fullArgs params
   res <- execStmt body `catchReturn` return
   upScope
   return res

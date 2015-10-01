@@ -39,8 +39,11 @@ import Angle.Exec.Error
 -- On list followed by arbitrary types: appends the tail arguments to the list.
 --
 -- On numeric types: performs arithmetic addition.
+--
+-- On strings: performs concatenation.
 addLit :: MultiOperator
 addLit (LitList x:xs@(_:_)) = return $ LitList (x++xs)
+addLit (LitStr x:xs) | allType LTStr xs = return $ LitStr $ x ++ concatMap (\(LitStr y) -> y) xs
 addLit xs             = onlyNumOp addLitNum xs
     where addLitNum = onNum (+) (+)
 

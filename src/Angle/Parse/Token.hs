@@ -140,8 +140,8 @@ tokList = within (char '[') (char ']')
 ident :: Parser String
 ident = noneFrom (\x -> string x <* specEnd) keywords *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar)
     where specEnd = notParse tokIdentBodyChar
-          tokIdentStartChar = cond isAlpha
-          tokIdentBodyChar  = cond isAlphaNum
+          tokIdentStartChar = cond (\x -> isAlpha x || x == '_')
+          tokIdentBodyChar  = cond (\x -> isAlphaNum x || x == '_')
 
 
 -- | Valid operator character.
