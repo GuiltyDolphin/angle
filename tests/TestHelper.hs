@@ -9,6 +9,7 @@ module TestHelper
     , evalParse
     , monadicEither
 --    , monadicExec
+    , liftM
     , monadicIO
     , assertEqual
     , run
