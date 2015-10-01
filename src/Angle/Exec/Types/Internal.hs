@@ -125,15 +125,18 @@ fromIter (LitStr xs) = return $ map LitChar xs
 -- fromIter (LitRange x Nothing Nothing) =
 fromIter (LitRange x (Just y) Nothing) = iterFromTo x y
 fromIter (LitRange x (Just y) (Just z)) = iterFromThenTo x y z
-fromIter _ = throwImplementationErr "fromIter: TODO: define this!"
+fromIter (LitRange x Nothing _) = throwImplementationErr "fromIter: no end for range"
+fromIter x = throwImplementationErr $ "fromIter: TODO: define this!" ++ "\npassed: " ++ showSyn x
 
 
 -- | True if the range has infinite size.
 isInfiniteRange :: LangLit -> Bool
 isInfiniteRange (LitRange _ Nothing _) = True
 isInfiniteRange (LitRange x (Just y) (Just z))
-    = (y' > x' && z' - x' < 0) || (y' < x' && z' - x' > 0) || (z' - x') == 0
+       = z' == 0 || (y' < x' && z' > 0) || (y' < 0 && z' > 0)
+    -- = -- (y' > x' && z' - x' < 0) || (y' < x' && z' - x' > 0) -- || (z' - x') == 0
   where [x',y',z'] = map fromEnumL [x,y,z]
+isInfiniteRange (LitRange x y@(Just _) Nothing) = isInfiniteRange (LitRange x y (Just (LitInt 1)))
 isInfiniteRange _ = error "isInfiniteRange: Passed a non-range"
 
 
@@ -153,10 +156,10 @@ iterToLit x = liftM LitList $ fromIter x
 
 
 iterFromThenTo :: LangLit -> LangLit -> LangLit -> ExecIO [LangLit]
-iterFromThenTo (LitInt x) (LitInt y) (LitInt z) = return $ map LitInt $ enumFromThenTo x (succ z) y
-iterFromThenTo (LitFloat x) (LitFloat y) (LitFloat z) = return $ map LitFloat $ enumFromThenTo x (succ z) y
-iterFromThenTo (LitChar x) (LitChar y) (LitChar z) = return $ map LitChar $ enumFromThenTo x (succ z) y
-iterFromThenTo _ _ _ = throwImplementationErr "iterFromThenTo: define failure"
+iterFromThenTo (LitInt x) (LitInt y) (LitInt z) = return $ map LitInt $ enumFromThenTo x z y -- (succ z) y
+iterFromThenTo (LitFloat x) (LitFloat y) (LitFloat z) = return $ map LitFloat $ enumFromThenTo x z y -- (succ z) y
+iterFromThenTo (LitChar x) (LitChar y) (LitChar z) = return $ map LitChar $ enumFromThenTo x z y -- (succ z) y
+iterFromThenTo _ _ _ = throwImplementationErr "iterFromThenTo: cannot handle non-enumerable types"
 
 
 -- Potential: looping to infinity (and beyond)
@@ -171,5 +174,5 @@ iterFromTo :: LangLit -> LangLit -> ExecIO [LangLit]
 iterFromTo (LitInt x) (LitInt y) = return $ map LitInt $ enumFromTo x y
 iterFromTo (LitChar x) (LitChar y) = return $ map LitChar $ enumFromTo x y
 iterFromTo (LitFloat x) (LitFloat y) = return $ map LitFloat $ enumFromTo x y
-iterFromTo _ _ = throwImplementationErr "iterFromTo: define failure"
+iterFromTo _ _ = throwImplementationErr "iterFromTo: cannot handle non-enumerable types"
 

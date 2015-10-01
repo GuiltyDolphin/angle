@@ -3,6 +3,7 @@
 module TestHelper
     ( module Test.Tasty
     , module Test.Tasty.QuickCheck
+    , module Angle.Types.Lang
     , assert
     , Parser
     , evalParse

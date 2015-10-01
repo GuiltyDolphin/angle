@@ -436,6 +436,7 @@ callBuiltin (LangIdent "read") xs = builtinArgs xs >>= builtinRead
 callBuiltin (LangIdent "write") xs = builtinArgs xs >>= builtinWrite
 callBuiltin (LangIdent "close") xs = builtinArgs xs >>= builtinClose
 callBuiltin (LangIdent "shell") xs = builtinArgs xs >>= builtinShell
+callBuiltin (LangIdent "include") xs = builtinArgs xs >>= builtinInclude
 callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
 
 
@@ -446,6 +447,26 @@ builtinEval xs = do
     Left _    -> throwExecError . callBuiltinErr $ "eval: no parse"
     Right res -> execStmt res
   where st = argsToString xs
+
+
+-- | Builtin @include@ function.
+--
+-- @include(file_names)@ will attempt to open, read and evaluate
+-- each file in @file_names@ inplace. This is effectively the
+-- same as having written the code contained within the files
+-- at the point of call.
+--
+-- If any of @file_names@ are handles, then they will be read
+-- fully and evaluated.
+--
+-- Filepaths are assumed to be relative, unless an absolute
+-- path is provided.
+builtinInclude :: [LangLit] -> ExecIO LangLit
+builtinInclude xs = mapM_ includeFile xs >> return LitNull
+  where
+    includeFile h@(LitHandle _) = builtinRead [h] >>= builtinEval . (:[])
+    includeFile f@(LitStr _) = builtinRead [f] >>= builtinEval . (:[])
+    includeFile x = throwExecError $ typeNotValidErr x
 
 
 validRangeLit :: LangLit -> Bool

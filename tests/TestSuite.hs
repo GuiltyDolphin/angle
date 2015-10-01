@@ -9,6 +9,7 @@ import qualified Test.Angle.Parse.Token as Token
 import qualified Test.Angle.Exec.Operations as Operations
 import qualified Test.Angle.Exec.Scope as Scope
 import qualified Test.Angle.Exec.Exec as Exec
+import qualified Test.Angle.Exec.Types as ExecTypes
 
 
 main :: IO ()
@@ -32,4 +33,5 @@ allTests = localOption (Timeout (toMicroSeconds 3) "") $
            , testGroup "token tests" Token.tests
            , localOption (QuickCheckMaxSize 10) $
              testGroup "exec tests" Exec.tests
+           , testGroup "exec-types tests" ExecTypes.tests
            ]

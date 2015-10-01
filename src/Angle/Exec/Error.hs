@@ -279,7 +279,7 @@ typeAnnWrongErr e = typeErr . TypeAnnWrong e
 instance Show TypeError where
     show (TypeMismatch l r)   = "type mismatch: got (" ++ show l ++ ", " ++ show r ++ ") but both types should be the same"
     show (TypeUnexpected l r) = "unexpected type: " ++ show l ++ ", expecting: " ++ show r
-    show (TypeNotValid l)     = "type not valid for scenario: " ++ show l
+    show (TypeNotValid l)     = "type not valid : " ++ show l
     show (TypeCast l r) = "cannot convert " ++ show l ++ " to " ++ show r
     show (TypeMismatchOp l r) = "cannot perform operation on types " ++ show l ++ " and " ++ show r
     show (TypeExpectConstr v c) = "expecting value that satisfies function '" ++ showSyn c ++ "' but got: " ++ showSyn v

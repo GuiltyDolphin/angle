@@ -173,6 +173,7 @@ builtins = [ "print", "str"
            , "isNull"
            , "asType", "getArgs"
            , "read", "write", "open", "close"
+           , "include"
            , "shell"]
 
 

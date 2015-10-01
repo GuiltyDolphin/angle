@@ -77,6 +77,7 @@ test-suite properties
                      , Test.Angle.Exec.Scope
                      , Test.Angle.Exec.Operations
                      , Test.Angle.Exec.Exec
+                     , Test.Angle.Exec.Types
   if !flag(test-properties)
     buildable: False
   else
