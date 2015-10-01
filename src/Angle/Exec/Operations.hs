@@ -174,7 +174,7 @@ orLit (x:_)              = throwExecError $ typeNotValidErr x
 subLit :: MultiOperator
 subLit (x@(LitList _):ys@(_:_))
     | allType LTInt ys
-    = foldM (flip $ \(LitInt x) -> langListDrop x ) x ys
+    = foldM (flip $ \(LitInt i) -> langListDrop i ) x ys
       where langListDrop n (LitList zs)
                 | n >= length zs = throwExecError $ indexOutOfBoundsErr n
                 | otherwise = return (LitList res)

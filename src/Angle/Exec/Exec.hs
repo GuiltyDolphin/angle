@@ -19,7 +19,6 @@ module Angle.Exec.Exec
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State
-import Data.List (nub, (\\))
 import Data.Maybe (isNothing)
 
 import Angle.Parse.Parser (program, evalParse)

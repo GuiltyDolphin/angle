@@ -67,11 +67,8 @@ import System.IO ( hFlush
                  , stdin
                  , stderr
                  , openFile
-                 , Handle
                  , IOMode(..))
-import System.IO.Error ( IOError
-                       , catchIOError
-                       , tryIOError
+import System.IO.Error ( tryIOError
                        , isAlreadyExistsError
                        , isDoesNotExistError
                        , isAlreadyInUseError
@@ -302,7 +299,7 @@ builtinIndex [LitInt x,LitList xs]
     | otherwise = return $ xs !! x
 builtinIndex [x, LitStr s] = builtinIndex [x,LitList $ map LitChar s]  >>= joinList
   where
-    joinList x = builtinAsType [LitStr "", x]
+    joinList l = builtinAsType [LitStr "", l]
 builtinIndex [LitInt x,LitInt y,LitList xs]
     | x >= length xs || y > length xs
         = throwExecError $ indexOutOfBoundsErr x
@@ -314,7 +311,7 @@ builtinIndex [LitInt x,LitInt y,LitList xs]
         = return . LitList $ splice x y xs
 builtinIndex [x,y,LitStr s] = builtinIndex [x, y, LitList $ map LitChar s] >>= joinList
   where
-    joinList x = builtinAsType [LitStr "", x]
+    joinList l = builtinAsType [LitStr "", l]
 builtinIndex _ = throwExecError $ callBuiltinErr "index: invalid call signature"
 
 
@@ -343,13 +340,13 @@ builtinGetArgs _ = liftM (LitList . map LitStr) $ withIOError getArgs
 --
 -- Modes are as follows:
 --
--- ['<'] read only mode
+-- [<] read only mode
 --
--- ['>'] write mode (clobbers)
+-- [>] write mode (clobbers)
 --
--- ['>>'] append mode
+-- [>>] append mode
 --
--- ['<>'] read-write mode
+-- [<>] read-write mode
 builtinOpen :: [LangLit] -> ExecIO LangLit
 builtinOpen [LitStr fn, LitStr "<"] = liftM LitHandle $ withIOError $ openFile fn ReadMode
 builtinOpen [LitStr fn, LitStr ">"] = liftM LitHandle $ withIOError $ openFile fn WriteMode
@@ -357,7 +354,8 @@ builtinOpen [LitStr fn, LitStr ">>"] = liftM LitHandle $ withIOError $ openFile 
 builtinOpen [LitStr fn, LitStr "<>"] = liftM LitHandle $ withIOError $ openFile fn ReadWriteMode
 builtinOpen _ = throwExecError $ callBuiltinErr "open: invalid call signature"
 
--- Builtin @read@ function.
+
+-- | Builtin @read@ function.
 --
 -- @read(handle)@ returns the unread part of the characters managed by @handle@.
 --
@@ -372,16 +370,16 @@ builtinRead (s@(LitStr _):xs) = builtinOpen [s, LitStr "<"] >>= (builtinRead . (
 builtinRead _ = throwExecError $ callBuiltinErr "read: invalid call signature"
 
 
--- Builtin @write@ function.
+-- | Builtin @write@ function.
 --
 -- @write(handle, string)@ writes @string@ to @handle@.
 builtinWrite :: [LangLit] -> ExecIO LangLit
 builtinWrite [LitHandle h, l@(LitStr s)] = withIOError (hPutStr h s) >> return l;
-builtinWrite [h@(LitStr _), m@(LitStr _), l@(LitStr s)] = builtinOpen [h, m] >>= (builtinWrite . (:[l]))
+builtinWrite [h@(LitStr _), m@(LitStr _), l@(LitStr _)] = builtinOpen [h, m] >>= (builtinWrite . (:[l]))
 builtinWrite _ = throwExecError $ callBuiltinErr "write: invalid call signature"
 
 
--- Builtin @close@ function.
+-- | Builtin @close@ function.
 --
 -- @close(handle)@ closes @handle@ for reading and writing.
 builtinClose :: [LangLit] -> ExecIO LangLit
@@ -391,7 +389,7 @@ builtinClose xs = mapM_ bClose xs >> return LitNull
     bClose x = throwExecError $ typeUnexpectedErr (typeOf x) LTHandle
 
 
--- Builtin @shell@ function.
+-- | Builtin @shell@ function.
 --
 -- @shell(executable, arguments, stdin)@ runs the shell command
 -- @executable@ with @args@ and @stdin@ and returns the result in a
@@ -434,6 +432,8 @@ handleIOError e = throwExecError $ err e
         | otherwise = error "Cannot handle user io exceptions"
 
 
+-- | Executes code in IO but attempts to embed the exception into
+-- Angle's error system.
 withIOError :: IO a -> ExecIO a
 withIOError x = do
     r <- liftIO $ tryIOError x

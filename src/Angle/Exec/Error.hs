@@ -482,13 +482,6 @@ permissionErr :: IOError -> ExecError
 permissionErr = eioErr . Permission
 
 
-genShow e = concat [ "location: ", show $ IO.ioeGetLocation e
-                   , "\ntype: " , show $ IO.ioeGetErrorType e
-                   , "\nerror string: " , show $ IO.ioeGetErrorString e
-                   , "\nhandle: " , show $ IO.ioeGetHandle e
-                   , "\nfile name: " , show $ IO.ioeGetFileName e]
-
-
 eioErrorShow :: IOError -> String
 eioErrorShow e = l ++ fn ++ s
   where
