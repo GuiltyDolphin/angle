@@ -23,13 +23,13 @@ newtype RangeTriple a = RangeTriple { getRangeTriple :: (a, a, a) }
 instance (Enum a, Arbitrary a) => Arbitrary (RangeTriple a) where
     arbitrary = liftM RangeTriple $ suchThat arbitrary checkRange
       where
-        checkRange (x1,y1,z1)
-          | z' == 0 = False
-          | x' > y' && z' < 0 = True
-          | x' < y' && z' > 0 = True
-          | x' == y' = True
-          | otherwise = False
-          where [x', y', z'] = map fromEnum [x1,y1,z1]
+        checkRange (x1,y1,z1) = not ((y' > x' || y' == x') && (z' == x')) -- zeroStep || incorrectStepSign
+          where
+            [x', y', z'] = map fromEnum [x1,y1,z1]
+            zeroStep = stepUp == 0
+            incorrectStepSign = (x' < y' && stepUp < 0) || (x' > y' && stepUp > 0)
+            stepUp = z' - x'
+
 
 tests :: [TestTree]
 tests = [ testProperty "testFromIter - range int int int" testFromIterInt

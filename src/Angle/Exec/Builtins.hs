@@ -238,13 +238,14 @@ asType (LitBool _) (LitStr y) =
       "false" -> return $ LitBool False
       _       -> return LitNull
 asType (LitList _) x@(LitRange _ (Just _) _) = iterToLit x
-asType _ _ = return LitNull
+asType (LitList _) (LitRange _ Nothing _) = throwExecError infiniteRangeErr
+asType x y = throwExecError $ typeCastErr (typeOf x) (typeOf y)-- return LitNull
 
 
 fromStr :: (Read a) => String -> (a -> LangLit) -> ExecIO LangLit
 fromStr s f = case reads s of
               [(r,"")] -> return $ f r
-              _        -> return LitNull
+              _        -> throwExecError . readErr $ s
 
 
 -- | Builtin @length@ function.

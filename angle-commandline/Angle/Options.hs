@@ -27,6 +27,8 @@ data Options = Options
   , optOutput :: Maybe FilePath
   , optInteractive :: Bool
   , optAbort :: Bool
+  , optCode :: [String]
+  , optNonOpts :: [String]
   }
 
 
@@ -36,6 +38,8 @@ defaultOptions = Options { optVerbose = False
                          , optOutput = Nothing
                          , optInteractive = False
                          , optAbort = False
+                         , optCode = []
+                         , optNonOpts = []
                          }
 
 
@@ -70,6 +74,11 @@ options =
         (NoArg
             (\opt -> return opt { optAbort = True }))
         "Abort on first file that fails to run"
+    , Option "c" ["program"]
+        (ReqArg
+            (\arg opt -> return opt { optCode = optCode opt ++ [arg] })
+            "TEXT")
+        "Line of code to be executed directly (multiple -c's allowed)"
     ]
 
 -- | Program usage header.
@@ -85,5 +94,9 @@ getOptions = do
             (opt,nonOpt,[]) -> return (opt,nonOpt)
             (_,_,errs) -> ioError
                 (userError (concat errs ++ usageInfo usage options))
-    foldl' (>>=) (return defaultOptions { optFiles = nonOpts }) opts
+    let (fileN, nOpts) = case nonOpts of
+                            (x:xs) -> ([x], xs)
+                            [] -> ([], [])
+    foldl' (>>=) (return defaultOptions { optFiles = fileN, optNonOpts = nOpts }) opts
+    -- foldl' (>>=) (return defaultOptions { optFiles = nonOpts }) opts
 

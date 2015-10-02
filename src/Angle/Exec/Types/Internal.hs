@@ -125,7 +125,6 @@ fromIter (LitStr xs) = return $ map LitChar xs
 -- fromIter (LitRange x Nothing Nothing) =
 fromIter (LitRange x (Just y) Nothing) = iterFromTo x y
 fromIter (LitRange x (Just y) (Just z)) = iterFromThenTo x y z
-fromIter (LitRange x Nothing _) = throwImplementationErr "fromIter: no end for range"
 fromIter x = throwImplementationErr $ "fromIter: TODO: define this!" ++ "\npassed: " ++ showSyn x
 
 
@@ -133,10 +132,11 @@ fromIter x = throwImplementationErr $ "fromIter: TODO: define this!" ++ "\npasse
 isInfiniteRange :: LangLit -> Bool
 isInfiniteRange (LitRange _ Nothing _) = True
 isInfiniteRange (LitRange x (Just y) (Just z))
-       = z' == 0 || (y' < x' && z' > 0) || (y' < 0 && z' > 0)
-    -- = -- (y' > x' && z' - x' < 0) || (y' < x' && z' - x' > 0) -- || (z' - x') == 0
-  where [x',y',z'] = map fromEnumL [x,y,z]
-isInfiniteRange (LitRange x y@(Just _) Nothing) = isInfiniteRange (LitRange x y (Just (LitInt 1)))
+       = (y' > x' || y' == x') && zeroStep
+  where
+    [x',y',z'] = map fromEnumL [x,y,z]
+    zeroStep = z' == x'
+isInfiniteRange (LitRange x y@(Just _) Nothing) = isInfiniteRange (LitRange x y (Just (LitInt (fromEnumL x + 1))))
 isInfiniteRange _ = error "isInfiniteRange: Passed a non-range"
 
 
@@ -151,7 +151,7 @@ fromEnumL _ = error "fromEnumL: non-enumerable type"
 
 -- | Convert a list or range into a literal list.
 iterToLit :: LangLit -> ExecIO LangLit
-iterToLit x@(LitRange{}) | isInfiniteRange x = return LitNull
+iterToLit x@(LitRange{}) | isInfiniteRange x = throwExecError infiniteRangeErr
 iterToLit x = liftM LitList $ fromIter x
 
 

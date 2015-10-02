@@ -21,6 +21,7 @@ module Angle.Exec.Error
     , typeMismatchOpErr
     , typeNotValidErr
     , typeUnexpectedErr
+    , typeCastErr
 
     -- ** Name errors
     , assignToBuiltinErr
@@ -41,6 +42,7 @@ module Angle.Exec.Error
     -- ** Literal errors
     , badRangeErr
     , indexOutOfBoundsErr
+    , infiniteRangeErr
 
     -- ** Control-flow
     , catchBreak
@@ -63,6 +65,10 @@ module Angle.Exec.Error
     , eofErr
     , illegalOperationErr
     , permissionErr
+
+    -- ** Syntax errors
+    , syntaxErr
+    , readErr
 
     -- ** Classes, base types and basic functions
     , AngleError
@@ -170,6 +176,7 @@ data ExecError = TypeError TypeError
                  | KeywordError KeywordError
                  | EIOError EIOError
                  | UserError LangIdent
+                 | SynError SynError
 
 
 -- | Expression produced an invalid type.
@@ -202,8 +209,14 @@ eioErr :: EIOError -> ExecError
 eioErr = EIOError
 
 
+-- | Custom exceptions.
 userErr :: LangIdent -> ExecError
 userErr = UserError
+
+
+-- | Syntax errors.
+synErr :: SynError -> ExecError
+synErr = SynError
 
 
 instance Show ExecError where
@@ -214,6 +227,7 @@ instance Show ExecError where
     show (EIOError e) = "io error: " ++ show e
     show (UserError (LangIdent x)) = "user error: " ++ x
     show (KeywordError x) = "keyword error: " ++ show x
+    show (SynError e) = "syntax error:\n" ++ show e
 
 
 instance KWError ExecError where
@@ -224,6 +238,7 @@ instance KWError ExecError where
     errToKeyword (EIOError e) = errToKeyword e
     errToKeyword (UserError e) = e
     errToKeyword (KeywordError e) = errToKeyword e
+    errToKeyword (SynError e) = errToKeyword e
 
     genErrKeyword (TypeError e) = genErrKeyword e
     genErrKeyword (NameError e) = genErrKeyword e
@@ -232,6 +247,7 @@ instance KWError ExecError where
     genErrKeyword (EIOError e) = genErrKeyword e
     genErrKeyword (UserError{}) = LangIdent "user"
     genErrKeyword (KeywordError e) = genErrKeyword e
+    genErrKeyword (SynError e) = genErrKeyword e
 
 
 -- | Errors involving types.
@@ -274,6 +290,11 @@ typeConstrWrongReturnErr cls = typeErr . TypeConstrWrongReturn cls
 -- | Value did not satisfy given annotation constraint.
 typeAnnWrongErr :: AnnType -> AnnType -> ExecError
 typeAnnWrongErr e = typeErr . TypeAnnWrong e
+
+
+-- | Cannot coerce one type to another
+typeCastErr :: LangType -> LangType -> ExecError
+typeCastErr t1 = typeErr . TypeCast t1
 
 
 instance Show TypeError where
@@ -418,6 +439,7 @@ throwImplementationErr = throwAE . implementationErr
 -- | Errors involving literals.
 data LitError = IndexOutOfBoundsError Int
               | BadRange LangType (Maybe LangType) (Maybe LangType)
+              | InfiniteRange
               deriving (Eq)
 
 
@@ -431,14 +453,21 @@ badRangeErr :: LangType -> Maybe LangType -> Maybe LangType -> ExecError
 badRangeErr t1 t2 = litErr . BadRange t1 t2
 
 
+-- | Range is infinite.
+infiniteRangeErr :: ExecError
+infiniteRangeErr = litErr InfiniteRange
+
+
 instance Show LitError where
     show (IndexOutOfBoundsError x) = "index out of bounds: " ++ show x
     show (BadRange t1 t2 t3) = "bad range: all types should be same, but got: " ++ show t1 ++ concatMap ((", "++) . show) (catMaybes [t2,t3])
+    show InfiniteRange = "infinite range"
 
 
 instance KWError LitError where
     errToKeyword (IndexOutOfBoundsError{}) = LangIdent "indexOutOfBounds"
     errToKeyword (BadRange{}) = LangIdent "badRange"
+    errToKeyword InfiniteRange = LangIdent "infiniteRange"
     genErrKeyword _ = LangIdent "litError"
 
 
@@ -516,6 +545,33 @@ instance KWError EIOError where
     errToKeyword (Permission{}) = LangIdent "permission"
 
     genErrKeyword _ = LangIdent "ioError"
+
+
+-- | Represents errors that occur during run-time parsing.
+data SynError = SyntaxError ParseError
+              | ReadError String
+
+
+-- | Error when parsing text intended to be code.
+syntaxErr :: ParseError -> ExecError
+syntaxErr = synErr . SyntaxError
+
+
+-- | Error when parsing non-code.
+readErr :: String -> ExecError
+readErr = synErr . ReadError
+
+
+instance Show SynError where
+    show (SyntaxError e) = show e
+    show (ReadError e) = "could not read: " ++ show e
+
+
+instance KWError SynError where
+    errToKeyword (SyntaxError{}) = LangIdent "syntax"
+    errToKeyword (ReadError{}) = LangIdent "read"
+
+    genErrKeyword _ = LangIdent "syntaxError"
 
 
 -- | Used for control-flow within the language.

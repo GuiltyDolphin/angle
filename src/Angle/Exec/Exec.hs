@@ -446,7 +446,7 @@ builtinEval :: [LangLit] -> ExecIO LangLit
 builtinEval xs = do
   let r = evalParse st program
   case r of
-    Left _    -> throwExecError . callBuiltinErr $ "eval: no parse"
+    Left e    -> throwExecError . syntaxErr $ e -- throwExecError . callBuiltinErr $ "eval: no parse"
     Right res -> execStmt res
   where st = argsToString xs
 
