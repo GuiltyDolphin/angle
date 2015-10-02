@@ -25,9 +25,10 @@ main = do
     let Options { optVerbose = verbose
                 , optFiles = files
                 , optInteractive = interactive
+                , optCode = code
                 } = opts
     when verbose (putStrLn "Verbose not yet implemented")
-    if interactive || null files
+    if interactive || (null files && null code)
     then runInteractive opts
     else runInterpreter opts
     return ()
