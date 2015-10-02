@@ -14,11 +14,14 @@ module Angle.Options
   , getOptions
   ) where
 
+import Data.List (foldl')
 import System.Console.GetOpt
-import System.IO (hPutStrLn, stderr)
 import System.Environment (getArgs)
 import System.Exit (exitSuccess)
-import Data.List (foldl')
+import System.IO (hPutStrLn, stderr)
+
+import Paths_angle (version)
+import Data.Version (showVersion)
 
 
 data Options = Options
@@ -50,6 +53,11 @@ options =
             (\arg opt -> return opt { optFiles = optFiles opt ++ [arg] })
             "FILE")
         "Input file"
+    , Option "c" ["program"]
+        (ReqArg
+            (\arg opt -> return opt { optCode = optCode opt ++ [arg] })
+            "TEXT")
+        "Line of code to be executed directly (multiple -c's allowed)"
     , Option "i" ["interactive"]
         (NoArg
             (\opt -> return opt { optInteractive = True }))
@@ -63,7 +71,7 @@ options =
     , Option "V" ["version"]
         (NoArg
             (\_ -> do
-                hPutStrLn stderr "Angle Version 0.1.0.0"
+                hPutStrLn stderr $ "angle " ++ showVersion version
                 exitSuccess))
         "Display current program version"
     , Option "v" ["verbose"]
@@ -74,16 +82,12 @@ options =
         (NoArg
             (\opt -> return opt { optAbort = True }))
         "Abort on first file that fails to run"
-    , Option "c" ["program"]
-        (ReqArg
-            (\arg opt -> return opt { optCode = optCode opt ++ [arg] })
-            "TEXT")
-        "Line of code to be executed directly (multiple -c's allowed)"
     ]
+
 
 -- | Program usage header.
 usage :: String
-usage = "Usage:  angle [OPTION...] files..."
+usage = "Usage:  angle [OPTION...] [file]"
 
 
 getOptions :: IO Options
