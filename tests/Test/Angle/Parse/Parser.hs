@@ -102,7 +102,7 @@ testLitBool = evalParse "true" litBool == Right (LitBool True)
 
 testEmptyCall :: Bool
 testEmptyCall = evalParse "foo()" exprFunCall
- == Right (ExprFunCall (LangIdent "foo") [])
+ == Right (ExprFunCall (LangIdent "foo") False [])
 
 
 testOpAdd :: Bool

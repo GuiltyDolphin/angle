@@ -449,10 +449,11 @@ exprParamExpand = liftM ExprParamExpand $ string ".." >> langIdent
 -- Function calls consist of an identifier followed
 -- by an argument list surrounded by parentheses (see 'arglist').
 exprFunCall :: Parser Expr
-exprFunCall = ExprFunCall
-              <$> tryParse (langIdent <* lookAhead (char '('))
-              <*> arglist
-              <?> "function call"
+exprFunCall = (do
+  asClass <- (char '@' >> return True) <|> return False
+  name <- tryParse (langIdent <* lookAhead (char '('))
+  args <- arglist
+  return $ ExprFunCall name asClass args) <?> "function call"
 
 
 exprOp :: Parser Expr

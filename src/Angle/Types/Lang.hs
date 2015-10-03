@@ -435,7 +435,7 @@ data Expr = ExprIdent LangIdent
           | ExprFunIdent LangIdent
             -- ^ 'LangIdent' when representing a function.
           | ExprLit LangLit -- ^ Expression wrapping a literal value.
-          | ExprFunCall LangIdent [Expr]
+          | ExprFunCall LangIdent Bool [Expr]
           | ExprLambdaCall Lambda [Expr]
           | ExprOp LangOp
           | ExprList [Expr]
@@ -451,7 +451,7 @@ data Expr = ExprIdent LangIdent
 instance ShowSyn Expr where
     showSyn (ExprIdent x) = showSyn x
     showSyn (ExprLit x) = showSyn x
-    showSyn (ExprFunCall n es) = showSyn n ++ showSynArgs es
+    showSyn (ExprFunCall n asClass es) = (if asClass then "@" else "") ++ showSyn n ++ showSynArgs es
     showSyn (ExprOp x) = showSyn x
     showSyn (ExprFunIdent x) = "$" ++ showSyn x
     showSyn (ExprList _) = error "showSyn - cannot show unevaluated list"

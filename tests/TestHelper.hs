@@ -114,7 +114,7 @@ instance Arbitrary Expr where
     arbitrary = frequency
                 [ (15, liftArby ExprIdent)
                 , (9, liftArby  ExprLit)
-                , (1, liftM2 ExprFunCall arbitrary (liftArby getTinyList))
+                , (1, liftM3 ExprFunCall arbitrary arbitrary (liftArby getTinyList))
                 , (4, liftArby  ExprOp)
                 --, (4, liftArby ExprLambda)
                 , (4, liftArby ExprFunIdent)

@@ -97,7 +97,7 @@ builtinCallSig name =
     }
     where body = SingleStmt
                  ( StmtExpr
-                   ( ExprFunCall name
+                   ( ExprFunCall name False
                      [ ExprParamExpand
                        ( LangIdent "x" )])) startRef
 
