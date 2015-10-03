@@ -239,7 +239,7 @@ asType (LitBool _) (LitStr y) =
       _       -> return LitNull
 asType (LitList _) x@(LitRange _ (Just _) _) = iterToLit x
 asType (LitList _) (LitRange _ Nothing _) = throwExecError infiniteRangeErr
-asType x y = throwExecError $ typeCastErr (typeOf x) (typeOf y)-- return LitNull
+asType x y = throwExecError $ typeCastErr (typeOf y) (typeOf x)-- return LitNull
 
 
 fromStr :: (Read a) => String -> (a -> LangLit) -> ExecIO LangLit
@@ -408,6 +408,7 @@ builtinShell [p@(LitStr _), l@(LitList _)] = builtinShell [p, l, LitStr ""]
 builtinShell [p@(LitStr _), sIn@(LitStr _)] = builtinShell [p, LitList [], sIn]
 builtinShell [LitStr p, LitList args, LitStr sIn] = liftM LitStr $ withIOError $ readProcess p xs sIn
   where xs = map ((\(LitStr x) -> x) . toLitStr) args
+builtinShell _ = throwExecError $ callBuiltinErr "shell: invalid call signature"
 
 
 -- | Handler for assignments to builtin variables as literals.
