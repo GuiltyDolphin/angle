@@ -342,8 +342,18 @@ execSingStmt (StmtRaise e) = raiseException e
 
 raiseException :: LangIdent -> ExecIO LangLit
 raiseException e = do
+  env <- get
+  let currE = currentException env
   return (LitKeyword e)
-  throwExecError (userErr e)
+  case currE of
+        Nothing -> throwExecError $ userErr e
+        Just err -> if similarErr err
+                   then throwAE err
+                   else throwExecError $ userErr e
+  where
+    similarErr err = errToKeyword err == e
+                   || genErrKeyword err == e
+                   || LangIdent "error" == e
 
 
 -- Possible:
@@ -409,7 +419,12 @@ execStructWhile ex s = do
 execStructTryCatch :: Stmt -> [([LangIdent], Stmt)] -> ExecIO LangLit
 execStructTryCatch b catchers = execStmt b `catchAE` genHandle
   where
-    genHandle e = checkCatch e catchers
+    genHandle e = do
+      env <- get
+      put env { currentException = Just e }
+      res <- checkCatch e catchers
+      put env { currentException = Nothing }
+      return res
     checkCatch e [] = throwError e
     checkCatch e ((toCatch, ex):es) = if catches
                                       then execStmt ex

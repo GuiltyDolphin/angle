@@ -228,7 +228,8 @@ structUnless = do
   e <- string "unless " *> expr
   tokNSpaced
   s <- stmt
-  return $ StructIf (ExprOp (SpecOp OpNot e)) s Nothing
+  els <- optional $ string "else " *> stmt
+  return $ StructIf (ExprOp (SpecOp OpNot e)) s els
 
 
 -- | Function definition.

@@ -126,15 +126,16 @@ data AngleError = ExecError
     , execErrSourceText :: String
     }
                 | ImplementationError String
-                | ControlException ControlException
+                -- | ControlException ControlException
+    deriving (Eq)
 
 
 implementationErr :: String -> AngleError
 implementationErr = ImplementationError
 
 
-controlException :: ControlException -> AngleError
-controlException = ControlException
+-- controlException :: ControlException -> AngleError
+-- controlException = ControlException
 
 
 instance Show AngleError where
@@ -154,18 +155,18 @@ instance Show AngleError where
                                ++ lns !! lineNo start
                                ++ "\n"
             cEe = show ee
-    show (ControlException _) =
-        error "show: control exception made it to show"
+    -- show (ControlException _) =
+    --     error "show: control exception made it to show"
 
 
 instance KWError AngleError where
     errToKeyword (ImplementationError x) = error $ "(Attempt to handle) Implementation error: " ++ show x
     errToKeyword (ExecError { execErrErr = e }) = errToKeyword e
-    errToKeyword (ControlException{}) = error "Attempt to handle control exception"
+    -- errToKeyword (ControlException{}) = error "Attempt to handle control exception"
 
     genErrKeyword (ImplementationError x) = error $ "(Attempt to handle) Implementation error: " ++ show x
     genErrKeyword (ExecError { execErrErr = e }) = genErrKeyword e
-    genErrKeyword (ControlException{}) = error "Attempt to handle control exception"
+    -- genErrKeyword (ControlException{}) = error "Attempt to handle control exception"
 
 
 -- | Base for errors that occur during execution of code.
@@ -177,6 +178,8 @@ data ExecError = TypeError TypeError
                  | EIOError EIOError
                  | UserError LangIdent
                  | SynError SynError
+                 | ControlException ControlException
+                 deriving (Eq)
 
 
 -- | Expression produced an invalid type.
@@ -219,6 +222,11 @@ synErr :: SynError -> ExecError
 synErr = SynError
 
 
+-- | Control flow
+controlException :: ControlException -> ExecError
+controlException = ControlException
+
+
 instance Show ExecError where
     show (TypeError e)    = "wrong type in expression: " ++ show e
     show (NameError v)    = "name error: " ++ show v
@@ -228,6 +236,7 @@ instance Show ExecError where
     show (UserError (LangIdent x)) = "user error: " ++ x
     show (KeywordError x) = "keyword error: " ++ show x
     show (SynError e) = "syntax error:\n" ++ show e
+    show (ControlException e) = "control: " ++ show e
 
 
 instance KWError ExecError where
@@ -239,6 +248,7 @@ instance KWError ExecError where
     errToKeyword (UserError e) = e
     errToKeyword (KeywordError e) = errToKeyword e
     errToKeyword (SynError e) = errToKeyword e
+    errToKeyword (ControlException e) = errToKeyword e
 
     genErrKeyword (TypeError e) = genErrKeyword e
     genErrKeyword (NameError e) = genErrKeyword e
@@ -248,6 +258,7 @@ instance KWError ExecError where
     genErrKeyword (UserError{}) = LangIdent "user"
     genErrKeyword (KeywordError e) = genErrKeyword e
     genErrKeyword (SynError e) = genErrKeyword e
+    genErrKeyword (ControlException e) = genErrKeyword e
 
 
 -- | Errors involving types.
@@ -259,6 +270,7 @@ data TypeError = TypeMismatch   LangType LangType
                | TypeExpectConstr LangLit LangIdent
                | TypeConstrWrongReturn LangIdent LangType
                | TypeAnnWrong AnnType AnnType
+               deriving (Eq)
 
 
 -- | Wrong type has been passed and required type is known.
@@ -326,6 +338,7 @@ data NameError = NameNotDefined LangIdent
                | NameNotDefinedLit LangIdent
                | NameNotOp LangIdent
                | AssignToBuiltin LangIdent (Maybe String)
+               deriving (Eq)
 
 
 -- | Given identifier has no definition.
@@ -550,6 +563,7 @@ instance KWError EIOError where
 -- | Represents errors that occur during run-time parsing.
 data SynError = SyntaxError ParseError
               | ReadError String
+              deriving (Eq)
 
 
 -- | Error when parsing text intended to be code.
@@ -581,55 +595,78 @@ instance KWError SynError where
 data ControlException = ControlReturn LangLit
                       | ControlBreak (Maybe LangLit)
                       | ControlContinue
-                      deriving (Show, Eq)
+                      deriving (Eq)
 
 
-controlReturn :: LangLit -> AngleError
+controlReturn :: LangLit -> ExecError
 controlReturn = controlException . ControlReturn
 
 
-controlBreak :: Maybe LangLit -> AngleError
+controlBreak :: Maybe LangLit -> ExecError
 controlBreak = controlException . ControlBreak
 
 
-controlContinue :: AngleError
+controlContinue :: ExecError
 controlContinue = controlException ControlContinue
 
 
+instance Show ControlException where
+    show (ControlReturn{}) = "return made it to top level"
+    show (ControlBreak{}) = "break outside of loop"
+    show ControlContinue = "continue outside of loop"
+
+
+instance KWError ControlException where
+    errToKeyword (ControlReturn{}) = LangIdent "return"
+    errToKeyword (ControlBreak{}) = LangIdent "break"
+    errToKeyword ControlContinue = LangIdent "continue"
+
+    genErrKeyword _ = LangIdent "controlException"
+
+
 -- | Used for the 'return' keyword.
-throwReturn :: (CanError m) => LangLit -> m a
-throwReturn = throwAE . controlReturn
+throwReturn :: (CanErrorWithPos m) => LangLit -> m a
+throwReturn = throwExecError . controlReturn -- throwAE . controlReturn
 
 
 -- | Used for the 'break' keyword.
-throwBreak :: (CanError m) => Maybe LangLit -> m a
-throwBreak = throwAE . controlBreak
+throwBreak :: (CanErrorWithPos m) => Maybe LangLit -> m a
+throwBreak = throwExecError . controlBreak -- throwAE . controlBreak
 
 
 -- | Used for the 'continue' keyword.
-throwContinue :: (CanError m) => m a
-throwContinue = throwAE controlContinue
+throwContinue :: (CanErrorWithPos m) => m a
+throwContinue = throwExecError controlContinue -- throwAE controlContinue
 
 
 -- | Catch 'ControlReturn', but allow other errors to propagate.
 catchReturn :: (CanError m) => m a -> (LangLit -> m a) -> m a
 catchReturn ex h = ex `catchAE`
                    (\e -> case e of
-                            ControlException (ControlReturn v) -> h v
+                            ExecError { execErrErr = ControlException (ControlReturn v) } -> h v
                             err -> throwAE err)
+-- catchReturn :: (CanError m) => m a -> (LangLit -> m a) -> m a
+-- catchReturn ex h = ex `catchAE`
+--                    (\e -> case e of
+--                             ControlException (ControlReturn v) -> h v
+--                             err -> throwAE err)
 
 
 -- | Catch 'ControlBreak', but allow other errors to propagate.
 catchBreak :: (CanError m) => m a -> (Maybe LangLit -> m a) -> m a
 catchBreak ex h = ex `catchAE`
                   (\e -> case e of
-                           ControlException (ControlBreak v) -> h v
+                           ExecError { execErrErr = ControlException (ControlBreak v) } -> h v
                            err -> throwAE err)
+                           -- ControlException (ControlBreak v) -> h v
+                           -- err -> throwAE err)
 
 
 -- | Catch 'ControlContinue', but allow other errors to propagate.
 catchContinue :: (CanError m) => m a -> m a -> m a
 catchContinue ex v = ex `catchAE`
                      (\e -> case e of
-                              ControlException ControlContinue -> v
+                              ExecError { execErrErr = ControlException ControlContinue } -> v
                               err -> throwAE err)
+                              -- ControlException ControlContinue -> v
+                              -- err -> throwAE err)
