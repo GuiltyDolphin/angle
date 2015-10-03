@@ -92,7 +92,7 @@ builtinCallSig :: LangIdent -> Lambda
 builtinCallSig name =
     Lambda
     { lambdaArgs = emptyArgs
-                   { catchAllArg = Just (LangIdent "x") }
+                   { catchAllArg = Just (CatchArg (LangIdent "x") Nothing) }
     , lambdaBody = body
     }
     where body = SingleStmt
@@ -161,7 +161,7 @@ builtinHandles = [ ("stdin", LitHandle stdin)
 
 
 builtinVariables :: [(String, LangLit)]
-builtinVariables = [ ("am_class", LitBool False) ]
+builtinVariables = [ ("as_class", LitBool False) ]
 
 
 -- | True if the identifier represents a builtin function.

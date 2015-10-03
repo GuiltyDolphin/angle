@@ -19,7 +19,7 @@ module Angle.Exec.Exec
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State
-import Data.Maybe (isNothing)
+import Data.Maybe (isNothing, isJust)
 
 import Angle.Parse.Parser (program, evalParse)
 import Angle.Exec.Builtins
@@ -142,8 +142,17 @@ bindArgs args (ArgSig
                  Just cp -> do
                    let toCatch = drop lp args
                    res <- mapM execExpr toCatch
-                   return [(cp, LitList res)]
+                   return [(catchArgName cp, LitList res)]
   vals <- mapM (uncurry checkArg) toCheck
+  case catchParam of
+      Nothing -> return ()
+      Just catcher ->
+          case catchArgConstr catcher of
+               Nothing -> return ()
+               Just (ConstrRef cstr) ->
+                   case catchBind of
+                        [] -> return ()
+                        [(_, r)] -> checkSatConstr r (Just cstr)
   let toBindFuns = map fst $ filter (isAnnFun . snd)  vals
       toBindLits = map fst $ filter (isAnnLit . snd) vals
       toBindAny = map fst (filter (isAnnAny . snd) vals) ++ catchBind
@@ -191,7 +200,9 @@ execConstr val clsName = do
 withClass :: ExecIO a -> ExecIO a
 withClass s = do
   assignVarBuiltinLit (LangIdent "as_class") (LitBool True)
-  s `catchAE` (\e -> setClassFalse >> throwAE e)
+  res <- s `catchAE` (\e -> setClassFalse >> throwAE e)
+  setClassFalse
+  return res
   where
     setClassFalse = assignVarBuiltinLit (LangIdent "as_class") (LitBool False)
 

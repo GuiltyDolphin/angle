@@ -143,6 +143,10 @@ instance Arbitrary ArgElt where
     shrink (ArgElt x y z) = shrink3 ArgElt x y z
 
 
+instance Arbitrary CatchArg where
+    arbitrary = liftArby2 CatchArg
+
+
 shrink1 :: Arbitrary a => (a -> b) -> a -> [b]
 shrink1 f x = map f (shrink x)
 

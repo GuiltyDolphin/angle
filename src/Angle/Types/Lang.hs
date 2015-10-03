@@ -93,6 +93,7 @@ module Angle.Types.Lang
     , typeOf
 
     , ArgSig(..)
+    , CatchArg(..)
     , ShowSyn(..)
     , SourceRef(..)
     , startRef
@@ -255,8 +256,21 @@ instance ShowSyn Lambda where
 
 -- | An argument signature.
 data ArgSig = ArgSig { stdArgs :: [ArgElt] -- ^ Standard positional arguments.
-                     , catchAllArg :: Maybe LangIdent -- ^ Argument that catches any remaining arguments after the positional arguments have been filled.
+                     , catchAllArg :: Maybe CatchArg -- ^ Argument that catches any remaining arguments after the positional arguments have been filled.
                      } deriving (Show, Eq)
+
+
+data CatchArg = CatchArg
+    { catchArgName :: LangIdent
+    , catchArgConstr :: Maybe ConstrRef
+    } deriving (Show, Eq)
+
+
+instance ShowSyn CatchArg where
+    showSyn (CatchArg { catchArgName = n, catchArgConstr = c })
+        = showSyn n ++ case c of
+                            Just constr  -> ':' : showSyn constr
+                            Nothing -> ""
 
 
 -- | A single element of a parameter list, allows enforcing of
