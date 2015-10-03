@@ -84,7 +84,7 @@ singleStmt = do
 
 -- | Statement consisting of zero or more statements.
 multiStmt :: Parser Stmt
-multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
+multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many (tryParse stmt))
 
 
 -- | Singular statement.
