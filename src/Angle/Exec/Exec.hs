@@ -294,6 +294,7 @@ execMultiOp OpAnd xs       = withMultiOp xs andLit
 execMultiOp OpConcat xs    = withMultiOp xs concatLit
 execMultiOp OpDiv xs       = withMultiOp xs divLit
 execMultiOp OpEq  xs       = withMultiOp xs eqLit
+execMultiOp OpExp xs       = withMultiOp xs expLit
 execMultiOp OpGreater xs   = withMultiOp xs greaterLit
 execMultiOp OpGreaterEq xs = withMultiOp xs greaterEqLit
 execMultiOp OpLess xs      = withMultiOp xs lessLit

@@ -526,6 +526,7 @@ data Op = OpAdd
         | OpGreaterEq
         | OpLess
         | OpLessEq
+        | OpExp
         | OpMult
         | OpNeg
         | OpNot -- ^ Logical NOT.
@@ -550,6 +551,7 @@ instance ShowSyn Op where
     showSyn OpNot = "^"
     showSyn OpOr = "|"
     showSyn OpSub = "-"
+    showSyn OpExp = "**"
     showSyn (UserOp x) = showSyn x
 
 

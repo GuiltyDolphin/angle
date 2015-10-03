@@ -477,7 +477,7 @@ makeOp sc op = sc >> return op
 
 opAdd, opAnd, opConcat, opDiv, opEq,
   opGreater, opGreaterEq, opLess, opLessEq,
-  opMult, opNeg, opNot, opOr, opSub
+  opMult, opNeg, opNot, opOr, opSub, opExp
   :: Parser Op
 opAdd  = makeOp (char '+')    OpAdd
 opAnd  = makeOp (char '&')    OpAnd
@@ -493,6 +493,7 @@ opNeg  = makeOp (char '-')    OpNeg
 opNot  = makeOp (char '^')    OpNot
 opOr   = makeOp (char '|')    OpOr
 opSub  = makeOp (char '-')    OpSub
+opExp  = makeOp (string "**") OpExp
 
 
 userOp :: Parser Op
@@ -526,6 +527,7 @@ multiOp = parens (choice (map (tryParse . multOp) multiOps)
 -- | List of all the MultiOp parsers.
 multiOps :: [Parser Op]
 multiOps = [ opAdd, opAnd, opConcat
+           , opExp
            , opDiv, opEq
            , opGreater, opGreaterEq
            , opLess, opLessEq

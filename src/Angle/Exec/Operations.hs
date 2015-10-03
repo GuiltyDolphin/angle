@@ -17,6 +17,7 @@ module Angle.Exec.Operations
     , concatLit
     , divLit
     , eqLit
+    , expLit
     , greaterEqLit
     , greaterLit
     , lessEqLit
@@ -91,6 +92,16 @@ eqLit :: MultiOperator
 eqLit [] = return $ LitBool True
 eqLit [LitList xs] = eqLit xs
 eqLit (x:xs) = return . LitBool . all (==x) $ xs
+
+
+-- | Exponentation operator
+--
+-- On numerics: raises the first item to the power produced
+-- by raising each successive element to the next power.
+expLit :: MultiOperator
+expLit = onlyNumOp expLitNum
+  where
+    expLitNum = onNum (^) (**)
 
 
 -- | Greater than or equal to operator.
