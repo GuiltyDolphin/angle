@@ -181,11 +181,19 @@ checkSatConstr v (Just clsName) = do
 execConstr :: LangLit -> LangIdent -> ExecIO LangLit
 execConstr val clsName = do
   cls <- lookupVarLambdaF clsName
-  res <- callLambda cls [ExprLit val]
+  res <- withClass $ callLambda cls [ExprLit val]
   case res of
     x@(LitBool _) -> return x
     y             -> throwExecError
                      $ typeConstrWrongReturnErr clsName (typeOf y)
+
+
+withClass :: ExecIO a -> ExecIO a
+withClass s = do
+  assignVarBuiltinLit (LangIdent "as_class") (LitBool True)
+  s `catchAE` (\e -> setClassFalse >> throwAE e)
+  where
+    setClassFalse = assignVarBuiltinLit (LangIdent "as_class") (LitBool False)
 
 
 -- | True if the literal is of the specified annotation type.
@@ -484,6 +492,27 @@ builtinInclude xs = mapM_ includeFile xs >> return LitNull
     includeFile h@(LitHandle _) = builtinRead [h] >>= builtinEval . (:[])
     includeFile f@(LitStr _) = builtinRead [f] >>= builtinEval . (:[])
     includeFile x = throwExecError $ typeNotValidErr x
+
+
+assignVarBuiltinLit :: LangIdent -> LangLit -> ExecIO LangLit
+assignVarBuiltinLit n v = assignVarBuiltin valueBindings
+    setVarLitInScope n v >> returnVal v
+
+
+assignVarBuiltinLambda :: LangIdent -> Lambda -> ExecIO ()
+assignVarBuiltinLambda =
+  assignVarBuiltin lambdaBindings setVarFunInScope
+
+
+assignVarBuiltin
+  :: (Scope -> BindEnv a)
+     -> (LangIdent -> VarVal b -> Scope -> Scope)
+     -> LangIdent
+     -> b -- ^ Value to assign.
+     -> ExecIO ()
+assignVarBuiltin binds setf name val = do
+    current <- lookupVarCurrentScope binds name
+    modifyScope $ setf name emptyVar { varDef=Just val, varBuiltin=True }
 
 
 validRangeLit :: LangLit -> Bool

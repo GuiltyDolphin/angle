@@ -160,6 +160,10 @@ builtinHandles = [ ("stdin", LitHandle stdin)
                  ]
 
 
+builtinVariables :: [(String, LangLit)]
+builtinVariables = [ ("am_class", LitBool False) ]
+
+
 -- | True if the identifier represents a builtin function.
 isBuiltin :: LangIdent -> Bool
 isBuiltin = (`elem`builtins) . getIdent
@@ -179,7 +183,7 @@ builtins = [ "print", "str"
 
 -- | List of builtin variables and their values.
 builtinValues :: [(String, LangLit)]
-builtinValues = builtinHandles
+builtinValues = builtinHandles ++ builtinVariables
 
 
 -- | Builtin @print@ function.
