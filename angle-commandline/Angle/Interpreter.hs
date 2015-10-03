@@ -61,12 +61,12 @@ runLex :: Maybe FilePath -> String -> Bool -> IO ()
 runLex fp source abort =
     case evalParse source program of
         Left err -> handleSyntax fp err abort
-        Right toExec -> executeProg fp toExec abort
+        Right toExec -> executeProg fp source toExec abort
 
 
-executeProg :: Maybe FilePath -> Stmt -> Bool -> IO ()
-executeProg fp toExec abort = do
-    res <- runExecIOEnv initialEnvMain (execStmt toExec)
+executeProg :: Maybe FilePath -> String -> Stmt -> Bool -> IO ()
+executeProg fp source toExec abort = do
+    res <- runExecIOEnv initialEnvMain { sourceText = source } (execStmt toExec)
     case res of
         Left err -> handleRuntime fp err abort
         Right _ -> return ()

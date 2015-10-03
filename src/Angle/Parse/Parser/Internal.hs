@@ -72,6 +72,7 @@ stmt = (multiStmt <|> singleStmt) <?> "statement"
 
 singleStmt :: Parser Stmt
 singleStmt = do
+  many $ surrounded whitespace stmtComment
   initPos <- liftM sourcePos get
   res <- singStmt
   endPos <- liftM sourcePos get
@@ -106,8 +107,7 @@ multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many stmt)
 --
 -- Or a structure may be used, see 'langStruct'.
 singStmt :: Parser SingStmt
-singStmt = many (surrounded whitespace stmtComment) >>
-           stmtStruct
+singStmt = stmtStruct
            <|> stmtReturn <* singStmtEnd
            <|> stmtRaise <* singStmtEnd
            <|> stmtBreak <* singStmtEnd

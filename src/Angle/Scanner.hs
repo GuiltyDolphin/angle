@@ -67,7 +67,7 @@ instance Show SourcePos where
     show sp =
         let ln = lineNo sp
             cn = colNo sp
-        in concat ["line: ", show ln, ", column: ", show cn]
+        in concat ["line: ", show (ln+1), ", column: ", show (cn+1)]
 
 
 -- | Start position in a file.
