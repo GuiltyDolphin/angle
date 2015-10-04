@@ -2,7 +2,7 @@
 --  see http://haskell.org/cabal/users-guide/
 
 name:                angle
-version:             0.4.0.0
+version:             0.5.0.0
 synopsis:            A small, general-purpose programming language.
 license:             GPL-3
 license-file:        LICENSE
@@ -27,11 +27,11 @@ library
                      , Angle.Parse.Parser.Internal
                      , Angle.Parse.Helpers
                      , Angle.Types.Lang
+                     , Angle.Types.Scope
                      , Angle.Exec.Exec
                      , Angle.Exec.Error
                      , Angle.Parse.Token
                      , Angle.Scanner
-                     , Angle.Exec.Scope
                      , Angle.Exec.Operations
                      , Angle.Exec.Builtins
                      , Angle.Exec.Types
@@ -74,7 +74,7 @@ test-suite properties
   other-modules:       Test.Angle.Parse.Parser
                      , Test.Angle.Parse.Token
                      , TestHelper
-                     , Test.Angle.Exec.Scope
+                     , Test.Angle.Types.Scope
                      , Test.Angle.Exec.Operations
                      , Test.Angle.Exec.Exec
                      , Test.Angle.Exec.Types
