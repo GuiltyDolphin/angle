@@ -190,13 +190,15 @@ checkSatConstr v (Just clsName) = do
 execConstr :: LangLit -> LangIdent -> ExecIO LangLit
 execConstr val clsName = do
   cls <- lookupVarLambdaF clsName
-  res <- withClass $ callLambda cls [ExprLit val]
+  res <- callLambda cls True [ExprLit val]
   case res of
     x@(LitBool _) -> return x
     y             -> throwExecError
                      $ typeConstrWrongReturnErr clsName (typeOf y)
 
 
+-- | Sets the 'as_class' variable to true if the function is
+-- being called as a class, and cleans up afterwords.
 withClass :: ExecIO a -> ExecIO a
 withClass s = do
   assignVarBuiltinLit (LangIdent "as_class") (LitBool True)
@@ -250,10 +252,9 @@ execExpr (ExprLit x) = returnVal x
 execExpr (ExprIdent x) = lookupVarLitF x
 execExpr (ExprFunIdent x) = liftM LitLambda $ lookupVarLambdaF x
 execExpr (ExprOp x) = execOp x
-execExpr (ExprFunCall name True args) = withClass (execFunCall name args)
-execExpr (ExprFunCall name False args) = execFunCall name args
+execExpr (ExprFunCall name asClass args) = execFunCall name asClass args
 execExpr (ExprList xs) = liftM LitList $ mapM execExpr xs
-execExpr (ExprLambdaCall f xs) = callLambda f xs
+execExpr (ExprLambdaCall f xs) = callLambda f False xs
 execExpr x@(ExprRange{}) = do
   r <- execExprRange x
   checkLitRange r
@@ -273,7 +274,7 @@ execExprRange (ExprRange x (Just y) (Just z))
 execExprRange _ = error "excExprRange: passed non-range expression"
 
 
-execFunCall :: LangIdent -> [Expr] -> ExecIO LangLit
+execFunCall :: LangIdent -> Bool -> [Expr] -> ExecIO LangLit
 execFunCall = callFun
 
 
@@ -310,22 +311,23 @@ withMultiOp :: [Expr] -> ([LangLit] -> ExecIO LangLit) -> ExecIO LangLit
 withMultiOp xs f = mapM execExpr xs >>= f
 
 
-callFun :: LangIdent -> [Expr] -> ExecIO LangLit
-callFun x args | isBuiltin x = callBuiltin x args
-               | otherwise = do
-  l <- lookupVarLambdaF x
-  callLambda l args
+callFun :: LangIdent -> Bool -> [Expr] -> ExecIO LangLit
+callFun x asClass args | isBuiltin x = callBuiltin x args
+                       | otherwise = do
+                           l <- lookupVarLambdaF x
+                           callLambda l asClass args
 
 
-callLambda :: Lambda -> [Expr] -> ExecIO LangLit
+callLambda :: Lambda -> Bool -> [Expr] -> ExecIO LangLit
 callLambda (Lambda
             { lambdaArgs=params
-            , lambdaBody=body}) args
+            , lambdaBody=body}) asClass args
     = do
   fullArgs <- expandParams args
   -- bindArgs args params
   bindArgs fullArgs params
-  res <- execStmt body `catchReturn` return
+  let f = if asClass then withClass else id
+  res <- f (execStmt body `catchReturn` return)
   upScope
   return res
 
