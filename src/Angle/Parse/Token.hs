@@ -137,8 +137,10 @@ tokList = within (char '[') (char ']')
 
 
 -- | Function/variable identifier (but not a keyword).
-ident :: Parser String
-ident = noneFrom (\x -> string x <* specEnd) keywords *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar)
+ident ::
+    Bool -- ^Are keywords allowed?
+    -> Parser String
+ident b = unless b (noneFrom (\x -> string x <* specEnd) keywords) *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar)
     where specEnd = notParse tokIdentBodyChar
           tokIdentStartChar = cond (\x -> isAlpha x || x == '_')
           tokIdentBodyChar  = cond (\x -> isAlphaNum x || x == '_')

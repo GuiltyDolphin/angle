@@ -446,7 +446,7 @@ execStructTryCatch b catchers = execStmt b `catchAE` genHandle
     genHandle e = do
       env <- get
       put env { currentException = Just e }
-      res <- checkCatch e catchers
+      res <- checkCatch e catchers `catchBreak` breakTry
       put env { currentException = Nothing }
       return res
     checkCatch e [] = throwError e
@@ -455,6 +455,9 @@ execStructTryCatch b catchers = execStmt b `catchAE` genHandle
                                       else checkCatch e es
       where catches = errToKeyword e `elem` toCatch || genErrKeyword e `elem` toCatch
                     || LangIdent "error" `elem` toCatch
+    breakTry (Just (LitKeyword (LangIdent "try")))
+        = execStructTryCatch b catchers
+    breakTry e = throwBreak e
 
 
 

@@ -304,7 +304,7 @@ litList = liftM LitList (tokList $ sepWith tokEltSep langLit)
 
 
 litKeyword :: Parser LangLit
-litKeyword = liftM LitKeyword (char ':' >> identName)
+litKeyword = liftM LitKeyword (char ':' >> identKeyword)
 
 
 litLambda :: Parser LangLit
@@ -406,7 +406,11 @@ exprIdent = liftM ExprIdent langIdent <?> "identifier"
 
 
 identName :: Parser LangIdent
-identName = liftM LangIdent (tryParse ident) <?> "identifier"
+identName = liftM LangIdent (tryParse $ ident False) <?> "identifier"
+
+
+identKeyword :: Parser LangIdent
+identKeyword = liftM LangIdent (tryParse $ ident True)
 
 
 langIdent :: Parser LangIdent
