@@ -144,8 +144,9 @@ instance Show AngleError where
                       , execErrSourceRef=SourceRef (start,_)
                       , execErrSourceText=es
                       })
-        = cEp ++ cEt ++ cEe
+        = cEk ++ cEp ++ cEt ++ cEe
           where
+            cEk = concat ["(:", showSyn $ errToKeyword ee, ")\n"]
             cEp = show start ++ "\n"
             cEt = let lns = lines es in
                       if null lns
