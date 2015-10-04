@@ -102,6 +102,7 @@ module Angle.Types.Lang
     , typeAnnOf
     , ArgElt(..)
     , Lambda(..)
+    , Scope
     , enumType
     , allType
     ) where
@@ -110,6 +111,10 @@ import Numeric (showFFloat)
 import System.IO (Handle)
 
 import Angle.Scanner (SourcePos, beginningOfFile)
+import Angle.Types.Scope (GenScope)
+
+
+type Scope = GenScope LangIdent LangLit Lambda
 
 
 -- | Wraps statements to allow for positional tracking as well
@@ -245,13 +250,14 @@ showSynOpList = showSynSep " " ")" " "
 -- The body is the code that is executed upon successful invokation.
 data Lambda = Lambda { lambdaArgs :: ArgSig
                      , lambdaBody :: Stmt
+                     , lambdaScope :: Maybe Scope
                      } deriving (Show, Eq)
 
 
 instance ShowSyn Lambda where
-    showSyn (Lambda args body@(SingleStmt _ _))
+    showSyn (Lambda args body@(SingleStmt _ _) _)
          = concat ["(", showSyn args, " ", init $ showSyn body, ")"]
-    showSyn (Lambda args body) = concat ["(", showSyn args, " ", showSyn body, ")"]
+    showSyn (Lambda args body _) = concat ["(", showSyn args, " ", showSyn body, ")"]
 
 
 -- | An argument signature.
@@ -477,7 +483,7 @@ instance ShowSyn Expr where
     showSyn (ExprList _) = error "showSyn - cannot show unevaluated list"
     showSyn (ExprRange{}) = error "showSyn - cannot show unevaluated range"
     showSyn (ExprLambdaCall x xs) = showSyn (LitLambda x) ++ " : (" ++ showSynArgs xs ++ ")"
-    showSyn (ExprParamExpand _) = error "showSyn - ExprParamExpand made it to showSyn"
+    showSyn (ExprParamExpand x) = ".." ++ showSyn x -- error "showSyn - ExprParamExpand made it to showSyn"
 
 
 -- | Represents names that can be assigned values.

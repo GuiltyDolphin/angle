@@ -25,9 +25,9 @@ import Angle.Parse.Parser (program, evalParse)
 import Angle.Exec.Builtins
 import Angle.Exec.Error
 import Angle.Exec.Operations
-import Angle.Exec.Scope
 import Angle.Exec.Types
 import Angle.Types.Lang
+import Angle.Types.Scope
 
 
 updatePos :: SourceRef -> ExecIO ()
@@ -49,7 +49,7 @@ newScope = do
   put env { currentScope = newScope' }
 
 
-lookupVar :: (Scope -> BindEnv a) -> LangIdent -> ExecIO (Maybe a)
+lookupVar :: (Scope -> BindEnv LangIdent a) -> LangIdent -> ExecIO (Maybe a)
 lookupVar binds name = do
   currScope <- getScope
   case resolve binds name currScope of
@@ -57,7 +57,7 @@ lookupVar binds name = do
     Just x  -> return $ varDef x
 
 
-lookupVarF :: (Scope -> BindEnv a) -> (LangIdent -> ExecError) -> LangIdent -> ExecIO a
+lookupVarF :: (Scope -> BindEnv LangIdent a) -> (LangIdent -> ExecError) -> LangIdent -> ExecIO a
 lookupVarF binds err name = lookupVar binds name
                         >>= maybe (throwExecError $ err name)
                             return
@@ -85,7 +85,7 @@ modifyScope f = do
   put env {currentScope=newScope'}
 
 
-lookupVarCurrentScope :: (Scope -> BindEnv a) -> LangIdent -> ExecIO (Maybe (VarVal a))
+lookupVarCurrentScope :: (Scope -> BindEnv LangIdent a) -> LangIdent -> ExecIO (Maybe (VarVal a))
 lookupVarCurrentScope binds name = do
   currScope <- liftM currentScope get
   if isDefinedIn binds name currScope
@@ -104,7 +104,7 @@ assignVarLit n v = assignVar valueBindings handleBuiltinAssignLit
 
 
 assignVar
-  :: (Scope -> BindEnv a)
+  :: (Scope -> BindEnv LangIdent a)
      -> (LangIdent -> b -> ExecIO b) -- ^ Builtin handler function.
      -> (LangIdent -> VarVal b -> Scope -> Scope)
      -> LangIdent
@@ -321,6 +321,14 @@ callFun x asClass args | isBuiltin x = callBuiltin x args
 
 
 callLambda :: Lambda -> Bool -> [Expr] -> ExecIO LangLit
+callLambda l@(Lambda { lambdaScope = (Just s) }) asClass args
+    = do
+    cScope <- getScope
+    modifyScope (const s)
+    res <- callLambda l { lambdaScope = Nothing } asClass args
+        `catchAE` (\e -> modifyScope (const cScope) >> throwError e)
+    modifyScope (const cScope)
+    return res
 callLambda (Lambda
             { lambdaArgs=params
             , lambdaBody=body}) asClass args
@@ -355,7 +363,13 @@ execSingStmt (StmtReturn x) = do
   isGlob <- liftM (isOutermostScope . currentScope) get
   if isGlob
       then throwExecError returnFromGlobalErr
-      else execExpr x >>= throwReturn
+      else do
+          res <- execExpr x
+          case res of
+              LitLambda lam -> do
+                  sc <- getScope
+                  throwReturn $ LitLambda lam { lambdaScope = Just sc }
+              y -> throwReturn y
 execSingStmt (StmtBreak x False)
     = case x of
         Nothing -> throwBreak Nothing
@@ -525,7 +539,7 @@ assignVarBuiltinLambda =
 
 
 assignVarBuiltin
-  :: (Scope -> BindEnv a)
+  :: (Scope -> BindEnv LangIdent a)
      -> (LangIdent -> VarVal b -> Scope -> Scope)
      -> LangIdent
      -> b -- ^ Value to assign.

@@ -79,9 +79,9 @@ import System.IO.Error ( tryIOError
 import System.Process (readProcess)
 
 import Angle.Exec.Error
-import Angle.Exec.Scope
 import Angle.Exec.Types
 import Angle.Types.Lang
+import Angle.Types.Scope
 
 
 emptyArgs :: ArgSig
@@ -108,7 +108,7 @@ builtinVar name = (name, VarVal
                            , varBuiltin = True })
 
 
-builtinsVars :: BindEnv Lambda
+builtinsVars :: BindEnv LangIdent Lambda
 builtinsVars = bindEnvFromList $
                map (builtinVar . LangIdent) builtins
 
@@ -119,7 +119,7 @@ builtinValue name val = (name, VarVal
                                  , varBuiltin = True })
 
 
-builtinsValues :: BindEnv LangLit
+builtinsValues :: BindEnv LangIdent LangLit
 builtinsValues = bindEnvFromList $
                  map (\(x,y) -> builtinValue (LangIdent x) y) builtinValues
 

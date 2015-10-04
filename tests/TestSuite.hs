@@ -7,7 +7,7 @@ import qualified Test.Angle.Parse.Helpers as Helpers
 import qualified Test.Angle.Parse.Parser as Parser
 import qualified Test.Angle.Parse.Token as Token
 import qualified Test.Angle.Exec.Operations as Operations
-import qualified Test.Angle.Exec.Scope as Scope
+import qualified Test.Angle.Types.Scope as Scope
 import qualified Test.Angle.Exec.Exec as Exec
 import qualified Test.Angle.Exec.Types as ExecTypes
 

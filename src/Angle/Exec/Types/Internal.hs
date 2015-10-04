@@ -37,8 +37,8 @@ import Control.Monad.Trans.Except
 import Control.Monad.State
 
 import Angle.Exec.Error
-import Angle.Exec.Scope
 import Angle.Types.Lang
+import Angle.Types.Scope
 
 
 -- | Angle program execution monad.

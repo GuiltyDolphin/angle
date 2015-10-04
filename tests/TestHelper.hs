@@ -34,10 +34,10 @@ import Test.Tasty.QuickCheck
 
 import Angle.Parse.Helpers (evalParse, Parser)
 import Angle.Parse.Token (keywords)
-import Angle.Exec.Scope
 import Angle.Exec.Types.Internal
 import Angle.Scanner (SourcePos(..))
 import Angle.Types.Lang
+import Angle.Types.Scope
 import Angle.Parse.Parser (program)
 import Angle.Exec.Exec (execStmt)
 
@@ -106,8 +106,8 @@ instance Arbitrary Lambda where
     arbitrary = do
       args <- arbitrary
       body <- arbitrary
-      return Lambda { lambdaArgs=args, lambdaBody=body}
-    shrink (Lambda x y) = shrink2 Lambda x y
+      return Lambda { lambdaArgs=args, lambdaBody=body, lambdaScope = Nothing}
+    shrink (Lambda x y z) = shrink3 Lambda x y z
 
 
 instance Arbitrary Expr where
@@ -303,7 +303,7 @@ instance (Arbitrary a) => Arbitrary (TinyList a) where
     shrink (TinyList xs) = shrink1 TinyList xs
 
 
-instance (Arbitrary a) => Arbitrary (BindEnv a) where
+instance (Arbitrary a) => Arbitrary (BindEnv LangIdent a) where
     arbitrary = liftArby bindEnvFromList
     shrink (BindEnv x) = shrink1 bindEnvFromList (M.toList x)
 

@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Test.Angle.Exec.Scope
+module Test.Angle.Types.Scope
     ( tests
     ) where
 

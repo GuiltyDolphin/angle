@@ -187,14 +187,23 @@ testClassAdd x y = checkFail toRun
   where toRun = setupAddF ++ callShowSyn "addInts" [x, y]
 
 
-testReturnSimple :: LangLit -> Property
-testReturnSimple x = checkResEq toRun x
+testReturnSimple :: NonLambda -> Property
+testReturnSimple (NonLambda x) = checkResEq toRun x
   where toRun = setupReturnSimple ++ callShowSyn "returnSimple" [x]
         setupReturnSimple = defun "returnSimple" "x" "return x;"
 
 
-testReturnIfEmbedded :: Bool -> LangLit -> LangLit -> Property
-testReturnIfEmbedded p x y | p = checkResEq toRun x
+newtype NonLambda = NonLambda { getNonLambda :: LangLit }
+    deriving (Show)
+
+instance Arbitrary NonLambda where
+    arbitrary = liftM NonLambda $ arbitrary `suchThat`
+        (\x -> case x of
+                  LitLambda{} -> False
+                  _ -> True)
+
+testReturnIfEmbedded :: Bool -> NonLambda -> NonLambda -> Property
+testReturnIfEmbedded p (NonLambda x) (NonLambda y) | p = checkResEq toRun x
                            | otherwise = checkResEq toRun y
   where toRun = setupReturnIfEmbedded ++ callShowSyn "returnIfEmbedded" [LitBool p, x, y]
         setupReturnIfEmbedded = defun "returnIfEmbedded" "p, x, y" "if p then return x; else return y;"

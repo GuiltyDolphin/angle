@@ -238,7 +238,7 @@ structDefun = StructDefun
               <$> (string "defun " *> identName)
               <*> (Lambda
                    <$> callList <* tokStmtBetween
-                   <*> stmt)
+                   <*> stmt <*> return Nothing)
 
 
 -- | Exception handling.
@@ -436,7 +436,7 @@ lambda :: Parser Lambda
 lambda = parens $ do
     args <- callList <* tokNSpaced
     body <- stmt
-    return $ Lambda args body
+    return $ Lambda args body Nothing
 
 
 -- | Set of arguments for a function
