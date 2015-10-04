@@ -2,7 +2,6 @@ module Test.Angle.Parse.Token
     ( tests
     ) where
 
-import Control.Monad (liftM)
 import Numeric (showFFloat)
 
 import Angle.Parse.Token

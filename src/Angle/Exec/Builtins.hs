@@ -94,6 +94,7 @@ builtinCallSig name =
     { lambdaArgs = emptyArgs
                    { catchAllArg = Just (CatchArg (LangIdent "x") Nothing) }
     , lambdaBody = body
+    , lambdaScope = Nothing
     }
     where body = SingleStmt
                  ( StmtExpr

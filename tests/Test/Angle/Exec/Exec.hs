@@ -4,8 +4,6 @@ module Test.Angle.Exec.Exec
 
 import TestHelper
 
-import Angle.Types.Lang
-
 
 --filterFun = evalParse
 --  [ "defun filter($f, xs) {"
@@ -193,7 +191,7 @@ testReturnSimple (NonLambda x) = checkResEq toRun x
         setupReturnSimple = defun "returnSimple" "x" "return x;"
 
 
-newtype NonLambda = NonLambda { getNonLambda :: LangLit }
+newtype NonLambda = NonLambda LangLit
     deriving (Show)
 
 instance Arbitrary NonLambda where

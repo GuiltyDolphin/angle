@@ -100,6 +100,7 @@ instance Arbitrary LangStruct where
     shrink (StructWhile x y) = shrink2 StructWhile x y
     shrink (StructIf x y z) = shrink3 StructIf x y z
     shrink (StructDefun x y) = shrink2 StructDefun x y
+    shrink (StructTryCatch x y) = shrink2 StructTryCatch x y
 
 
 instance Arbitrary Lambda where

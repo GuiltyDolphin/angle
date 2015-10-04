@@ -19,7 +19,7 @@ module Angle.Exec.Exec
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State
-import Data.Maybe (isNothing, isJust, fromMaybe)
+import Data.Maybe (isNothing, fromMaybe)
 
 import Angle.Parse.Parser (program, evalParse)
 import Angle.Exec.Builtins
@@ -154,6 +154,7 @@ bindArgs args (ArgSig
                    case catchBind of
                         [] -> return ()
                         [(_, r)] -> checkSatConstr r (Just cstr) (fromMaybe [] constrArgs)
+                        _ -> undefined
   let toBindFuns = map fst $ filter (isAnnFun . snd)  vals
       toBindLits = map fst $ filter (isAnnLit . snd) vals
       toBindAny = map fst (filter (isAnnAny . snd) vals) ++ catchBind
@@ -529,24 +530,17 @@ builtinInclude xs = mapM_ includeFile xs >> return LitNull
 
 
 assignVarBuiltinLit :: LangIdent -> LangLit -> ExecIO LangLit
-assignVarBuiltinLit n v = assignVarBuiltin valueBindings
-    setVarLitInScope n v >> returnVal v
+assignVarBuiltinLit n v = assignVarBuiltin setVarLitInScope n v
+    >> returnVal v
 
 
-assignVarBuiltinLambda :: LangIdent -> Lambda -> ExecIO ()
-assignVarBuiltinLambda =
-  assignVarBuiltin lambdaBindings setVarFunInScope
-
-
-assignVarBuiltin
-  :: (Scope -> BindEnv LangIdent a)
-     -> (LangIdent -> VarVal b -> Scope -> Scope)
+assignVarBuiltin ::
+     (LangIdent -> VarVal b -> Scope -> Scope)
      -> LangIdent
      -> b -- ^ Value to assign.
      -> ExecIO ()
-assignVarBuiltin binds setf name val = do
-    current <- lookupVarCurrentScope binds name
-    modifyScope $ setf name emptyVar { varDef=Just val, varBuiltin=True }
+assignVarBuiltin setf name val
+    = modifyScope $ setf name emptyVar { varDef=Just val, varBuiltin=True }
 
 
 validRangeLit :: LangLit -> Bool
