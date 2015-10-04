@@ -131,7 +131,10 @@ tokFloat = do
 
 -- | Matches within square brackets.
 tokList :: Parser a -> Parser a
-tokList = within (char '[') (char ']')
+tokList = within tokStartList tokEndList
+  where
+    tokStartList = char '[' <* whitespace
+    tokEndList = whitespace *> char ']'
 
 
 -- | Function/variable identifier (but not a keyword).
@@ -178,8 +181,8 @@ parens :: Parser a -> Parser a
 parens sc = within tokParenL tokParenR sc
             <?> "parentheses"
   where
-    tokParenL = char '('
-    tokParenR = char ')'
+    tokParenL = char '(' <* whitespace
+    tokParenR = whitespace *> char ')'
 
 
 stringNorm :: Parser String
