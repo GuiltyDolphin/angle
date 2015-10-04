@@ -68,7 +68,8 @@ getScope = liftM currentScope get
 
 
 lookupVarLitF :: LangIdent -> ExecIO LangLit
-lookupVarLitF = (returnVal =<<) . lookupVarF valueBindings nameNotDefinedLitErr
+lookupVarLitF (LangIdent "_it") = getEnvValue
+lookupVarLitF n = (returnVal =<<) . lookupVarF valueBindings nameNotDefinedLitErr $ n
 
 
 lookupVarLambdaF :: LangIdent -> ExecIO Lambda
@@ -426,7 +427,7 @@ execStructFor name e s = do
   newS <- liftM currentScope get
   let newS' = deleteLitFromScope name newS
   modifyScope (const $ mergeScope newS' outScope)
-  return (LitList res)
+  returnVal (LitList res)
 
 
 execStructWhile :: Expr -> Stmt -> ExecIO LangLit
