@@ -174,7 +174,7 @@ instance KWError AngleError where
 data ExecError = TypeError TypeError
                  | NameError NameError
                  | CallError CallError
-                 | LitError LitError
+                 | ValueError ValueError
                  | KeywordError KeywordError
                  | EIOError EIOError
                  | UserError LangIdent
@@ -199,8 +199,8 @@ callErr    = CallError
 
 
 -- | Invalid literal.
-litErr :: LitError -> ExecError
-litErr     = LitError
+valueErr :: ValueError -> ExecError
+valueErr     = ValueError
 
 
 -- | Misused keyword.
@@ -232,7 +232,7 @@ instance Show ExecError where
     show (TypeError e)    = "wrong type in expression: " ++ show e
     show (NameError v)    = "name error: " ++ show v
     show (CallError x)    = "call error: " ++ show x
-    show (LitError x) = "literal error: " ++ show x
+    show (ValueError x) = "value error: " ++ show x
     show (EIOError e) = "io error: " ++ show e
     show (UserError (LangIdent x)) = "user error: " ++ x
     show (KeywordError x) = "keyword error: " ++ show x
@@ -244,7 +244,7 @@ instance KWError ExecError where
     errToKeyword (TypeError e) = errToKeyword e
     errToKeyword (NameError e) = errToKeyword e
     errToKeyword (CallError e) = errToKeyword e
-    errToKeyword (LitError e) = errToKeyword e
+    errToKeyword (ValueError e) = errToKeyword e
     errToKeyword (EIOError e) = errToKeyword e
     errToKeyword (UserError e) = e
     errToKeyword (KeywordError e) = errToKeyword e
@@ -254,7 +254,7 @@ instance KWError ExecError where
     genErrKeyword (TypeError e) = genErrKeyword e
     genErrKeyword (NameError e) = genErrKeyword e
     genErrKeyword (CallError e) = genErrKeyword e
-    genErrKeyword (LitError e) = genErrKeyword e
+    genErrKeyword (ValueError e) = genErrKeyword e
     genErrKeyword (EIOError e) = genErrKeyword e
     genErrKeyword (UserError{}) = LangIdent "user"
     genErrKeyword (KeywordError e) = genErrKeyword e
@@ -451,7 +451,7 @@ throwImplementationErr = throwAE . implementationErr
 
 
 -- | Errors involving literals.
-data LitError = IndexOutOfBoundsError Int
+data ValueError = IndexOutOfBoundsError Int
               | BadRange LangType (Maybe LangType) (Maybe LangType)
               | InfiniteRange
               deriving (Eq)
@@ -459,30 +459,30 @@ data LitError = IndexOutOfBoundsError Int
 
 -- | Attempt to access a non-existant index of a list.
 indexOutOfBoundsErr :: Int -> ExecError
-indexOutOfBoundsErr = litErr . IndexOutOfBoundsError
+indexOutOfBoundsErr = valueErr . IndexOutOfBoundsError
 
 
 -- | Types are not uniform in range.
 badRangeErr :: LangType -> Maybe LangType -> Maybe LangType -> ExecError
-badRangeErr t1 t2 = litErr . BadRange t1 t2
+badRangeErr t1 t2 = valueErr . BadRange t1 t2
 
 
 -- | Range is infinite.
 infiniteRangeErr :: ExecError
-infiniteRangeErr = litErr InfiniteRange
+infiniteRangeErr = valueErr InfiniteRange
 
 
-instance Show LitError where
+instance Show ValueError where
     show (IndexOutOfBoundsError x) = "index out of bounds: " ++ show x
     show (BadRange t1 t2 t3) = "bad range: all types should be same, but got: " ++ show t1 ++ concatMap ((", "++) . show) (catMaybes [t2,t3])
     show InfiniteRange = "infinite range"
 
 
-instance KWError LitError where
+instance KWError ValueError where
     errToKeyword (IndexOutOfBoundsError{}) = LangIdent "indexOutOfBounds"
     errToKeyword (BadRange{}) = LangIdent "badRange"
     errToKeyword InfiniteRange = LangIdent "infiniteRange"
-    genErrKeyword _ = LangIdent "litError"
+    genErrKeyword _ = LangIdent "valueError"
 
 
 
