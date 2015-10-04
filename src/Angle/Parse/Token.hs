@@ -84,10 +84,8 @@ tokWhitespace     = cond isSpace    <?> "whitespace"
 
 -- | Assignment operator character.
 tokAssign :: Parser Char
-tokAssign = surrounded spaces (char '=')
+tokAssign = surrounded whitespace (char '=')
                 <?> "assignment operator"
-  where
-    spaces = many tokSpace
 
 
 -- | Matches any amount of whitespace.
