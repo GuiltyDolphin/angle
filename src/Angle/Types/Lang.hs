@@ -314,12 +314,18 @@ instance ShowSyn ArgElt where
 -- * Must be able to take 1 value on its own.
 --
 -- * Must return a true or false value when used as a constraint.
-newtype ConstrRef = ConstrRef { getConstrRef :: LangIdent }
+data ConstrRef = ConstrRef
+    { getConstrRef :: LangIdent
+    , constrRefArgs :: Maybe [Expr]
+    }
     deriving (Show, Eq)
 
 
 instance ShowSyn ConstrRef where
-    showSyn (ConstrRef {getConstrRef = name}) = '@' : showSyn name
+    showSyn (ConstrRef {getConstrRef = name, constrRefArgs=a})
+        = '@' : showSyn name ++ showRefArgs
+      where
+        showRefArgs = maybe "" showSynArgs a
 
 
 -- | Possible parameter restrictions provided in definition annotation.

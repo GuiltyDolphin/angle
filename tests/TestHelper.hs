@@ -161,8 +161,8 @@ shrink3 f x y z = zipWith3 f (shrink x) (shrink y) (shrink z)
 
 
 instance Arbitrary ConstrRef where
-    arbitrary = liftArby ConstrRef
-    shrink (ConstrRef x) = shrink1 ConstrRef x
+    arbitrary = liftArby2 ConstrRef
+    shrink (ConstrRef x y) = shrink2 ConstrRef x y
 
 
 instance Arbitrary AnnType where

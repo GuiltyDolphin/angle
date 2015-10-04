@@ -542,7 +542,7 @@ multOp sc = MultiOp
 
 
 constrRef :: Parser ConstrRef
-constrRef = liftM ConstrRef $ char '@' >> langIdent
+constrRef = char '@' >> liftM2 ConstrRef langIdent (optional arglist)
 
 
 constrRefArgSig :: Parser ConstrRef

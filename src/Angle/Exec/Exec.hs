@@ -19,7 +19,7 @@ module Angle.Exec.Exec
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State
-import Data.Maybe (isNothing, isJust)
+import Data.Maybe (isNothing, isJust, fromMaybe)
 
 import Angle.Parse.Parser (program, evalParse)
 import Angle.Exec.Builtins
@@ -149,10 +149,10 @@ bindArgs args (ArgSig
       Just catcher ->
           case catchArgConstr catcher of
                Nothing -> return ()
-               Just (ConstrRef cstr) ->
+               Just (ConstrRef cstr constrArgs) ->
                    case catchBind of
                         [] -> return ()
-                        [(_, r)] -> checkSatConstr r (Just cstr)
+                        [(_, r)] -> checkSatConstr r (Just cstr) (fromMaybe [] constrArgs)
   let toBindFuns = map fst $ filter (isAnnFun . snd)  vals
       toBindLits = map fst $ filter (isAnnLit . snd) vals
       toBindAny = map fst (filter (isAnnAny . snd) vals) ++ catchBind
@@ -175,22 +175,23 @@ checkArg :: Expr -> ArgElt -> ExecIO ((LangIdent, LangLit), AnnType)
 checkArg ex (ArgElt {argEltConstr=constr, argEltType=typ
                     , argEltName=name}) = do
   v <- execExpr ex
-  checkSatConstr v $ fmap getConstrRef constr
+  let cstr = fmap getConstrRef constr
+  checkSatConstr v cstr (fromMaybe [] $ maybe Nothing constrRefArgs constr)
   checkSatType v typ
   return ((name, v), typ)
 
 
-checkSatConstr :: LangLit -> Maybe LangIdent -> ExecIO ()
-checkSatConstr _ Nothing = return ()
-checkSatConstr v (Just clsName) = do
-  res <- satConstr v clsName
+checkSatConstr :: LangLit -> Maybe LangIdent -> [Expr] -> ExecIO ()
+checkSatConstr _ Nothing _ = return ()
+checkSatConstr v (Just clsName) constrArgs = do
+  res <- satConstr v clsName constrArgs
   unless res (throwExecError $ typeExpectConstrErr v clsName)
 
 
-execConstr :: LangLit -> LangIdent -> ExecIO LangLit
-execConstr val clsName = do
+execConstr :: LangLit -> LangIdent -> [Expr] -> ExecIO LangLit
+execConstr val clsName args = do
   cls <- lookupVarLambdaF clsName
-  res <- callLambda cls True [ExprLit val]
+  res <- callLambda cls True $ ExprLit val : args
   case res of
     x@(LitBool _) -> return x
     y             -> throwExecError
@@ -225,11 +226,11 @@ checkSatType val typ = do
   unless res $ throwExecError $ typeAnnWrongErr typ $ typeAnnOf val
 
 
--- | True if the given class returns true when
+-- | True if the given constraint returns true when
 -- passed the literal.
-satConstr :: LangLit -> LangIdent -> ExecIO Bool
-satConstr val clsName = do
-  (LitBool res) <- execConstr val clsName
+satConstr :: LangLit -> LangIdent -> [Expr] -> ExecIO Bool
+satConstr val clsName constrArgs = do
+  (LitBool res) <- execConstr val clsName constrArgs
   return res
 
 
