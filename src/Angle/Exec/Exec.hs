@@ -395,9 +395,9 @@ raiseException e = do
 
 execLangStruct :: LangStruct -> ExecIO LangLit
 execLangStruct (StructFor name e s)
-    = execStructFor name e s `catchBreak` maybe getEnvValue returnVal
+    = execStructFor name e s `catchBreak` maybe (getEnvValue >>= returnVal) returnVal
 execLangStruct (StructWhile e s)
-    = execStructWhile e s `catchBreak` maybe getEnvValue returnVal
+    = execStructWhile e s `catchBreak` maybe (getEnvValue >>= returnVal) returnVal
 execLangStruct (StructIf if' thn els)
     = execStructIf if' thn els
 execLangStruct (StructDefun name cs)
