@@ -128,7 +128,9 @@ fromIter (LitStr xs) = return $ map LitChar xs
 -- fromIter (LitRange x Nothing Nothing) =
 fromIter (LitRange x (Just y) Nothing) = iterFromTo x y
 fromIter (LitRange x (Just y) (Just z)) = iterFromThenTo x y z
-fromIter x = throwImplementationErr $ "fromIter: TODO: define this!" ++ "\npassed: " ++ showSyn x
+fromIter (LitRange x Nothing Nothing) = iterFrom x
+fromIter (LitRange x Nothing (Just y)) = iterFromThen x y
+fromIter x = throwExecError $ nonEnumErr $ typeOf x
 
 
 -- | True if the range has infinite size.
@@ -166,11 +168,19 @@ iterFromThenTo _ _ _ = throwImplementationErr "iterFromThenTo: cannot handle non
 
 
 -- Potential: looping to infinity (and beyond)
--- iterFrom :: LangLit -> ExecIO [LangLit]
--- iterFrom (LitInt x) = return $ map LitInt $ enumFrom x
--- iterFrom (LitChar x) = return $ map LitChar $ enumFrom x
--- iterFrom (LitFloat x) = return $ map LitFloat $ enumFrom x
--- iterFrom _ = throwImplementationErr "iterFrom: define failure"
+iterFrom :: LangLit -> ExecIO [LangLit]
+iterFrom (LitInt x) = return $ map LitInt $ enumFrom x
+iterFrom (LitChar x) = return $ map LitChar $ enumFrom x
+iterFrom (LitFloat x) = return $ map LitFloat $ enumFrom x
+iterFrom _ = throwImplementationErr "iterFrom: define failure"
+
+
+iterFromThen :: LangLit -> LangLit -> ExecIO [LangLit]
+iterFromThen (LitInt x) (LitInt y) = return $ map LitInt $ enumFromThen x y
+iterFromThen (LitChar x) (LitChar y) = return $ map LitChar $ enumFromThen x y
+iterFromThen (LitFloat x) (LitFloat y) = return $ map LitFloat $ enumFromThen x y
+iterFromThen _ _ = throwImplementationErr "iterFromThen: define failure"
+
 
 
 iterFromTo :: LangLit -> LangLit -> ExecIO [LangLit]

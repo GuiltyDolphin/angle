@@ -39,10 +39,11 @@ module Angle.Exec.Error
     , returnFromGlobalErr
 
 
-    -- ** Literal errors
+    -- ** Value errors
     , badRangeErr
     , indexOutOfBoundsErr
     , infiniteRangeErr
+    , nonEnumErr
 
     -- ** Control-flow
     , catchBreak
@@ -454,6 +455,7 @@ throwImplementationErr = throwAE . implementationErr
 data ValueError = IndexOutOfBoundsError Int
               | BadRange LangType (Maybe LangType) (Maybe LangType)
               | InfiniteRange
+              | NonEnum LangType
               deriving (Eq)
 
 
@@ -472,16 +474,23 @@ infiniteRangeErr :: ExecError
 infiniteRangeErr = valueErr InfiniteRange
 
 
+-- | Non-enumerable type used where enumerable expected.
+nonEnumErr :: LangType -> ExecError
+nonEnumErr = valueErr . NonEnum
+
+
 instance Show ValueError where
     show (IndexOutOfBoundsError x) = "index out of bounds: " ++ show x
     show (BadRange t1 t2 t3) = "bad range: all types should be same, but got: " ++ show t1 ++ concatMap ((", "++) . show) (catMaybes [t2,t3])
     show InfiniteRange = "infinite range"
+    show (NonEnum t) = "expected enumerable type but got: " ++ show t
 
 
 instance KWError ValueError where
     errToKeyword (IndexOutOfBoundsError{}) = LangIdent "indexOutOfBounds"
     errToKeyword (BadRange{}) = LangIdent "badRange"
     errToKeyword InfiniteRange = LangIdent "infiniteRange"
+    errToKeyword (NonEnum{}) = LangIdent "nonEnum"
     genErrKeyword _ = LangIdent "valueError"
 
 
@@ -655,19 +664,24 @@ catchReturn ex h = ex `catchAE`
 
 -- | Catch 'ControlBreak', but allow other errors to propagate.
 catchBreak :: (CanError m) => m a -> (Maybe LangLit -> m a) -> m a
-catchBreak ex h = ex `catchAE`
-                  (\e -> case e of
-                           ExecError { execErrErr = ControlException (ControlBreak v) } -> h v
-                           err -> throwAE err)
+catchBreak ex h
+    = ex `catchAE`
+        (\e -> case e of
+            ExecError
+              { execErrErr = ControlException (ControlBreak v)
+              } -> h v
+            err -> throwAE err)
                            -- ControlException (ControlBreak v) -> h v
                            -- err -> throwAE err)
 
 
 -- | Catch 'ControlContinue', but allow other errors to propagate.
 catchContinue :: (CanError m) => m a -> m a -> m a
-catchContinue ex v = ex `catchAE`
-                     (\e -> case e of
-                              ExecError { execErrErr = ControlException ControlContinue } -> v
-                              err -> throwAE err)
+catchContinue ex v
+    = ex `catchAE`
+        (\e -> case e of
+            ExecError
+              { execErrErr = ControlException ControlContinue } -> v
+            err -> throwAE err)
                               -- ControlException ControlContinue -> v
                               -- err -> throwAE err)
