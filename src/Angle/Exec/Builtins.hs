@@ -308,12 +308,12 @@ builtinIndex [x, LitStr s] = builtinIndex [x,LitList $ map LitChar s]  >>= joinL
   where
     joinList l = builtinAsType [LitStr "", l]
 builtinIndex [LitInt x,LitInt y,LitList xs]
-    | x >= length xs || y > length xs
+    | x > length xs || y > length xs
         = throwExecError $ indexOutOfBoundsErr x
     | x < 0 = builtinIndex
               [LitInt (length xs + x), LitInt y, LitList xs]
     | y < 0 = builtinIndex
-              [LitInt x, LitInt (length xs + y), LitList xs]
+              [LitInt x, LitInt (length xs + y + 1), LitList xs]
     | otherwise
         = return . LitList $ splice x y xs
 builtinIndex [x,y,LitStr s] = builtinIndex [x, y, LitList $ map LitChar s] >>= joinList
@@ -323,7 +323,8 @@ builtinIndex _ = throwExecError $ callBuiltinErr "index: invalid call signature"
 
 
 splice :: Int -> Int -> [a] -> [a]
-splice x y xs = take (1+y-x) $ drop x xs
+-- splice x y xs = take (1+y-x) $ drop x xs
+splice x y = take (y-x) . drop x
 
 
 toLitStr :: LangLit -> LangLit
