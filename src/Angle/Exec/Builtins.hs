@@ -140,17 +140,11 @@ startScope = emptyScope
 -- | Starting environment for programs not running as main.
 initialEnvNotMain :: Env
 initialEnvNotMain = startEnv { runAsMain = False }
-    -- { currentScope = setVarLitInScope (LangIdent "main")
-    --    (VarVal (Just (LitBool False)) True) (currentScope startEnv)
-    -- }
 
 
 -- | Starting environment for programs running as main.
 initialEnvMain :: Env
 initialEnvMain = startEnv { runAsMain = True }
-    -- { currentScope = setVarLitInScope (LangIdent "main")
-    --     (VarVal (Just (LitBool True)) True) (currentScope startEnv)
-    -- }
 
 
 -- | Builtin file handles

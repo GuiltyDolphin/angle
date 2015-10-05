@@ -75,6 +75,21 @@ lookupVarLitF (LangIdent "main") = liftM (LitBool . runAsMain) get
 lookupVarLitF n = (returnVal =<<) . lookupVarF valueBindings nameNotDefinedLitErr $ n
 
 
+lookupVarLitOuter :: LangIdent -> ExecIO LangLit
+lookupVarLitOuter = lookupVarOuter lookupVarLitF
+
+lookupVarFunOuter :: LangIdent -> ExecIO LangLit
+lookupVarFunOuter = lookupVarOuter (liftM LitLambda . lookupVarLambdaF)
+
+
+lookupVarOuter f n = do
+    currScope <- getScope
+    modifyScope (const $ fromMaybe currScope $ outerScope currScope)
+    res <- f n
+    modifyScope (const currScope)
+    return res
+
+
 lookupVarLambdaF :: LangIdent -> ExecIO Lambda
 lookupVarLambdaF = lookupVarF lambdaBindings nameNotDefinedFunErr
 
@@ -99,6 +114,29 @@ lookupVarCurrentScope binds name = do
 assignVarLambda :: LangIdent -> Lambda -> ExecIO ()
 assignVarLambda =
     assignVar lambdaBindings handleBuiltinAssignFun setVarFunInScope
+
+
+assignVarOuter
+    :: (LangIdent -> a -> ExecIO LangLit)
+    -> LangIdent -> a -> ExecIO LangLit
+assignVarOuter f n v = do
+    currScope <- getScope
+    case outerScope currScope of
+        Nothing -> f n v
+        Just sc -> do
+            modifyScope (const sc)
+            res <- f n v
+            newParent <- getScope
+            modifyScope (const currScope { outerScope = Just newParent })
+            return res
+
+
+assignVarFunOuter :: LangIdent -> Lambda -> ExecIO LangLit
+assignVarFunOuter = assignVarOuter (\n v -> assignVarLambda n v >> return LitNull)
+
+
+assignVarLitOuter :: LangIdent -> LangLit -> ExecIO LangLit
+assignVarLitOuter = assignVarOuter assignVarLit
 
 
 assignVarLit :: LangIdent -> LangLit -> ExecIO LangLit
@@ -552,6 +590,18 @@ builtinInclude xs = mapM_ includeFile xs >> return LitNull
               -- put newEnv { currentFile = currFile, runAsMain = currMain }
               return LitNull
 -- builtinRead [f] >>= builtinEval . (:[])
+--
+--
+builtinNonLocal :: [LangLit] -> ExecIO LangLit
+builtinNonLocal [LitKeyword (LangIdent "fun"), LitStr n, LitLambda val]
+    = assignVarFunOuter (LangIdent n) val
+builtinNonLocal [LitStr n, val]
+    = assignVarLitOuter (LangIdent n) val
+builtinNonLocal [LitKeyword (LangIdent "fun"), LitStr n]
+    = lookupVarFunOuter (LangIdent n)
+builtinNonLocal [LitStr n]
+    = lookupVarLitOuter (LangIdent n)
+builtinNonLocal _ = throwExecError . callBuiltinErr $ "nonLocal: invalid call signature"
 
 
 getAngleFile :: FilePath -> ExecIO (Maybe FilePath)

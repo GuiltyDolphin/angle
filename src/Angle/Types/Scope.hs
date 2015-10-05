@@ -36,6 +36,7 @@ module Angle.Types.Scope
     , resolve
     , setVarFunInScope
     , setVarLitInScope
+    , modifyOuterScope
     ) where
 
 
@@ -109,6 +110,15 @@ onBinds f x = toBind . (f `on` unBindEnv) x
 -- Returns `Nothing' if no outer scope exists.
 withOuterScope :: GenScope n v f -> (GenScope n v f -> a) -> Maybe a
 withOuterScope sc f = liftM f (outerScope sc)
+
+
+-- | Allows the modification of a parent scope without modifying
+-- the current scope (bar the parent changing).
+modifyOuterScope :: GenScope n v f -> (GenScope n v f -> GenScope n v f) -> GenScope n v f
+modifyOuterScope sc parF =
+    case outerScope sc of
+        Nothing -> sc
+        Just parS -> let newPar = parF parS in sc { outerScope = Just newPar }
 
 
 -- | Finds the local-most GenScope that contains a definition
