@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-|
 Module      : Angle.Options
 Description : Options for Angle executable.
@@ -12,9 +13,14 @@ provide for the angle command-line software.
 module Angle.Options
   ( Options(..)
   , getOptions
+  , OptionEnv
+  , runWithOptions
   ) where
 
+import Control.Applicative (Applicative)
+import Control.Monad.Reader
 import Data.List (foldl')
+import Data.List.Split (splitOn)
 import System.Console.GetOpt
 import System.Environment (getArgs)
 import System.Exit (exitSuccess)
@@ -32,7 +38,18 @@ data Options = Options
   , optAbort :: Bool
   , optCode :: [String]
   , optNonOpts :: [String]
+  , optSearchPath :: [FilePath]
   }
+
+
+newtype OptionEnv a = OptionEnv
+    { runOptionEnv :: ReaderT Options IO a
+    } deriving ( Functor, Applicative
+               , Monad, MonadIO, MonadReader Options)
+
+
+runWithOptions :: Options -> OptionEnv a -> IO a
+runWithOptions opts optEnv = runReaderT (runOptionEnv optEnv) opts
 
 
 defaultOptions :: Options
@@ -43,6 +60,9 @@ defaultOptions = Options { optVerbose = False
                          , optAbort = False
                          , optCode = []
                          , optNonOpts = []
+                         , optSearchPath = [ "~/.angle/lib"
+                                           , "~/.angle/usr/lib"
+                                           ]
                          }
 
 
@@ -58,6 +78,12 @@ options =
             (\arg opt -> return opt { optCode = optCode opt ++ [arg] })
             "TEXT")
         "Line of code to be executed directly (multiple -c's allowed)"
+    , Option "" ["path"]
+        (ReqArg
+            (\arg opt -> return opt { optSearchPath = splitOn ":" arg })
+            "PATH(S)")
+        ("Paths to use instead of the defaults."
+        ++ " These paths are searched when performing include")
     , Option "i" ["interactive"]
         (NoArg
             (\opt -> return opt { optInteractive = True }))

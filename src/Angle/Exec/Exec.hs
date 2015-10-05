@@ -20,6 +20,8 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.State
 import Data.Maybe (isNothing, fromMaybe)
+import System.Directory (findFile, canonicalizePath)
+import System.FilePath (takeDirectory)
 
 import Angle.Parse.Parser (program, evalParse)
 import Angle.Exec.Builtins
@@ -69,6 +71,7 @@ getScope = liftM currentScope get
 
 lookupVarLitF :: LangIdent -> ExecIO LangLit
 lookupVarLitF (LangIdent "_it") = getEnvValue
+lookupVarLitF (LangIdent "main") = liftM (LitBool . runAsMain) get
 lookupVarLitF n = (returnVal =<<) . lookupVarF valueBindings nameNotDefinedLitErr $ n
 
 
@@ -525,8 +528,40 @@ builtinInclude :: [LangLit] -> ExecIO LangLit
 builtinInclude xs = mapM_ includeFile xs >> return LitNull
   where
     includeFile h@(LitHandle _) = builtinRead [h] >>= builtinEval . (:[])
-    includeFile f@(LitStr _) = builtinRead [f] >>= builtinEval . (:[])
+    includeFile (LitStr f) = includeAngleFile f
     includeFile x = throwExecError $ typeNotValidErr x
+    includeAngleFile f = do
+        fn <- getAngleFile f
+        case fn of
+            Nothing -> throwExecError . noSuchFileErr $ f
+            Just pth -> do
+              txt <- builtinRead [LitStr pth]
+              env <- get
+              currFile <- liftM currentFile get
+              currMain <- liftM runAsMain get
+              currScope <- liftM currentScope get
+              put env { currentFile = Just pth, runAsMain = False }
+              builtinEval [txt]
+                  `catchAE` (\e -> do
+                      newEnv <- get
+                      put env
+                      throwAE e)
+              -- newEnv <- get
+              recentScope <- liftM currentScope get
+              put env { currentScope = mergeScope recentScope currScope }
+              -- put newEnv { currentFile = currFile, runAsMain = currMain }
+              return LitNull
+-- builtinRead [f] >>= builtinEval . (:[])
+
+
+getAngleFile :: FilePath -> ExecIO (Maybe FilePath)
+getAngleFile fp = do
+    searchPath <- liftM angleLibPath get
+    currFile <- liftM currentFile get
+    maybeFound <- liftIO $ findFile (searchPath ++ [maybe "" takeDirectory currFile, ""]) fp
+    case maybeFound of
+        Nothing -> return Nothing
+        Just p -> liftM Just $ liftIO $ canonicalizePath p
 
 
 assignVarBuiltinLit :: LangIdent -> LangLit -> ExecIO LangLit

@@ -56,6 +56,7 @@ instance MonadError AngleError ExecIO where
 instance CanErrorWithPos ExecIO where
     getErrorPos = liftM envSourceRef get
     getErrorSource = liftM sourceText get
+    getErrorFile = liftM currentFile get
 
 
 instance CanError ExecIO where
@@ -75,6 +76,9 @@ data Env = Env { currentScope :: Scope
                , envSynRep :: String
                , envValue :: LangLit
                , currentException :: Maybe AngleError
+               , angleLibPath :: [FilePath]
+               , currentFile :: Maybe FilePath
+               , runAsMain :: Bool
                } deriving (Show, Eq)
 
 
@@ -96,6 +100,8 @@ basicEnv = Env { currentScope = emptyScope
                , envSynRep = ""
                , envValue = LitNull
                , currentException = Nothing
+               , angleLibPath = []
+               , currentFile = Nothing
                }
 
 

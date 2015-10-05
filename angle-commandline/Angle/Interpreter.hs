@@ -11,6 +11,8 @@ Defines the file runner for use with the Angle programming language.
 module Angle.Interpreter (runInterpreter) where
 
 import Control.Monad
+import Control.Monad.Reader
+import System.Directory (canonicalizePath)
 import System.IO.Error
 import System.Exit
 
@@ -27,24 +29,24 @@ import Angle.Types.Lang (Stmt)
 runInterpreter :: Options -> IO ()
 runInterpreter opts = do
     let Options { optFiles = files
-                , optAbort = abort
                 , optCode = code
                 } = opts
 
-    runFiles files abort
-    runCodes code abort
+    runWithOptions opts $ runFiles files
+    runWithOptions opts $ runCodes code
 
 
-runFiles :: [FilePath] -> Bool -> IO ()
-runFiles fs abort = mapM_ (`runFile` abort) fs
+
+runFiles :: [FilePath] -> OptionEnv ()
+runFiles = mapM_ runFile
 
 
-runFile :: FilePath -> Bool -> IO ()
-runFile fp abort = do
-    source' <- tryIOError $ readFile fp
+runFile :: FilePath -> OptionEnv ()
+runFile fp = do
+    source' <- liftIO $ tryIOError $ readFile fp
     case source' of
-        Left e -> handleNoFile fp abort e
-        Right source -> runLex (Just fp) source abort
+        Left e -> handleNoFile fp e
+        Right source -> runLex (Just fp) source
   where
     -- runLex source =
     --     case evalParse source program of
@@ -57,55 +59,64 @@ runFile fp abort = do
     --         Right _ -> return ()
 
 
-runLex :: Maybe FilePath -> String -> Bool -> IO ()
-runLex fp source abort =
+runLex :: Maybe FilePath -> String -> OptionEnv ()
+runLex fp source =
     case evalParse source program of
-        Left err -> handleSyntax fp err abort
-        Right toExec -> executeProg fp source toExec abort
+        Left err -> handleSyntax fp err
+        Right toExec -> executeProg fp source toExec
 
 
-executeProg :: Maybe FilePath -> String -> Stmt -> Bool -> IO ()
-executeProg fp source toExec abort = do
-    res <- runExecIOEnv initialEnvMain { sourceText = source } (execStmt toExec)
+executeProg :: Maybe FilePath -> String -> Stmt -> OptionEnv ()
+executeProg fp source toExec = do
+    paths <- liftM optSearchPath ask
+    currPath <- case fp of
+                 Nothing -> return Nothing
+                 Just pth -> liftM Just $ liftIO $ canonicalizePath pth
+    let execEnv = initialEnvMain { sourceText = source
+                                 , angleLibPath = paths
+                                 , currentFile = currPath
+                                 }
+    res <- liftIO $ runExecIOEnv execEnv (execStmt toExec)
     case res of
-        Left err -> handleRuntime fp err abort
+        Left err -> handleRuntime fp err
         Right _ -> return ()
 
 
-runCodes :: [String] -> Bool -> IO ()
-runCodes cs abort = mapM_ (`runCode` abort) cs
+runCodes :: [String] -> OptionEnv ()
+runCodes = mapM_ runCode
 
 
-runCode :: String -> Bool -> IO ()
+runCode :: String -> OptionEnv ()
 runCode = runLex Nothing
 
 
-handleSyntax :: Maybe FilePath -> ParseError -> Bool -> IO ()
-handleSyntax fp e abort = do
-    putStrLn ("Syntax error" ++ fperror) >> print e
-    -- putStrLn ("Syntax error in file " ++ fp) >> print e
-    when abort $ exitWith $ ExitFailure 100
-  where
-    fperror = case fp of
-                  (Just f) -> " in file " ++ f
-                  Nothing -> ""
+handleSyntax :: Maybe FilePath -> ParseError -> OptionEnv ()
+handleSyntax = handleErr "Syntax error" 100
 
 
-handleRuntime :: Maybe FilePath -> AngleError -> Bool -> IO ()
-handleRuntime fp e abort = do
-    putStrLn ("Runtime error" ++ fperror) >> print e
-    -- putStrLn ("Runtime error in file " ++ fperror) >> print e
-    when abort $ exitWith $ ExitFailure 101
-  where
-    fperror = case fp of
-                  (Just f) -> " in file " ++ f
-                  Nothing -> ""
+handleRuntime :: Maybe FilePath -> AngleError -> OptionEnv ()
+handleRuntime = handleErr "Runtime error" 101
 
 
-handleNoFile :: FilePath -> Bool -> IOError -> IO ()
-handleNoFile fp abort e | isDoesNotExistError e = handleNoFile'
-                        | otherwise = ioError e
+
+fileError :: Maybe FilePath -> String
+fileError fp = case fp of
+                (Just f) -> " in file " ++ f
+                Nothing -> ""
+
+
+handleErr :: (Show e) => String -> Int -> Maybe FilePath -> e -> OptionEnv ()
+handleErr errMsgStart errCode fp err = do
+    abort <- liftM optAbort ask
+    liftIO $ putStrLn (errMsgStart ++ fileError fp) >> print err
+    liftIO $ when abort $ exitWith $ ExitFailure errCode
+
+
+handleNoFile :: FilePath -> IOError -> OptionEnv ()
+handleNoFile fp e | isDoesNotExistError e = handleNoFile'
+                  | otherwise = liftIO $ ioError e
   where
     handleNoFile' = do
-        putStrLn $ "No such file: " ++ fp
-        when abort $ exitWith $ ExitFailure 102
+        abort <- liftM optAbort ask
+        liftIO $ putStrLn $ "No such file: " ++ fp
+        liftIO $ when abort $ exitWith $ ExitFailure 102

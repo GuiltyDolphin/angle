@@ -139,18 +139,18 @@ startScope = emptyScope
 
 -- | Starting environment for programs not running as main.
 initialEnvNotMain :: Env
-initialEnvNotMain = startEnv
-    { currentScope = setVarLitInScope (LangIdent "main")
-       (VarVal (Just (LitBool False)) True) (currentScope startEnv)
-    }
+initialEnvNotMain = startEnv { runAsMain = False }
+    -- { currentScope = setVarLitInScope (LangIdent "main")
+    --    (VarVal (Just (LitBool False)) True) (currentScope startEnv)
+    -- }
 
 
 -- | Starting environment for programs running as main.
 initialEnvMain :: Env
-initialEnvMain = startEnv
-    { currentScope = setVarLitInScope (LangIdent "main")
-        (VarVal (Just (LitBool True)) True) (currentScope startEnv)
-    }
+initialEnvMain = startEnv { runAsMain = True }
+    -- { currentScope = setVarLitInScope (LangIdent "main")
+    --     (VarVal (Just (LitBool True)) True) (currentScope startEnv)
+    -- }
 
 
 -- | Builtin file handles
@@ -162,7 +162,9 @@ builtinHandles = [ ("stdin", LitHandle stdin)
 
 
 builtinVariables :: [(String, LangLit)]
-builtinVariables = [ ("as_class", LitBool False) ]
+builtinVariables = [ ("as_class", LitBool False)
+                   , ("main", LitBool False)
+                   ]
 
 
 -- | True if the identifier represents a builtin function.

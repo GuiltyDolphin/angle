@@ -71,6 +71,10 @@ module Angle.Exec.Error
     , syntaxErr
     , readErr
 
+    -- ** Include errors
+    , noSuchFileErr
+    , badSyntaxErr
+
     -- ** Classes, base types and basic functions
     , AngleError
     , CanError(..)
@@ -109,6 +113,7 @@ instance CanError (Either AngleError) where
 class (CanError m) => CanErrorWithPos m where
     getErrorPos :: m SourceRef
     getErrorSource :: m String
+    getErrorFile :: m (Maybe FilePath)
 
 
 -- | Errors that can be caught by the user via the try...catch
@@ -125,6 +130,7 @@ data AngleError = ExecError
     { execErrSourceRef :: SourceRef
     , execErrErr :: ExecError
     , execErrSourceText :: String
+    , execErrFile :: Maybe FilePath
     }
                 | ImplementationError String
                 -- | ControlException ControlException
@@ -144,9 +150,13 @@ instance Show AngleError where
     show (ExecError { execErrErr=ee
                       , execErrSourceRef=SourceRef (start,_)
                       , execErrSourceText=es
+                      , execErrFile=ef
                       })
-        = cEk ++ cEp ++ cEt ++ cEe
+        = cEf ++ cEk ++ cEp ++ cEt ++ cEe
           where
+            cEf = case ef of
+                      Nothing -> ""
+                      Just f -> "In file: " ++ f ++ "\n"
             cEk = concat ["(:", showSyn $ errToKeyword ee, ")\n"]
             cEp = show start ++ "\n"
             cEt = let lns = lines es in
@@ -180,6 +190,7 @@ data ExecError = TypeError TypeError
                  | EIOError EIOError
                  | UserError LangIdent
                  | SynError SynError
+                 | IncludeError IncludeError
                  | ControlException ControlException
                  deriving (Eq)
 
@@ -229,6 +240,11 @@ controlException :: ControlException -> ExecError
 controlException = ControlException
 
 
+-- | Including files
+includeErr :: IncludeError -> ExecError
+includeErr = IncludeError
+
+
 instance Show ExecError where
     show (TypeError e)    = "wrong type in expression: " ++ show e
     show (NameError v)    = "name error: " ++ show v
@@ -239,6 +255,7 @@ instance Show ExecError where
     show (KeywordError x) = "keyword error: " ++ show x
     show (SynError e) = "syntax error:\n" ++ show e
     show (ControlException e) = "control: " ++ show e
+    show (IncludeError e) = "include: " ++ show e
 
 
 instance KWError ExecError where
@@ -251,6 +268,7 @@ instance KWError ExecError where
     errToKeyword (KeywordError e) = errToKeyword e
     errToKeyword (SynError e) = errToKeyword e
     errToKeyword (ControlException e) = errToKeyword e
+    errToKeyword (IncludeError e) = errToKeyword e
 
     genErrKeyword (TypeError e) = genErrKeyword e
     genErrKeyword (NameError e) = genErrKeyword e
@@ -261,6 +279,7 @@ instance KWError ExecError where
     genErrKeyword (KeywordError e) = genErrKeyword e
     genErrKeyword (SynError e) = genErrKeyword e
     genErrKeyword (ControlException e) = genErrKeyword e
+    genErrKeyword (IncludeError e) = genErrKeyword e
 
 
 -- | Errors involving types.
@@ -440,9 +459,11 @@ throwExecError :: (CanErrorWithPos m, Monad m) => ExecError -> m a
 throwExecError e = do
   errPosRef <- getErrorPos
   errSource <- getErrorSource
+  errPath <- getErrorFile
   throwAE ExecError { execErrSourceRef = errPosRef
                          , execErrSourceText = errSource
                          , execErrErr = e
+                         , execErrFile = errPath
                          }
 
 
@@ -596,6 +617,31 @@ instance KWError SynError where
     errToKeyword (ReadError{}) = LangIdent "read"
 
     genErrKeyword _ = LangIdent "syntaxError"
+
+
+
+data IncludeError = NoSuchFile FilePath
+                  | BadSyntax ParseError
+                  deriving (Eq)
+
+
+noSuchFileErr :: FilePath -> ExecError
+noSuchFileErr = includeErr . NoSuchFile
+
+
+badSyntaxErr :: ParseError -> ExecError
+badSyntaxErr = includeErr . BadSyntax
+
+
+instance Show IncludeError where
+    show (NoSuchFile fp) = "no such file: " ++ fp
+    show (BadSyntax e) = show e
+
+
+instance KWError IncludeError where
+    errToKeyword (NoSuchFile{}) = LangIdent "doesNotExist"
+    errToKeyword (BadSyntax{}) = LangIdent "syntax"
+    genErrKeyword _ = LangIdent "include"
 
 
 -- | Used for control-flow within the language.
