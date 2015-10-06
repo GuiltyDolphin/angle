@@ -18,7 +18,7 @@ module Angle.Exec.Exec
 
 import Control.Applicative
 import Control.Monad
-import Control.Monad.State
+import Control.Monad.IO.Class (liftIO)
 import Data.Maybe (isNothing, fromMaybe)
 import System.Directory (findFile, canonicalizePath)
 import System.FilePath (takeDirectory)
@@ -27,146 +27,10 @@ import Angle.Parse.Parser (program, evalParse)
 import Angle.Exec.Builtins
 import Angle.Exec.Error
 import Angle.Exec.Operations
+import Angle.Exec.Scope
 import Angle.Exec.Types
 import Angle.Types.Lang
 import Angle.Types.Scope
-
-
-updatePos :: SourceRef -> ExecIO ()
-updatePos pos = modify (\e -> e { envSourceRef = pos })
-
-
-setEnvSynRep :: String -> ExecIO ()
-setEnvSynRep x = modify (\e -> e { envSynRep = x })
-
-
--- | Create a new scope with the current scope as its
--- parent.
-newScope :: ExecIO ()
-newScope = do
-  env <- get
-  modifyScope (\s -> emptyScope {outerScope=Just s})
-  let oldScope = currentScope env
-      newScope' = emptyScope { outerScope = Just oldScope }
-  put env { currentScope = newScope' }
-
-
-lookupVar :: (Scope -> BindEnv LangIdent a) -> LangIdent -> ExecIO (Maybe a)
-lookupVar binds name = do
-  currScope <- getScope
-  case resolve binds name currScope of
-    Nothing -> return Nothing
-    Just x  -> return $ varDef x
-
-
-lookupVarF :: (Scope -> BindEnv LangIdent a) -> (LangIdent -> ExecError) -> LangIdent -> ExecIO a
-lookupVarF binds err name = lookupVar binds name
-                        >>= maybe (throwExecError $ err name)
-                            return
-
-
-getScope :: ExecIO Scope
-getScope = liftM currentScope get
-
-
-lookupVarLitF :: LangIdent -> ExecIO LangLit
-lookupVarLitF (LangIdent "_it") = getEnvValue
-lookupVarLitF (LangIdent "main") = liftM (LitBool . runAsMain) get
-lookupVarLitF n = (returnVal =<<) . lookupVarF valueBindings nameNotDefinedLitErr $ n
-
-
-lookupVarLitOuter :: LangIdent -> ExecIO LangLit
-lookupVarLitOuter = lookupVarOuter lookupVarLitF
-
-lookupVarFunOuter :: LangIdent -> ExecIO LangLit
-lookupVarFunOuter = lookupVarOuter (liftM LitLambda . lookupVarLambdaF)
-
-
-lookupVarOuter f n = do
-    currScope <- getScope
-    modifyScope (const $ fromMaybe currScope $ outerScope currScope)
-    res <- f n
-    modifyScope (const currScope)
-    return res
-
-
-lookupVarLambdaF :: LangIdent -> ExecIO Lambda
-lookupVarLambdaF = lookupVarF lambdaBindings nameNotDefinedFunErr
-
-
--- | Modify the current scope using the given function.
-modifyScope :: (Scope -> Scope) -> ExecIO ()
-modifyScope f = do
-  env <- get
-  let oldScope = currentScope env
-      newScope' = f oldScope
-  put env {currentScope=newScope'}
-
-
-lookupVarCurrentScope :: (Scope -> BindEnv LangIdent a) -> LangIdent -> ExecIO (Maybe (VarVal a))
-lookupVarCurrentScope binds name = do
-  currScope <- liftM currentScope get
-  if isDefinedIn binds name currScope
-     then return $ resolve binds name currScope
-     else return Nothing
-
-
-assignVarLambda :: LangIdent -> Lambda -> ExecIO ()
-assignVarLambda =
-    assignVar lambdaBindings handleBuiltinAssignFun setVarFunInScope
-
-
-assignVarOuter
-    :: (LangIdent -> a -> ExecIO LangLit)
-    -> LangIdent -> a -> ExecIO LangLit
-assignVarOuter f n v = do
-    currScope <- getScope
-    case outerScope currScope of
-        Nothing -> f n v
-        Just sc -> do
-            modifyScope (const sc)
-            res <- f n v
-            newParent <- getScope
-            modifyScope (const currScope { outerScope = Just newParent })
-            return res
-
-
-assignVarLambdaOuter :: LangIdent -> Lambda -> ExecIO LangLit
-assignVarLambdaOuter = assignVarOuter (\n v -> assignVarLambda n v >> return LitNull)
-
-
-assignVarLitOuter :: LangIdent -> LangLit -> ExecIO LangLit
-assignVarLitOuter = assignVarOuter assignVarLit
-
-
-assignVarLit :: LangIdent -> LangLit -> ExecIO LangLit
-assignVarLit n v = assignVar valueBindings handleBuiltinAssignLit
-    setVarLitInScope n v >> returnVal v
-
-
-assignVar
-  :: (Scope -> BindEnv LangIdent a)
-     -> (LangIdent -> b -> ExecIO b) -- ^ Builtin handler function.
-     -> (LangIdent -> VarVal b -> Scope -> Scope)
-     -> LangIdent
-     -> b -- ^ Value to assign.
-     -> ExecIO ()
-assignVar binds handleBuiltin setf name val = do
-  current <- lookupVarCurrentScope binds name
-  -- when (maybe False varBuiltin current) $ handleBuiltinAssign name val
-  val' <- if maybe False varBuiltin current
-         then handleBuiltin name val
-         else return val
-  modifyScope $ setf name emptyVar {varDef=Just val'}
-
-
--- | Changes the current scope to the parent scope.
-upScope :: ExecIO ()
-upScope = do
-  currScope <- liftM currentScope get
-  case outerScope currScope of
-    Nothing -> return ()
-    Just x  -> modifyScope (const x)
 
 
 bindArgs :: [Expr] -> ArgSig -> ExecIO ()
@@ -206,9 +70,9 @@ bindArgs args (ArgSig
       isAnnAny AnnAny = True
       isAnnAny _ = False
   newScope
-  forM_ toBindFuns (\(x, LitLambda l) -> assignVarLambda x l)
-  forM_ toBindLits (uncurry assignVarLit)
-  forM_ toBindAny (uncurry assignVarLit)
+  forM_ toBindFuns (\(x, LitLambda l) -> assignVarFunLocal x l)
+  forM_ toBindLits (uncurry assignVarLitLocal)
+  forM_ toBindAny (uncurry assignVarLitLocal)
   return ()
 
 
@@ -233,7 +97,7 @@ checkSatConstr v (Just clsName) constrArgs = do
 
 execConstr :: LangLit -> LangIdent -> [Expr] -> ExecIO LangLit
 execConstr val clsName args = do
-  cls <- lookupVarLambdaF clsName
+  cls <- lookupVarFunLocal clsName
   res <- callLambda cls True $ ExprLit val : args
   case res of
     x@(LitBool _) -> return x
@@ -283,7 +147,7 @@ expandParams [] = return []
 expandParams (x:xs)
   = case x of
         ExprParamExpand n -> do
-            val <- lookupVarLitF n
+            val <- lookupVarLitLocal n
             case val of
               LitList vs -> liftM (map ExprLit vs ++) $ expandParams xs
               _          -> liftM (x:) $ expandParams xs
@@ -293,8 +157,8 @@ expandParams (x:xs)
 execExpr :: Expr -> ExecIO LangLit
 execExpr (ExprLit x@(LitRange{})) = checkLitRange x >> returnVal x
 execExpr (ExprLit x) = returnVal x
-execExpr (ExprIdent x) = lookupVarLitF x
-execExpr (ExprFunIdent x) = liftM LitLambda $ lookupVarLambdaF x
+execExpr (ExprIdent x) = lookupVarLitLocal x
+execExpr (ExprFunIdent x) = liftM LitLambda $ lookupVarFunLocal x
 execExpr (ExprOp x) = execOp x
 execExpr (ExprFunCall name asClass args) = execFunCall name asClass args
 execExpr (ExprList xs) = liftM LitList $ mapM execExpr xs
@@ -358,7 +222,7 @@ withMultiOp xs f = mapM execExpr xs >>= f
 callFun :: LangIdent -> Bool -> [Expr] -> ExecIO LangLit
 callFun x asClass args | isBuiltin x = callBuiltin x args
                        | otherwise = do
-                           l <- lookupVarLambdaF x
+                           l <- lookupVarFunLocal x
                            callLambda l asClass args
 
 
@@ -393,20 +257,32 @@ execStmt (MultiStmt [x]) = execStmt x
 execStmt (MultiStmt (x:xs)) = execStmt x >> execStmt (MultiStmt xs)
 
 
+assignment
+    :: (LangIdent -> Lambda -> ExecIO ())
+    -> (LangIdent -> LangLit -> ExecIO ())
+    -> LangIdent -> Expr -> ExecIO LangLit
+assignment aFun aLit name e = execExpr e
+    >>= (\x -> case x of
+        x'@(LitLambda l) -> aFun name l >> returnVal x'
+        x' -> aLit name x' >> returnVal x')
+
+
 execSingStmt :: SingStmt -> ExecIO LangLit
-execSingStmt (StmtAssign name e) = execExpr e
-    >>= (\x -> case x of
-        x'@(LitLambda l) -> assignVarLambda name l >> returnVal x'
-        x' -> assignVarLit name x')
-execSingStmt (StmtAssignNonLocal name e) = execExpr e
-    >>= (\x -> case x of
-        x'@(LitLambda l) -> assignVarLambdaOuter name l >> returnVal x'
-        x' -> assignVarLitOuter name x')
+execSingStmt (StmtAssign name e) = assignment assignVarFunLocal assignVarLitLocal name e
+execSingStmt (StmtAssignNonLocal name e) = assignment assignVarFunOuter assignVarLitOuter name e
+execSingStmt (StmtAssignGlobal name e) = assignment assignVarFunGlobal assignVarLitGlobal name e
 execSingStmt (StmtStruct x) = execLangStruct x
 execSingStmt (StmtExpr x) = setEnvSynRep (showSyn x) >> execExpr x
 execSingStmt (StmtComment _) = return LitNull
-execSingStmt (StmtReturn x) = do
-  isGlob <- liftM (isOutermostScope . currentScope) get
+execSingStmt (StmtReturn x) = execReturn x
+execSingStmt (StmtBreak x False) = execBreak x
+execSingStmt (StmtBreak _ True) = throwContinue
+execSingStmt (StmtRaise e) = raiseException e
+
+
+execReturn :: Expr -> ExecIO LangLit
+execReturn x = do
+  isGlob <- liftM (isOutermostScope . currentScope) getEnv
   if isGlob
       then throwExecError returnFromGlobalErr
       else do
@@ -416,18 +292,18 @@ execSingStmt (StmtReturn x) = do
                   sc <- getScope
                   throwReturn $ LitLambda lam { lambdaScope = Just sc }
               y -> throwReturn y
-execSingStmt (StmtBreak x False)
-    = case x of
-        Nothing -> throwBreak Nothing
-        Just v  -> execExpr v
-                   >>= returnVal >>= (throwBreak . Just)
-execSingStmt (StmtBreak _ True) = throwContinue
-execSingStmt (StmtRaise e) = raiseException e
+
+
+execBreak :: Maybe Expr -> ExecIO LangLit
+execBreak x = case x of
+                Nothing -> throwBreak Nothing
+                Just v  -> execExpr v
+                          >>= returnVal >>= (throwBreak . Just)
 
 
 raiseException :: LangIdent -> ExecIO LangLit
 raiseException e = do
-  env <- get
+  env <- getEnv
   let currE = currentException env
   return (LitKeyword e)
   case currE of
@@ -441,18 +317,6 @@ raiseException e = do
                    || LangIdent "error" == e
 
 
--- Possible:
--- entering loop construct
--- -> current loop, next statement
--- if break, then execute next statement
--- entering function/new scope:
--- -> current function, next statement
--- if return, then execute next statement
--- then reset (maybe Maybe values?)
--- would need to account for loops in loops
--- and functions in functions
-
-
 execLangStruct :: LangStruct -> ExecIO LangLit
 execLangStruct (StructFor name e s)
     = execStructFor name e s `catchBreak` maybe (getEnvValue >>= returnVal) returnVal
@@ -461,7 +325,7 @@ execLangStruct (StructWhile e s)
 execLangStruct (StructIf if' thn els)
     = execStructIf if' thn els
 execLangStruct (StructDefun name cs)
-    = assignVarLambda name cs *> return LitNull
+    = assignVarFunLocal name cs *> return LitNull
 execLangStruct (StructTryCatch b cs)
     = execStructTryCatch b cs
 
@@ -480,11 +344,11 @@ execStructIf if' thn els = do
 execStructFor :: LangIdent -> Expr -> Stmt -> ExecIO LangLit
 execStructFor name e s = do
   iterable <- execExpr e >>= fromIter
-  outScope <- liftM currentScope get
+  outScope <- liftM currentScope getEnv
   res <- forM iterable (\v -> do
-                   assignVarLit name v
+                   assignVarLitLocal name v
                    execStmt s `catchContinue` getEnvValue)
-  newS <- liftM currentScope get
+  newS <- liftM currentScope getEnv
   let newS' = deleteLitFromScope name newS
   modifyScope (const $ mergeScope newS' outScope)
   returnVal (LitList res)
@@ -492,7 +356,7 @@ execStructFor name e s = do
 
 execStructWhile :: Expr -> Stmt -> ExecIO LangLit
 execStructWhile ex s = do
-  pos <- liftM envSourceRef get
+  pos <- liftM envSourceRef getEnv
   execStructFor (LangIdent "__WHILEVAL__")
                     (ExprLit
                      (LitRange (LitInt 1) Nothing Nothing))
@@ -502,13 +366,15 @@ execStructWhile ex s = do
 
 
 execStructTryCatch :: Stmt -> [([LangIdent], Stmt)] -> ExecIO LangLit
-execStructTryCatch b catchers = execStmt b `catchAE` genHandle
+execStructTryCatch b catchers = do
+    currEnv <- getEnv
+    execStmt b `catchAE` genHandle currEnv
   where
-    genHandle e = do
-      env <- get
-      put env { currentException = Just e }
+    genHandle env e = do
+      updateEnv env { currentException = Just e }
       res <- checkCatch e catchers `catchBreak` breakTry
-      put env { currentException = Nothing }
+      newEnv <- getEnv
+      updateEnv newEnv { currentException = Nothing }
       return res
     checkCatch e [] = throwError e
     checkCatch e ((toCatch, ex):es) = if catches
@@ -519,6 +385,24 @@ execStructTryCatch b catchers = execStmt b `catchAE` genHandle
     breakTry (Just (LitKeyword (LangIdent "try")))
         = execStructTryCatch b catchers
     breakTry e = throwBreak e
+-- execStructTryCatch b catchers = execStmt b `catchAE` genHandle
+--   where
+--     genHandle e = do
+--       env <- getEnv
+--       updateEnv env { currentException = Just e }
+--       res <- checkCatch e catchers `catchBreak` breakTry
+--       newEnv <- getEnv
+--       updateEnv newEnv { currentException = Nothing }
+--       return res
+--     checkCatch e [] = throwError e
+--     checkCatch e ((toCatch, ex):es) = if catches
+--                                       then execStmt ex
+--                                       else checkCatch e es
+--       where catches = errToKeyword e `elem` toCatch || genErrKeyword e `elem` toCatch
+--                     || LangIdent "error" `elem` toCatch
+--     breakTry (Just (LitKeyword (LangIdent "try")))
+--         = execStructTryCatch b catchers
+--     breakTry e = throwBreak e
 
 
 
@@ -527,22 +411,23 @@ builtinArgs xs = expandParams xs >>= mapM execExpr
 
 
 callBuiltin :: LangIdent -> [Expr] -> ExecIO LangLit
-callBuiltin (LangIdent "print") xs = builtinArgs xs >>= builtinPrint
-callBuiltin (LangIdent "str")   xs = builtinArgs xs >>= builtinStr
-callBuiltin (LangIdent "index") xs = builtinArgs xs >>= builtinIndex
-callBuiltin (LangIdent "length") xs = builtinArgs xs >>= builtinLength
-callBuiltin (LangIdent "input") xs = builtinArgs xs >>= builtinInput
-callBuiltin (LangIdent "eval") xs = builtinArgs xs >>= builtinEval
-callBuiltin (LangIdent "asType") xs = builtinArgs xs >>= builtinAsType
-callBuiltin (LangIdent "getArgs") xs = builtinArgs xs >>= builtinGetArgs
-callBuiltin (LangIdent "isNull") xs = builtinArgs xs >>= builtinIsNull
-callBuiltin (LangIdent "open") xs = builtinArgs xs >>= builtinOpen
-callBuiltin (LangIdent "read") xs = builtinArgs xs >>= builtinRead
-callBuiltin (LangIdent "write") xs = builtinArgs xs >>= builtinWrite
-callBuiltin (LangIdent "close") xs = builtinArgs xs >>= builtinClose
-callBuiltin (LangIdent "shell") xs = builtinArgs xs >>= builtinShell
-callBuiltin (LangIdent "include") xs = builtinArgs xs >>= builtinInclude
+callBuiltin (LangIdent "print")    xs = builtinArgs xs >>= builtinPrint
+callBuiltin (LangIdent "str")      xs = builtinArgs xs >>= builtinStr
+callBuiltin (LangIdent "index")    xs = builtinArgs xs >>= builtinIndex
+callBuiltin (LangIdent "length")   xs = builtinArgs xs >>= builtinLength
+callBuiltin (LangIdent "input")    xs = builtinArgs xs >>= builtinInput
+callBuiltin (LangIdent "eval")     xs = builtinArgs xs >>= builtinEval
+callBuiltin (LangIdent "asType")   xs = builtinArgs xs >>= builtinAsType
+callBuiltin (LangIdent "getArgs")  xs = builtinArgs xs >>= builtinGetArgs
+callBuiltin (LangIdent "isNull")   xs = builtinArgs xs >>= builtinIsNull
+callBuiltin (LangIdent "open")     xs = builtinArgs xs >>= builtinOpen
+callBuiltin (LangIdent "read")     xs = builtinArgs xs >>= builtinRead
+callBuiltin (LangIdent "write")    xs = builtinArgs xs >>= builtinWrite
+callBuiltin (LangIdent "close")    xs = builtinArgs xs >>= builtinClose
+callBuiltin (LangIdent "shell")    xs = builtinArgs xs >>= builtinShell
+callBuiltin (LangIdent "include")  xs = builtinArgs xs >>= builtinInclude
 callBuiltin (LangIdent "nonlocal") xs = builtinArgs xs >>= builtinNonLocal
+callBuiltin (LangIdent "global")   xs = builtinArgs xs >>= builtinGlobal
 callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
 
 
@@ -579,20 +464,20 @@ builtinInclude xs = mapM_ includeFile xs >> return LitNull
             Nothing -> throwExecError . noSuchFileErr $ f
             Just pth -> do
               txt <- builtinRead [LitStr pth]
-              env <- get
-              currFile <- liftM currentFile get
-              currMain <- liftM runAsMain get
-              currScope <- liftM currentScope get
-              put env { currentFile = Just pth, runAsMain = False }
+              env <- getEnv
+              currFile <- liftM currentFile getEnv
+              currMain <- liftM runAsMain getEnv
+              currScope <- liftM currentScope getEnv
+              updateEnv env { currentFile = Just pth, runAsMain = False }
               builtinEval [txt]
                   `catchAE` (\e -> do
-                      newEnv <- get
-                      put env
+                      newEnv <- getEnv
+                      updateEnv env
                       throwAE e)
-              -- newEnv <- get
-              recentScope <- liftM currentScope get
-              put env { currentScope = mergeScope recentScope currScope }
-              -- put newEnv { currentFile = currFile, runAsMain = currMain }
+              -- newEnv <- getEnv
+              recentScope <- liftM currentScope getEnv
+              updateEnv env { currentScope = mergeScope recentScope currScope }
+              -- updateEnv newEnv { currentFile = currFile, runAsMain = currMain }
               return LitNull
 -- builtinRead [f] >>= builtinEval . (:[])
 
@@ -607,34 +492,35 @@ builtinInclude xs = mapM_ includeFile xs >> return LitNull
 -- of @var@ in a parent scope.
 builtinNonLocal :: [LangLit] -> ExecIO LangLit
 builtinNonLocal [LitKeyword (LangIdent "fun"), LitStr n]
-    = lookupVarFunOuter (LangIdent n)
+    = liftM LitLambda $ lookupVarFunOuter (LangIdent n)
 builtinNonLocal [LitStr n]
     = lookupVarLitOuter (LangIdent n)
-builtinNonLocal _ = throwExecError . callBuiltinErr $ "nonLocal: invalid call signature"
+builtinNonLocal _ = throwExecError . callBuiltinErr $ "nonlocal: invalid call signature"
+
+
+-- | Builtin @global@ function.
+--
+-- @global(var)@ attempts to lookup the value of @var@ in the global
+-- scope. Fails with a @nameError@ if @var@ is not defined.
+--
+-- @global(:fun, var)@ attempts to lookup the lambda value
+-- of @var@ in the global scope.
+builtinGlobal :: [LangLit] -> ExecIO LangLit
+builtinGlobal [LitKeyword (LangIdent "fun"), LitStr n]
+    = liftM LitLambda $ lookupVarFunGlobal (LangIdent n)
+builtinGlobal [LitStr n]
+    = lookupVarLitGlobal (LangIdent n)
+builtinGlobal _ = throwExecError . callBuiltinErr $ "global: invalid call signature"
 
 
 getAngleFile :: FilePath -> ExecIO (Maybe FilePath)
 getAngleFile fp = do
-    searchPath <- liftM angleLibPath get
-    currFile <- liftM currentFile get
+    searchPath <- liftM angleLibPath getEnv
+    currFile <- liftM currentFile getEnv
     maybeFound <- liftIO $ findFile (searchPath ++ [maybe "" takeDirectory currFile, ""]) fp
     case maybeFound of
         Nothing -> return Nothing
         Just p -> liftM Just $ liftIO $ canonicalizePath p
-
-
-assignVarBuiltinLit :: LangIdent -> LangLit -> ExecIO LangLit
-assignVarBuiltinLit n v = assignVarBuiltin setVarLitInScope n v
-    >> returnVal v
-
-
-assignVarBuiltin ::
-     (LangIdent -> VarVal b -> Scope -> Scope)
-     -> LangIdent
-     -> b -- ^ Value to assign.
-     -> ExecIO ()
-assignVarBuiltin setf name val
-    = modifyScope $ setf name emptyVar { varDef=Just val, varBuiltin=True }
 
 
 validRangeLit :: LangLit -> Bool

@@ -37,6 +37,8 @@ module Angle.Types.Scope
     , setVarFunInScope
     , setVarLitInScope
     , modifyOuterScope
+    , modifyGlobalScope
+    , globalScope
     ) where
 
 
@@ -83,6 +85,12 @@ isOutermostScope s = case outerScope s of
                     Just _  -> False
 
 
+-- | The outermost scope of the given scope stack.
+globalScope :: GenScope n v f -> GenScope n v f
+globalScope sc@(Scope { outerScope = Nothing }) = sc
+globalScope (Scope { outerScope = Just sc }) = globalScope sc
+
+
 -- | True if the scope contains a defition for the given
 -- identifier.
 isDefinedIn :: (Ord n) => (GenScope n v f -> BindEnv n a) -> n -> GenScope n v f -> Bool
@@ -119,6 +127,15 @@ modifyOuterScope sc parF =
     case outerScope sc of
         Nothing -> sc
         Just parS -> let newPar = parF parS in sc { outerScope = Just newPar }
+
+
+-- | Modifies the global scope while not affecting non-globals.
+modifyGlobalScope :: GenScope n v f -> (GenScope n v f -> GenScope n v f) -> GenScope n v f
+modifyGlobalScope sc globF =
+    if isOutermostScope sc
+    then globF sc
+    else let (Just outer) = outerScope sc
+         in sc { outerScope = Just $ modifyGlobalScope outer globF }
 
 
 -- | Finds the local-most GenScope that contains a definition

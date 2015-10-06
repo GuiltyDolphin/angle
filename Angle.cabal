@@ -34,6 +34,7 @@ library
                      , Angle.Scanner
                      , Angle.Exec.Operations
                      , Angle.Exec.Builtins
+                     , Angle.Exec.Scope
                      , Angle.Exec.Types
                      , Angle.Exec.Types.Internal
   other-modules:

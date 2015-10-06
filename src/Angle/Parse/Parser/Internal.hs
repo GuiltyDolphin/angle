@@ -111,6 +111,7 @@ singStmt = stmtStruct
            <|> stmtReturn <* singStmtEnd
            <|> stmtRaise <* singStmtEnd
            <|> stmtBreak <* singStmtEnd
+           <|> stmtAssignGlobal <* singStmtEnd
            <|> stmtAssignNonLocal <* singStmtEnd
            <|> stmtAssign <* singStmtEnd
            <|> stmtExpr   <* singStmtEnd
@@ -127,9 +128,16 @@ stmtAssign = StmtAssign
              <$> tryParse (langIdent <* tokAssign)
              <*> expr
 
+
 stmtAssignNonLocal :: Parser SingStmt
 stmtAssignNonLocal = StmtAssignNonLocal
                      <$> tryParse (langIdent <* tokAssignNonLocal)
+                     <*> expr
+
+
+stmtAssignGlobal :: Parser SingStmt
+stmtAssignGlobal = StmtAssignGlobal
+                     <$> tryParse (langIdent <* tokAssignGlobal)
                      <*> expr
 
 

@@ -20,14 +20,19 @@ module Angle.Exec.Types.Internal
     ( ExecIO
     , runExecIOBasic
     , runExecIOEnv
-    , Env(..)
-    , basicEnv
-    , returnVal
-    , getEnvValue
     , fromIter
+    , returnVal
     , iterToLit
     , fromEnumL
     , isInfiniteRange
+    -- ** Excution environment
+    , Env(..)
+    , getEnv
+    , updateEnv
+    , basicEnv
+    , getEnvValue
+    , setEnvSynRep
+    , updatePos
     ) where
 
 
@@ -82,6 +87,16 @@ data Env = Env { currentScope :: Scope
                } deriving (Show, Eq)
 
 
+-- | Retrieve the current execution environment.
+getEnv :: ExecIO Env
+getEnv = get
+
+
+-- | Update the current execution environment
+updateEnv :: Env -> ExecIO ()
+updateEnv = put
+
+
 -- | Run Angle program with a custom environment.
 runExecIOEnv :: Env -> ExecIO a -> IO (Either AngleError a)
 runExecIOEnv e x = evalStateT (runExceptT $ runExecIO x) e
@@ -90,6 +105,20 @@ runExecIOEnv e x = evalStateT (runExceptT $ runExecIO x) e
 -- | Run Angle program with a basic environment.
 runExecIOBasic :: ExecIO a -> IO (Either AngleError a)
 runExecIOBasic = runExecIOEnv basicEnv
+
+
+-- | Update the current environment tracking position.
+updatePos :: SourceRef -> ExecIO ()
+updatePos pos = modify (\e -> e { envSourceRef = pos })
+
+
+-- | Set the environment's current syntax representation.
+setEnvSynRep :: String -> ExecIO ()
+setEnvSynRep x = modify (\e -> e { envSynRep = x })
+
+
+
+
 
 
 -- | Basic environment.

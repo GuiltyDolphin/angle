@@ -17,11 +17,16 @@ module Angle.Exec.Types
     , iterToLit
     , fromIter
     , returnVal
-    , basicEnv
-    , Env(..)
-    , getEnvValue
     , fromEnumL
     , isInfiniteRange
+    -- ** Execution Environment
+    , Env(..)
+    , getEnv
+    , updateEnv
+    , basicEnv
+    , getEnvValue
+    , setEnvSynRep
+    , updatePos
     ) where
 
 import Angle.Exec.Types.Internal

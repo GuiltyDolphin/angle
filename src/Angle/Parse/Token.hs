@@ -19,6 +19,7 @@ module Angle.Parse.Token
     -- ** Statements
     , tokAssign
     , tokAssignNonLocal
+    , tokAssignGlobal
     , tokStmtBetween
     , tokMultiStmtEnd
     , tokMultiStmtStart
@@ -91,6 +92,11 @@ tokAssign = surrounded whitespace (char '=')
 tokAssignNonLocal :: Parser String
 tokAssignNonLocal = surrounded whitespace (string "|=")
                     <?> "nonlocal assignment"
+
+
+tokAssignGlobal :: Parser String
+tokAssignGlobal = surrounded whitespace (string "||=")
+                    <?> "global assignment"
 
 
 -- | Matches any amount of whitespace.
