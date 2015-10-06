@@ -57,6 +57,7 @@ executable angle
   other-modules:       Angle.REPL
                      , Angle.Options
                      , Angle.Interpreter
+                     , Paths_angle
   default-language:    Haskell2010
   build-depends:       base
                      , angle
