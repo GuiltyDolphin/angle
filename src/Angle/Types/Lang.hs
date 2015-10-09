@@ -375,6 +375,7 @@ data LangLit = LitStr String -- ^ Strings.
                        -- that fails to return a value
                        -- explicitly.
              | LitLambda Lambda -- ^ A function without a name.
+             | LitClosure Lambda
              | LitKeyword { getLitKeyword :: LangIdent }
              | LitHandle Handle
                deriving (Show, Eq)
@@ -399,6 +400,7 @@ instance ShowSyn LangLit where
 
     showSyn LitNull = "null"
     showSyn (LitLambda x) = showSyn x
+    showSyn (LitClosure x) = showSyn x
     showSyn (LitKeyword x) = ':' : showSyn x
     showSyn (LitHandle h) = show h
 
@@ -433,6 +435,7 @@ typeOf (LitBool _)   = LTBool
 typeOf (LitRange{})  = LTRange
 typeOf LitNull       = LTNull
 typeOf (LitLambda{}) = LTLambda
+typeOf (LitClosure{}) = LTLambda
 typeOf (LitKeyword _) = LTKeyword
 typeOf (LitHandle _) = LTHandle
 

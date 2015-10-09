@@ -156,6 +156,9 @@ expandParams (x:xs)
 
 execExpr :: Expr -> ExecIO LangLit
 execExpr (ExprLit x@(LitRange{})) = checkLitRange x >> returnVal x
+execExpr (ExprLit (LitClosure lam)) = do
+    currScope <- getScope
+    returnVal . LitLambda $ lam { lambdaScope = Just currScope }
 execExpr (ExprLit x) = returnVal x
 execExpr (ExprIdent x) = lookupVarLitLocal x
 execExpr (ExprFunIdent x) = liftM LitLambda $ lookupVarFunLocal x

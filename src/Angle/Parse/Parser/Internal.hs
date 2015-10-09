@@ -285,6 +285,7 @@ langLit :: Parser LangLit
 langLit = litStr
           <|> litNull
           <|> litChar
+          <|> tryParse litClosure
           <|> tryParse litLambda
           <|> litRange
           <|> litBool
@@ -323,6 +324,10 @@ litKeyword = liftM LitKeyword (char ':' >> identKeyword)
 
 litLambda :: Parser LangLit
 litLambda = liftM LitLambda lambda
+
+
+litClosure :: Parser LangLit
+litClosure = char '$' >> liftM LitClosure lambda
 
 
 exprList :: Parser Expr
