@@ -27,6 +27,11 @@ module Angle.Exec.Types
     , getEnvValue
     , setEnvSynRep
     , updatePos
+
+    , popEnvCall
+    , pushEnvCall
+
+    , updateStmt
     ) where
 
 import Angle.Exec.Types.Internal

@@ -165,12 +165,21 @@ execExpr (ExprFunIdent x) = liftM LitLambda $ lookupVarFunLocal x
 execExpr (ExprOp x) = execOp x
 execExpr (ExprFunCall name asClass args) = execFunCall name asClass args
 execExpr (ExprList xs) = liftM LitList $ mapM execExpr xs
-execExpr (ExprLambdaCall f xs) = callLambda f False xs
+execExpr (ExprLambdaCall f xs) = callPureLambda f False xs
 execExpr x@(ExprRange{}) = do
   r <- execExprRange x
   checkLitRange r
   returnVal r
 execExpr _ = undefined
+
+
+
+callPureLambda :: Lambda -> Bool -> [Expr] -> ExecIO LangLit
+callPureLambda lam asClass exprs = do
+    pushEnvCall (LangIdent "LAMBDA")
+    res <- callLambda lam asClass exprs
+    popEnvCall
+    return res
 
 
 execExprRange :: Expr -> ExecIO LangLit
@@ -223,10 +232,14 @@ withMultiOp xs f = mapM execExpr xs >>= f
 
 
 callFun :: LangIdent -> Bool -> [Expr] -> ExecIO LangLit
-callFun x asClass args | isBuiltin x = callBuiltin x args
-                       | otherwise = do
-                           l <- lookupVarFunLocal x
-                           callLambda l asClass args
+callFun x asClass args
+    | isBuiltin x = callBuiltin x args
+    | otherwise = do
+        l <- lookupVarFunLocal x
+        pushEnvCall x
+        res <- callLambda l asClass args
+        popEnvCall
+        return res
 
 
 callLambda :: Lambda -> Bool -> [Expr] -> ExecIO LangLit
@@ -253,7 +266,7 @@ callLambda (Lambda
 
 -- | Executes a single statement.
 execStmt :: Stmt -> ExecIO LangLit
-execStmt (SingleStmt x pos) = updatePos pos >> execSingStmt x
+execStmt s@(SingleStmt x pos) = updateStmt s >> updatePos pos >> execSingStmt x
 execStmt (MultiStmt (x@(SingleStmt (StmtReturn _) _):_)) = execStmt x
 execStmt (MultiStmt []) = return LitNull
 execStmt (MultiStmt [x]) = execStmt x

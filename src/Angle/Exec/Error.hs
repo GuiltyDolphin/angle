@@ -114,6 +114,11 @@ class (CanError m) => CanErrorWithPos m where
     getErrorPos :: m SourceRef
     getErrorSource :: m String
     getErrorFile :: m (Maybe FilePath)
+    -- FIXME: This should maybe just have the line numbers?
+    -- Then could perhaps not need the separate position.
+    getErrorCallStack :: m [(LangIdent, Stmt)]
+    -- getErrorStmt :: m Stmt
+    getErrorCall :: m (LangIdent, Stmt)
 
 
 -- | Errors that can be caught by the user via the try...catch
@@ -131,6 +136,8 @@ data AngleError = ExecError
     , execErrErr :: ExecError
     , execErrSourceText :: String
     , execErrFile :: Maybe FilePath
+    , execErrStack :: [(LangIdent, Stmt)]
+    , execErrCall :: (LangIdent, Stmt)
     }
                 | ImplementationError String
                 -- | ControlException ControlException
@@ -151,22 +158,37 @@ instance Show AngleError where
                       , execErrSourceRef=SourceRef (start,_)
                       , execErrSourceText=es
                       , execErrFile=ef
+                      , execErrStack=eStack
+                      , execErrCall=eCall
                       })
-        = cEf ++ cEk ++ cEp ++ cEt ++ cEe
+        = cEf ++ cEStack ++ cECall ++ cEk ++ cEe -- cEf ++ cEStack ++ cEp ++ cEt ++ cEk ++ cEe
           where
             cEf = case ef of
                       Nothing -> ""
                       Just f -> "In file: " ++ f ++ "\n"
-            cEk = concat ["(:", showSyn $ errToKeyword ee, ")\n"]
+            cECall = showCall eCall
+            cEStack = concatMap showCall (reverse eStack)
+            cEk = concat ["\n(:", showSyn $ errToKeyword ee, ")\n"]
             cEp = show start ++ "\n"
-            cEt = let lns = lines es in
-                      if null lns
-                      then "no source\n"
-                      else replicate (colNo start) ' '
-                               ++ "v\n"
-                               ++ lns !! lineNo start
-                               ++ "\n"
+            -- cEt = showSyn eStmt
+            -- cEt = let lns = lines es in
+            --           if null lns
+            --           then "no source\n"
+            --           else replicate (colNo start) ' '
+            --                    ++ "v\n"
+            --                    ++ lns !! lineNo start
+            --                    ++ "\n"
             cEe = show ee
+            showCall (c,s) = r -- s' ++ l ++ " in " ++ showSyn c
+              where
+                -- s' = maybe "Most recent call last\n" ((("\n    "++) . (++"\n")) . showSyn) s
+                r = "  line " ++ ln ++ ", in " ++ f ++ "\n" ++ t
+                t = "    " ++ st ++ "\n"
+                ln = show . stmtLine $ s
+                f = showSyn c
+                st = let (SingleStmt s' _) = s; tos = showSyn s' in if last tos == '\n' then init tos else tos
+                -- l = maybe "" (("  line " ++) . show . stmtLine) s
+            stmtLine (SingleStmt _ (SourceRef (l,_))) = lineNo l
     -- show (ControlException _) =
     --     error "show: control exception made it to show"
 
@@ -460,10 +482,14 @@ throwExecError e = do
   errPosRef <- getErrorPos
   errSource <- getErrorSource
   errPath <- getErrorFile
+  errStack <- getErrorCallStack
+  errCall <- getErrorCall
   throwAE ExecError { execErrSourceRef = errPosRef
                          , execErrSourceText = errSource
                          , execErrErr = e
                          , execErrFile = errPath
+                         , execErrStack = errStack
+                         , execErrCall = errCall
                          }
 
 

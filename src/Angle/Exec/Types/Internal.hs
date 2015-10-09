@@ -33,6 +33,11 @@ module Angle.Exec.Types.Internal
     , getEnvValue
     , setEnvSynRep
     , updatePos
+
+    , pushEnvCall
+    , popEnvCall
+
+    , updateStmt
     ) where
 
 
@@ -62,11 +67,15 @@ instance CanErrorWithPos ExecIO where
     getErrorPos = liftM envSourceRef get
     getErrorSource = liftM sourceText get
     getErrorFile = liftM currentFile get
+    getErrorCallStack = liftM (currentStack . callStack) get
+    -- getErrorStmt = liftM currentStmt get
+    getErrorCall = liftM (((,) <$> currentName <*>  currentStmt) . callStack) get
 
 
 instance CanError ExecIO where
     throwAE = ExecIO . throwE
-    catchAE (ExecIO e) h = ExecIO (lift $ runExceptT e) >>= either h return
+    catchAE (ExecIO e) h
+        = ExecIO (lift $ runExceptT e) >>= either h return
 
 
 instance MonadState Env ExecIO where
@@ -81,11 +90,25 @@ data Env = Env { currentScope :: Scope
                , envSynRep :: String
                , envValue :: LangLit
                , currentException :: Maybe AngleError
+               , callStack :: CallStack
+               -- ^ Calls and the statements that call them.
                , angleLibPath :: [FilePath]
                , currentFile :: Maybe FilePath
                , runAsMain :: Bool
                } deriving (Show, Eq)
 
+
+-- | Track function calls and statement execution.
+data CallStack = CallStack
+    { currentStack :: [(LangIdent, Stmt)]
+    , currentName :: LangIdent
+    , currentStmt :: Stmt
+    } deriving (Show, Eq)
+
+
+startStack :: CallStack
+startStack = CallStack { currentStack = []
+                       , currentName = LangIdent "MODULE" }
 
 -- | Retrieve the current execution environment.
 getEnv :: ExecIO Env
@@ -117,10 +140,6 @@ setEnvSynRep :: String -> ExecIO ()
 setEnvSynRep x = modify (\e -> e { envSynRep = x })
 
 
-
-
-
-
 -- | Basic environment.
 basicEnv :: Env
 basicEnv = Env { currentScope = emptyScope
@@ -131,6 +150,7 @@ basicEnv = Env { currentScope = emptyScope
                , currentException = Nothing
                , angleLibPath = []
                , currentFile = Nothing
+               , callStack = startStack
                }
 
 
@@ -154,6 +174,41 @@ getEnvValue = liftM envValue get
 
 putEnvValue :: LangLit -> ExecIO ()
 putEnvValue v = modify (\e -> e {envValue=v})
+
+
+popEnvCall :: ExecIO ()
+popEnvCall = do
+    currEnv <- getEnv
+    let currStack = callStack currEnv
+        ((newName,_):newStack) = currentStack currStack
+        newCallStack = currStack { currentStack = newStack, currentName = newName }
+    put currEnv { callStack = newCallStack }
+    -- put currEnv { callStack = newStack, currentName = newName }
+    -- put currEnv
+    --     { callStack = let (_:newStack) = callStack currEnv in newStack }
+
+
+pushEnvCall :: LangIdent -> ExecIO ()
+pushEnvCall newCall = do
+    currEnv <- getEnv
+    let currStack = callStack currEnv
+        oldName = currentName currStack
+        oldStmt = currentStmt currStack
+        oldStack = currentStack currStack
+        newStack = (oldName, oldStmt) : oldStack
+        newCallStack = currStack { currentName = newCall, currentStack = newStack }
+    put currEnv { callStack = newCallStack }
+    -- put currEnv { currentName = newCall, callStack = newStack }
+    -- put currEnv { callStack =
+    --     (newCall, currentStmt currEnv) : oldStack }
+
+
+updateStmt :: Stmt -> ExecIO ()
+updateStmt s = do
+    currEnv <- getEnv
+    let oldStack = callStack currEnv
+    put currEnv { callStack = oldStack { currentStmt = s } }
+    -- put currEnv { currentStmt = s }
 
 
 -- | Convert a list or range into a list of literals.
