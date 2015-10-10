@@ -257,13 +257,32 @@ type Binary a b = a -> a -> b
 -- is more than one operand.
 compOp :: CompFunc -> MultiOperator
 compOp f [LitList xs]      = compOp f xs
-compOp f (x@(LitStr _):xs) = foldM (compStr f) x xs
- where compStr :: CompFunc -> BinaryOperator
-       compStr g (LitStr y) (LitStr z)
-           = return . LitBool $ g y z
-       compStr _ y z
-           = throwExecError $ typeMismatchOpErr y z
-compOp f xs = onlyNumOp (onNumBool f f) xs
+compOp f xs = liftM (LitBool . and) $ mapM (uncurry $ compLit f) (group2 xs)
+
+
+-- | Lift a comparison function to work on 'LangLit's.
+compLit :: (CanErrorWithPos m) => (forall a. (Ord a) => a -> a -> Bool) -> LangLit -> LangLit -> m Bool
+compLit f (LitInt x) (LitInt y) = return $ f (toRational x) (toRational y)
+compLit f (LitInt x) (LitFloat y) = return $ f (toRational x) (toRational y)
+compLit f x@(LitFloat _) y@(LitInt _) = compLit f y x
+compLit f (LitFloat x) (LitFloat y) = return $ f (toRational x) (toRational y)
+compLit f (LitStr x) (LitStr y) = return $ f x y
+compLit _ x y = throwExecError $ typeMismatchOpErr x y
+
+
+-- | Group the list into successive doubles.
+--
+-- e.g,
+--
+-- > group2 [1, 2, 3]
+--
+-- [(1, 2), (2, 3)]
+group2 :: [a] -> [(a, a)]
+group2 [] = []
+group2 [x] = []
+group2 xs = (fst', snd') : group2 (tail xs)
+  where
+    [fst', snd'] = take 2 xs
 
 
 -- | Convenience function for producing `LangLit' values from

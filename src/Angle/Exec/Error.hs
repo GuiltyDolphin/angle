@@ -140,7 +140,6 @@ data AngleError = ExecError
     , execErrCall :: (LangIdent, Stmt)
     }
                 | ImplementationError String
-                -- | ControlException ControlException
     deriving (Eq)
 
 
