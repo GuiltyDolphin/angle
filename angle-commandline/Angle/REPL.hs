@@ -12,8 +12,10 @@ module Angle.REPL (runInteractive) where
 
 import Control.Monad
 import Control.Monad.Except
+import Control.Monad.State (put)
 import Data.Either (lefts, rights)
 import Data.List (elemIndices)
+import System.Directory (canonicalizePath)
 import System.IO (stdout, hFlush)
 
 import Angle.Exec.Types
@@ -62,21 +64,39 @@ printSyn = putStrLn . showSyn
 -- | Run interactive mode using the files as initial input.
 interactiveWithFiles :: [FilePath] -> ExecIO ()
 interactiveWithFiles fs = do
-    fileSources <- liftIO $ mapM readFile fs
-    let asStmts = map (`evalParse` program) fileSources
-    if not . null $ lefts asStmts
-    then liftIO $ mapM_ (putStrLn . ("failed to load file: " ++))
-        [x ++ "\n" ++ show r | (x,Left r) <- zip fs asStmts]
-    else do
-        let overStmt = MultiStmt (rights asStmts)
-        -- execStmt overStmt
-        toPrint <- execStmt overStmt
-            `catchError` (\e -> liftIO (print e) >> throwError e)
-        liftIO $ printSyn toPrint
-        -- runExecIOEnv initialEnvNotMain (execStmt overStmt)
-        interactiveMode
-        return ()
+    mapM_ getInteractiveFile fs
+    interactiveMode
     return ()
+
+-- interactiveWithFiles fs = do
+--     fileSources <- liftIO $ mapM readFile fs
+--     let asStmts = map (`evalParse` program) fileSources
+--     if not . null $ lefts asStmts
+--     then liftIO $ mapM_ (putStrLn . ("failed to load file: " ++))
+--         [x ++ "\n" ++ show r | (x,Left r) <- zip fs asStmts]
+--     else do
+--         let overStmt = MultiStmt (rights asStmts)
+--         -- execStmt overStmt
+--         toPrint <- execStmt overStmt
+--             `catchError` (\e -> liftIO (print e) >> throwError e)
+--         liftIO $ printSyn toPrint
+--         -- runExecIOEnv initialEnvNotMain (execStmt overStmt)
+--         interactiveMode
+--         return ()
+--     return ()
+
+getInteractiveFile :: FilePath -> ExecIO ()
+getInteractiveFile fp = do
+    canPath <- liftIO $ canonicalizePath fp
+    source <- liftIO $ readFile fp
+    currEnv <- getEnv
+    put currEnv { currentFile = Just canPath }
+    let asStmt = evalParse source program
+    case asStmt of
+        Left err -> liftIO $ print err
+        Right s -> do
+            toPrint <- execStmt s `catchError` (\e -> liftIO (print e) >> throwError e)
+            liftIO $ printSyn toPrint
 -- withSource s =
 --   case evalParse ('{':s++"}") stmt of
 --     Left err -> liftIO (print err) >> interactiveMode

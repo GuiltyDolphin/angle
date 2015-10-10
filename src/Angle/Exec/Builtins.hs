@@ -38,6 +38,7 @@ module Angle.Exec.Builtins
     , builtinIsNull
     , builtinOpen
     , builtinRead
+    , builtinRound
     , builtinWrite
     , builtinClose
     , builtinShell
@@ -176,7 +177,8 @@ builtins = [ "print", "str"
            , "read", "write", "open", "close"
            , "include"
            , "nonlocal"
-           , "shell"]
+           , "shell"
+           , "round"]
 
 
 -- | List of builtin variables and their values.
@@ -412,6 +414,17 @@ builtinShell [p@(LitStr _), sIn@(LitStr _)] = builtinShell [p, LitList [], sIn]
 builtinShell [LitStr p, LitList args, LitStr sIn] = liftM LitStr $ withIOError $ readProcess p xs sIn
   where xs = map ((\(LitStr x) -> x) . toLitStr) args
 builtinShell _ = throwExecError $ callBuiltinErr "shell: invalid call signature"
+
+
+-- | Builtin @round@ function.
+--
+-- @round(num)@ returns the closest integer to @num@ (prefers higher
+-- numbers).
+builtinRound :: [LangLit] -> ExecIO LangLit
+builtinRound [x@(LitInt _)] = return x
+builtinRound [LitFloat x] = return $ LitInt $ round x
+builtinRound xs = liftM LitList $ mapM (builtinRound . (:[])) xs
+builtinRound [x] = throwExecError $ typeNotValidErr x
 
 
 -- | Handler for assignments to builtin variables as literals.

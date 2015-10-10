@@ -444,6 +444,7 @@ callBuiltin (LangIdent "shell")    xs = builtinArgs xs >>= builtinShell
 callBuiltin (LangIdent "include")  xs = builtinArgs xs >>= builtinInclude
 callBuiltin (LangIdent "nonlocal") xs = builtinArgs xs >>= builtinNonLocal
 callBuiltin (LangIdent "global")   xs = builtinArgs xs >>= builtinGlobal
+callBuiltin (LangIdent "round")    xs = builtinArgs xs >>= builtinRound
 callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
 
 
