@@ -44,6 +44,7 @@ module Angle.Exec.Error
     , indexOutOfBoundsErr
     , infiniteRangeErr
     , nonEnumErr
+    , divideByZeroErr
 
     -- ** Control-flow
     , catchBreak
@@ -502,6 +503,7 @@ data ValueError = IndexOutOfBoundsError Int
               | BadRange LangType (Maybe LangType) (Maybe LangType)
               | InfiniteRange
               | NonEnum LangType
+              | DivideByZero
               deriving (Eq)
 
 
@@ -525,11 +527,17 @@ nonEnumErr :: LangType -> ExecError
 nonEnumErr = valueErr . NonEnum
 
 
+-- | Attempted division by zero.
+divideByZeroErr :: ExecError
+divideByZeroErr = valueErr DivideByZero
+
+
 instance Show ValueError where
     show (IndexOutOfBoundsError x) = "index out of bounds: " ++ show x
     show (BadRange t1 t2 t3) = "bad range: all types should be same, but got: " ++ show t1 ++ concatMap ((", "++) . show) (catMaybes [t2,t3])
     show InfiniteRange = "infinite range"
     show (NonEnum t) = "expected enumerable type but got: " ++ show t
+    show DivideByZero = "attempted division by zero"
 
 
 instance KWError ValueError where
@@ -537,6 +545,7 @@ instance KWError ValueError where
     errToKeyword (BadRange{}) = LangIdent "badRange"
     errToKeyword InfiniteRange = LangIdent "infiniteRange"
     errToKeyword (NonEnum{}) = LangIdent "nonEnum"
+    errToKeyword DivideByZero = LangIdent "divideByZero"
     genErrKeyword _ = LangIdent "valueError"
 
 

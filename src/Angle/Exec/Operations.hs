@@ -81,7 +81,9 @@ concatLit _ = throwExecError $ malformedSignatureErr "++"
 --
 -- On numerics: performs arithmetic division.
 divLit :: MultiOperator
-divLit = onlyNumOp divLitNum
+divLit (_:xs) | LitInt 0 `elem` xs = throwExecError divideByZeroErr
+              | LitFloat 0 `elem` xs = throwExecError divideByZeroErr
+divLit xs = onlyNumOp divLitNum xs
     where divLitNum = onNum div (/)
 
 
