@@ -46,7 +46,19 @@ runLine s = do
               Left err -> liftIO $ print err
               Right res -> do
                 toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
-                liftIO $ printSyn toPrint
+                let toShow = case toPrint of
+                                (LitList xs) -> let fpart = LitList (take 10 xs)
+                                                    spart = LitList (reverse $ take 5 $ reverse xs)
+                                                in if length xs > 100
+                                                  then init (showSyn fpart) ++ ", ..., " ++ tail (showSyn spart)
+                                                  else showSyn toPrint
+                                (LitStr xs) -> if length xs > 2000
+                                              then let fpart = LitStr (take 1000 xs)
+                                                       spart = LitStr (reverse $ take 1000 $ reverse xs)
+                                                   in init (showSyn fpart) ++ "\n<LONG TEXT OMITTED>\n" ++ tail (showSyn spart)
+                                              else showSyn toPrint
+                                _ -> showSyn toPrint
+                liftIO $ putStrLn toShow
 
 
 incMultiBy :: String -> Int
