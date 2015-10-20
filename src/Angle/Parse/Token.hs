@@ -168,7 +168,6 @@ keywords :: [String]
 keywords = [ "break"
            , "catch"
            , "continue"
-           , "defclass"
            , "defun"
            , "do"
            , "else"
@@ -183,7 +182,6 @@ keywords = [ "break"
            , "true"
            , "try"
            , "unless"
-           , "when"
            , "while"]
 
 
