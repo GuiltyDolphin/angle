@@ -105,16 +105,16 @@ execConstr val clsName args = do
                      $ typeConstrWrongReturnErr clsName (typeOf y)
 
 
--- | Sets the 'as_class' variable to true if the function is
+-- | Sets the 'as_constr' variable to true if the function is
 -- being called as a class, and cleans up afterwords.
 withClass :: ExecIO a -> ExecIO a
 withClass s = do
-  assignVarBuiltinLit (LangIdent "as_class") (LitBool True)
+  assignVarBuiltinLit (LangIdent "as_constr") (LitBool True)
   res <- s `catchAE` (\e -> setClassFalse >> throwAE e)
   setClassFalse
   return res
   where
-    setClassFalse = assignVarBuiltinLit (LangIdent "as_class") (LitBool False)
+    setClassFalse = assignVarBuiltinLit (LangIdent "as_constr") (LitBool False)
 
 
 -- | True if the literal is of the specified annotation type.

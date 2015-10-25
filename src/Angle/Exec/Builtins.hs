@@ -157,7 +157,7 @@ builtinHandles = [ ("stdin", LitHandle stdin)
 
 
 builtinVariables :: [(String, LangLit)]
-builtinVariables = [ ("as_class", LitBool False)
+builtinVariables = [ ("as_constr", LitBool False)
                    , ("main", LitBool False)
                    ]
 
