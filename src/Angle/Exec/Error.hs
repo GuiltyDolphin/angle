@@ -161,7 +161,7 @@ instance Show AngleError where
                       , execErrStack=eStack
                       , execErrCall=eCall
                       })
-        = cEf ++ cEStack ++ cECall ++ cEk ++ cEe -- cEf ++ cEStack ++ cEp ++ cEt ++ cEk ++ cEe
+        = cEf ++ cEStack ++ cECall ++ cEk ++ cEe
           where
             cEf = case ef of
                       Nothing -> ""
@@ -170,27 +170,15 @@ instance Show AngleError where
             cEStack = concatMap showCall (reverse eStack)
             cEk = concat ["\n(:", showSyn $ errToKeyword ee, ")\n"]
             cEp = show start ++ "\n"
-            -- cEt = showSyn eStmt
-            -- cEt = let lns = lines es in
-            --           if null lns
-            --           then "no source\n"
-            --           else replicate (colNo start) ' '
-            --                    ++ "v\n"
-            --                    ++ lns !! lineNo start
-            --                    ++ "\n"
             cEe = show ee
-            showCall (c,s) = r -- s' ++ l ++ " in " ++ showSyn c
+            showCall (c,s) = r
               where
-                -- s' = maybe "Most recent call last\n" ((("\n    "++) . (++"\n")) . showSyn) s
                 r = "  line " ++ ln ++ ", in " ++ f ++ "\n" ++ t
                 t = "    " ++ st ++ "\n"
-                ln = show . stmtLine $ s
+                ln = show (stmtLine s + 1)
                 f = showSyn c
                 st = let (SingleStmt s' _) = s; tos = showSyn s' in if last tos == '\n' then init tos else tos
-                -- l = maybe "" (("  line " ++) . show . stmtLine) s
             stmtLine (SingleStmt _ (SourceRef (l,_))) = lineNo l
-    -- show (ControlException _) =
-    --     error "show: control exception made it to show"
 
 
 instance KWError AngleError where
