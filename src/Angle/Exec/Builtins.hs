@@ -176,7 +176,7 @@ builtins = [ "print", "str"
            , "asType", "getArgs"
            , "read", "write", "open", "close"
            , "include"
-           , "nonlocal"
+           , "local", "nonlocal", "global"
            , "shell"
            , "round"]
 

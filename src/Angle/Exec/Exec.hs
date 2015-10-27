@@ -451,6 +451,7 @@ callBuiltin (LangIdent "shell")    xs = builtinArgs xs >>= builtinShell
 callBuiltin (LangIdent "include")  xs = builtinArgs xs >>= builtinInclude
 callBuiltin (LangIdent "nonlocal") xs = builtinArgs xs >>= builtinNonLocal
 callBuiltin (LangIdent "global")   xs = builtinArgs xs >>= builtinGlobal
+callBuiltin (LangIdent "local")    xs = builtinArgs xs >>= builtinLocal
 callBuiltin (LangIdent "round")    xs = builtinArgs xs >>= builtinRound
 callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
 
@@ -515,10 +516,10 @@ builtinInclude xs = mapM_ includeFile xs >> return LitNull
 -- @nonlocal(:fun, var)@ attempts to lookup the lambda value
 -- of @var@ in a parent scope.
 builtinNonLocal :: [LangLit] -> ExecIO LangLit
-builtinNonLocal [LitKeyword (LangIdent "fun"), LitStr n]
-    = liftM LitLambda $ lookupVarFunOuter (LangIdent n)
-builtinNonLocal [LitStr n]
-    = lookupVarLitOuter (LangIdent n)
+builtinNonLocal [LitKeyword (LangIdent "fun"), LitKeyword n]
+    = liftM LitLambda $ lookupVarFunOuter n
+builtinNonLocal [LitKeyword n]
+    = lookupVarLitOuter n
 builtinNonLocal _ = throwExecError . callBuiltinErr $ "nonlocal: invalid call signature"
 
 
@@ -530,11 +531,25 @@ builtinNonLocal _ = throwExecError . callBuiltinErr $ "nonlocal: invalid call si
 -- @global(:fun, var)@ attempts to lookup the lambda value
 -- of @var@ in the global scope.
 builtinGlobal :: [LangLit] -> ExecIO LangLit
-builtinGlobal [LitKeyword (LangIdent "fun"), LitStr n]
-    = liftM LitLambda $ lookupVarFunGlobal (LangIdent n)
-builtinGlobal [LitStr n]
-    = lookupVarLitGlobal (LangIdent n)
+builtinGlobal [LitKeyword (LangIdent "fun"), LitKeyword n]
+    = liftM LitLambda $ lookupVarFunGlobal n
+builtinGlobal [LitKeyword n]
+    = lookupVarLitGlobal n
 builtinGlobal _ = throwExecError . callBuiltinErr $ "global: invalid call signature"
+
+
+-- | Built-in @local@ function.
+--
+-- @local(var)@ attempts to resolve the variable represented by the keyword
+-- @var@.
+--
+-- @local(:fun, var)@ attempts to resove the lambda value of @var@@
+builtinLocal :: [LangLit] -> ExecIO LangLit
+builtinLocal [LitKeyword (LangIdent "fun"), LitKeyword n]
+    = liftM LitLambda $ lookupVarFunLocal n
+builtinLocal [LitKeyword n]
+    = lookupVarLitLocal n
+builtinLocal _ = throwExecError . callBuiltinErr $ "local: invalid call signature"
 
 
 getAngleFile :: FilePath -> ExecIO (Maybe FilePath)
