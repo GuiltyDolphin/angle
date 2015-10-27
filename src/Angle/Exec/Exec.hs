@@ -393,7 +393,8 @@ execStructTryCatch b catchers = do
     execStmt b `catchAE` genHandle currEnv
   where
     genHandle env e = do
-      updateEnv env { currentException = Just e }
+      cscope <- getScope -- Preserve the scope!
+      updateEnv env { currentException = Just e, currentScope = cscope }
       res <- checkCatch e catchers `catchBreak` breakTry
       newEnv <- getEnv
       updateEnv newEnv { currentException = Nothing }
