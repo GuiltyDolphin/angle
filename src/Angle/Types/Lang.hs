@@ -487,7 +487,9 @@ instance ShowSyn Expr where
     showSyn (ExprFunCall n asClass es) = (if asClass then "@" else "") ++ showSyn n ++ showSynArgs es
     showSyn (ExprOp x) = showSyn x
     showSyn (ExprFunIdent x) = "$" ++ showSyn x
-    showSyn (ExprList _) = error "showSyn - cannot show unevaluated list"
+    showSyn (ExprList xs) = showSynList xs
+        where showSynList = showSynSep "[" "]" ", "
+    -- showSyn (ExprList _) = error "showSyn - cannot show unevaluated list"
     showSyn (ExprRange{}) = error "showSyn - cannot show unevaluated range"
     showSyn (ExprLambdaCall x xs) = showSyn (LitLambda x) ++ " : (" ++ showSynArgs xs ++ ")"
     showSyn (ExprParamExpand x) = ".." ++ showSyn x -- error "showSyn - ExprParamExpand made it to showSyn"

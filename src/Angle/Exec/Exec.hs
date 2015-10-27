@@ -288,7 +288,10 @@ execSingStmt (StmtAssign name e) = assignment assignVarFunLocal assignVarLitLoca
 execSingStmt (StmtAssignNonLocal name e) = assignment assignVarFunOuter assignVarLitOuter name e
 execSingStmt (StmtAssignGlobal name e) = assignment assignVarFunGlobal assignVarLitGlobal name e
 execSingStmt (StmtStruct x) = execLangStruct x
-execSingStmt (StmtExpr x) = setEnvSynRep (showSyn x) >> execExpr x
+execSingStmt (StmtExpr x) = do
+  res <- execExpr x
+  setEnvSynRep (showSyn res)
+  returnVal res
 execSingStmt (StmtComment _) = return LitNull
 execSingStmt (StmtReturn x) = execReturn x
 execSingStmt (StmtBreak x False) = execBreak x
@@ -306,7 +309,10 @@ execReturn x = do
           case res of
               LitLambda lam -> do
                   sc <- getScope
-                  throwReturn $ LitLambda lam { lambdaScope = Just sc }
+                  let newS = case lambdaScope lam of
+                                Nothing -> sc
+                                Just s -> modifyGlobalScope s (\sc' -> sc' { outerScope = Just sc })
+                  throwReturn $ LitLambda lam { lambdaScope = Just newS }
               y -> throwReturn y
 
 
