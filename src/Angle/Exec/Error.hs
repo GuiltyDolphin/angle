@@ -358,7 +358,7 @@ instance KWError TypeError where
     errToKeyword (TypeCast{}) = LangIdent "typeCast"
     errToKeyword (TypeMismatchOp{}) = LangIdent "typeMismatchOp"
     errToKeyword (TypeExpectConstr{}) = LangIdent "typeExpectConstr"
-    errToKeyword (TypeConstrWrongReturn{}) = LangIdent "TypeConstrWrongReturn"
+    errToKeyword (TypeConstrWrongReturn{}) = LangIdent "typeConstrWrongReturn"
     errToKeyword (TypeAnnWrong{}) = LangIdent "typeAnnWrong"
     genErrKeyword _ = LangIdent "typeError"
 
