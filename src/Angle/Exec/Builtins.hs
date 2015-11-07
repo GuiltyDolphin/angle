@@ -368,11 +368,14 @@ builtinOpen _ = throwExecError $ callBuiltinErr "open: invalid call signature"
 --
 -- @read(handle, integer)@ reads @integer@ lines from @handle@ and returns them as a new-line separated string.
 --
--- @read(handle, integer, 'c')@ reads @integer@ characters from @handle@ and returns them in a string.
+-- @read(:char, handle)@ reads a single character from @handle@ and returns it as a character.
+--
+-- @read(:char, handle, integer)@ reads @integer@ characters from @handle@ and returns them in a string.
 builtinRead :: [LangLit] -> ExecIO LangLit
 builtinRead [LitHandle h] = liftM LitStr $ withIOError $ hGetContents h
 builtinRead [LitHandle h, LitInt n] = liftM LitStr (withIOError $ liftM unlines $ replicateM n $ hGetLine h) >>= returnVal
-builtinRead [LitHandle h, LitInt n, LitKeyword (LangIdent "char")] = liftM LitStr (withIOError $ replicateM n $ hGetChar h) >>= returnVal
+builtinRead [LitKeyword (LangIdent "char"), LitHandle h] = liftM LitChar (withIOError $ hGetChar h) >>= returnVal
+builtinRead [LitKeyword (LangIdent "char"), LitHandle h, LitInt n] = liftM LitStr (withIOError $ replicateM n $ hGetChar h) >>= returnVal
 builtinRead (s@(LitStr _):xs) = builtinOpen [s, LitStr "<"] >>= (builtinRead . (:xs))
 builtinRead _ = throwExecError $ callBuiltinErr "read: invalid call signature"
 
