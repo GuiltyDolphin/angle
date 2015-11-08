@@ -21,13 +21,17 @@ module Angle.Lex.Token
     , tokGenSep
     , tokTupleStart
     , tokTupleEnd
+    , tokAssign
     , tokRangeSep
+    , tokSpace
+    , tokWhitespace
     , tokTrue, tokFalse
     , tokPeriod
     , tokString
     , ident
     , angles
     , parens
+    , keyword
     ) where
     
 
@@ -67,9 +71,9 @@ tokListEnd = char ']' <?> "end of list"
 tokParenL = char '(' <?> "open parenthesis"
 tokParenR = char ')' <?> "close parenthesis"
 tokColon = char ':' <?> "colon"
-tokMultiStmtStart = char '{' <?> "start of multi-statement"
-tokMultiStmtEnd = char '}' <?> "end of multi-statement"
 tokEltSep = char ',' <?> "element separator"
+tokMultiStmtStart = tokWhitespace *> char '{' <?> "start of multi-statement"
+tokMultiStmtEnd = char '}' <* tokWhitespace <?> "end of multi-statement"
 tokIdentStartChar = cond (`notElem` reservedChars) <?> "start of identifier"
 tokIdentBodyChar = tokIdentStartChar <?> "identifier character"
 tokStringStart = char '"' <?> "start of string"
@@ -87,6 +91,9 @@ tokGroupStart = tokParenL <?> "start of group"
 tokGroupEnd = tokParenR <?> "end of group"
 tokTupleStart = tokParenL <?> "start of tuple"
 tokTupleEnd = tokParenR <?> "end of tuple"
+tokSpace = char ' ' <?> "space"
+tokWhitespace = many tokSpace <?> "whitespace"
+tokAssign = surrounded tokWhitespace (char '=') <?> "assignment operator"
 tokRangeSep = string ".." <?> "range separator"
 tokTrue = string "true" <?> "true"
 tokFalse = string "false" <?> "false"
@@ -107,7 +114,9 @@ reservedChars = "<>;\n:{}\"'$@, "
 alpha = charFrom ['A'..'z']
 digit = charFrom ['0'..'9']
 
-keywords = ["defun", "else", "for", "if", "in", "return", "then", "while"]
+keywords = ["defun", "do", "else", "false", "for", "if", "in", "return", "then", "true", "while"]
+           
+keyword str = string str <* tokSpace
 
 
 parens = within tokParenL tokParenR

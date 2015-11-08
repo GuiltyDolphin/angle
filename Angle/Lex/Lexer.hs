@@ -293,16 +293,78 @@ langFunCall = do
 data Stmt = SingleStmt SingStmt | MultiStmt [Stmt]
             deriving (Show)
 
+stmt = singleStmt <|> multiStmt <?> "statement"
+singleStmt = liftM SingleStmt singStmt
+       
+multiStmt = do
+  tokMultiStmtStart
+  body <- many stmt
+  tokMultiStmtEnd
+  return $ MultiStmt body
+
 data SingStmt = StmtAssign LangIdent Expr
               | StmtStruct LangStruct
               | StmtExpr Expr
                 deriving (Show)
                 
+singStmt = stmtAssign <|> stmtStruct <|> stmtExpr
+stmtExpr = liftM StmtExpr expr
+           
+-- |Variable assignment
+-- >>> evalScan "x=5" stmtAssign
+-- Right (..."x"...5...)
+stmtAssign = do
+  name <- langIdent
+  tokAssign
+  val <- expr
+  return $ StmtAssign name val
+                
+         
+stmtStruct = liftM StmtStruct langStruct
 
 data LangStruct = StructFor LangIdent Expr Stmt
                 | StructWhile Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)
                   deriving (Show)
                   
+langStruct = structFor <|> structWhile <|> structIf <?> "language construct"
+             
+             
+-- |For loop
+-- >>> evalScan "for x in (2..8) do {}" structFor
+-- Right (..."x"...2...8...[]...)
+structFor = do
+  keyword "for"
+  name <- langIdent
+  keyword "in"
+  iter <- expr
+  keyword " do"
+  body <- stmt
+  return $ StructFor name iter body
 
+-- |While loop
+-- >>> evalScan "while true do {}" structWhile
+-- Right (...True...[]...)         
+structWhile = do
+  keyword "while"
+  p <- expr
+  keyword " do"
+  body <- stmt
+  return $ StructWhile p body
          
+-- |Conditional if statement
+-- >>> evalScan "if true then {}" structIf
+-- Right (...True...[]...Nothing)
+--
+-- >>> evalScan "if false then {} else {}" structIf
+-- Right (...False...[]...Just...[]...)
+structIf = do
+  keyword "if"
+  p <- expr
+  keyword " then"
+  thenBody <- stmt
+  elseBody <- optional (do
+                         keyword "else"
+                         stmt)
+  return $ StructIf p thenBody elseBody
+
