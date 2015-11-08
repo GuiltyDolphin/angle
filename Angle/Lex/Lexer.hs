@@ -135,10 +135,15 @@ langFunCall = do
 -- TODO: Issue with recursion when using binary operators
 -- Fix this? Or just keep the only parse operator solution.
 exprOp = liftM ExprOp langOp <?> "operation"
-data LangOp = UnOp Op Expr | BinOp Op Expr Expr
+-- data LangOp = UnOp Op Expr | BinOp Op Expr Expr
+--               deriving (Show)
+                       
+
+data LangOp = SpecOp Op Expr | MultiOp Op [Expr]
               deriving (Show)
 
-langOp = unOp <|> binOp <?> "operation"
+-- langOp = unOp <|> binOp <?> "operation"
+langOp = specOp <|> multiOp <?> "operation"
 
 data Op = Mult | Div | Add | Sub | Not
           deriving (Show)
@@ -151,66 +156,30 @@ opDiv = spacedOp $ char '/' >> return Div
 opAdd = spacedOp $ char '+' >> return Add
 opSub = spacedOp $ char '-' >> return Sub
 opNot = spacedOp $ char '^' >> return Not
-        
--- |Unary operators
--- >>> evalScan "^" unOpC
--- Right (...Not)
-unOpC :: Scanner Op -> Scanner LangOp
-unOpC op = do 
-  p <- op
-  r <- expr
-  return $ UnOp p r
-      
-unOp = choice $ map unOpC [opNot]
+       
 
--- |Binary operators
--- >>> evalScan "+" binOp
--- Right (...Add)
---
--- >>> evalScan "-" binOp
--- Right (...Sub)
-binOp :: Scanner LangOp
-binOp = choice (map binOpI [opMult, opDiv, opAdd, opSub]) <?> "binary operator"
-
-binOpI op = tryScan (parens $ do
-  p <- op
-  l <- expr
-  tokSpace
-  r <- expr
-  return $ BinOp p l r)
-  
-        
-checkOp op = do
-  lookAhead (notScan op)
-  l <- expr
-  p <- op
-  r <- expr
-  return $ BOp p l r
-         
--- Possible ways of fixing the operators:
---  Use the 'minimum precedence' expressions
---    Either through State or Reader (or even passing to each
---    expr function) - keep track of the precedence of
---    the current expression / the minimum precedence required
---    for an expression to be parsed.
-data BOp = BOp Op Expr Expr
-           deriving (Show)
-opAdd' = checkOp 
-         
-testOps = [checkOp opMult, checkOp opAdd]
+specOp :: Scanner LangOp
+specOp = choice (map preOp specOps) <?> "special operator"
+                       
+specOps :: [Scanner Op]
+specOps = [opNot]
           
--- 
--- 
--- unOp = do
---   op <- choice [opNot]
---   operand <- expr
---   return $ UnOp op operand
---          
--- binOp = do
---   l <- expr
---   op <- choice [opAdd, opSub]
---   r <- expr
---   return $ BinOp op l r
+preOp sc = do
+  op <- sc
+  opr <- expr
+  return $ SpecOp op opr
+         
+multiOp :: Scanner LangOp
+multiOp = choice (map multOp multiOps) <?> "multi operator"
+          
+multiOps :: [Scanner Op]
+multiOps = [opMult, opDiv, opAdd, opSub]
+           
+multOp :: Scanner Op -> Scanner LangOp
+multOp sc = parens $ do
+              op <- sc
+              oprs <- sepWith whitespace expr
+              return $ MultiOp op oprs
   
 data Stmt = SingleStmt SingStmt | MultiStmt [Stmt]
             deriving (Show)
