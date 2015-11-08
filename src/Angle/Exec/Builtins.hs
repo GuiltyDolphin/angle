@@ -370,7 +370,7 @@ builtinOpen _ = throwExecError $ callBuiltinErr "open: invalid call signature"
 builtinRead :: [LangLit] -> ExecIO LangLit
 builtinRead [LitHandle h] = liftM LitStr $ withIOError $ hGetContents h
 builtinRead [LitHandle h, LitInt n] = liftM LitStr $ withIOError $ liftM unlines $ replicateM n $ hGetLine h
-builtinRead [LitHandle h, LitInt n, LitStr "c"] = liftM LitStr $ withIOError $ replicateM n $ hGetChar h
+builtinRead [LitHandle h, LitInt n, LitKeyword (LangIdent "char")] = liftM LitStr $ withIOError $ replicateM n $ hGetChar h
 builtinRead (s@(LitStr _):xs) = builtinOpen [s, LitStr "<"] >>= (builtinRead . (:xs))
 builtinRead _ = throwExecError $ callBuiltinErr "read: invalid call signature"
 
