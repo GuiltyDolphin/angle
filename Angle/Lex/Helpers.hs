@@ -1,9 +1,11 @@
 module Angle.Lex.Helpers
     ( choice
     , tryScan
+    , notScan
     , cond
     , char
     , notChar
+    , noneFrom
     , string
     , followed
     , lookAhead
@@ -135,6 +137,28 @@ lookAhead lh = do
   put pos
   return res
 
+-- |Succeeds only if `sc' does not match
+-- >>> evalScan "hello" (notScan (char 'h') *> char 'h')
+-- Left ...
+-- ...
+--
+-- >>> evalScan "hello" (notScan (char 't') *> char 'h')
+-- Right 'h'
+notScan :: Scanner a -> Scanner ()
+notScan sc = tryScan (do
+  res <- optional (lookAhead sc)
+  case res of Nothing -> return ()
+              Just _ -> unexpectedErr "notscan")
+
+-- |Fail if any scanners built from `scf' succeed
+-- >>> evalScan "test" (noneFrom char "abc")
+-- Right ()
+--
+-- >>> evalScan "test" (noneFrom char "tea")
+-- Left ...
+-- ...
+noneFrom :: (a -> Scanner a) -> [a] -> Scanner ()
+noneFrom scf = notScan . oneFrom scf
 
 -- |List of `sc' separated with `sep'
 -- >>> evalScan "1,2,3" (sepWith (char ',') (charFrom ['1'..'9']))
