@@ -32,6 +32,7 @@ module Angle.Lex.Token
     , angles
     , parens
     , keyword
+    , exprSep
     ) where
     
 
@@ -71,9 +72,9 @@ tokListEnd = char ']' <?> "end of list"
 tokParenL = char '(' <?> "open parenthesis"
 tokParenR = char ')' <?> "close parenthesis"
 tokColon = char ':' <?> "colon"
-tokEltSep = char ',' <?> "element separator"
 tokMultiStmtStart = tokWhitespace *> char '{' <?> "start of multi-statement"
 tokMultiStmtEnd = char '}' <* tokWhitespace <?> "end of multi-statement"
+tokEltSep = char ',' <* tokWhitespace <?> "element separator"
 tokIdentStartChar = cond (`notElem` reservedChars) <?> "start of identifier"
 tokIdentBodyChar = tokIdentStartChar <?> "identifier character"
 tokStringStart = char '"' <?> "start of string"
@@ -110,6 +111,10 @@ ident = do
   noneFrom string keywords
   (:) <$> alpha <*> (many (alpha <|> digit))
 reservedChars = "<>;\n:{}\"'$@, "    
+                
+sepChar = ")};, "
+          
+exprSep = lookAhead (charFrom sepChar)
                 
 alpha = charFrom ['A'..'z']
 digit = charFrom ['0'..'9']

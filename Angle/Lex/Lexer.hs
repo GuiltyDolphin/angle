@@ -261,9 +261,12 @@ litRange = parens (do
 data Expr = ExprIdent LangIdent
           | ExprLit LangLit
           | ExprFunCall LangFunCall
+          | ExprB Expr
             deriving (Show)
             
-expr = exprFunCall <|> exprLit <|> exprIdent <?> "expression"
+expr = tryScan exprB <|> tryScan exprFunCall <|> exprLit <|> exprIdent <?> "expression"
+       
+exprB = liftM ExprB (within tokParenL tokParenR expr)
 
 exprIdent = liftM ExprIdent langIdent
             
