@@ -17,6 +17,8 @@ module Angle.Lex.Token
     , tokDeclareStart
     , tokDeclareEnd
     , tokSpecialStart
+    , tokNumStart
+    , tokGenSep
     , ident
     , angles
     , parens
@@ -47,6 +49,8 @@ data Token = TokFunStart
            | TokDenaryDigit
            | TokPeriod
            | TokDeclare
+           | TokNumStart
+           | TokGenSep
              
 
 tokFunStart = char '<' <?> "start of function"
@@ -71,6 +75,10 @@ tokDenaryDigit = cond isDigit <?> "denary digit"
 tokDeclareStart = char '@' <?> "start declaration"
 tokDeclareEnd = char '@' <?> "end declaration"
 tokSpecialStart = char '$' <?> "start of special value"
+tokNumStart = char '#' <?> "number indicator"
+tokGenSep = char ' ' <?> "general separator"
+tokGroupStart = tokParenL <?> "start of group"
+tokGroupEnd = tokParenR <?> "end of group"
 
 -- prop> \xs -> not $ any (`notElem` reservedChars) xs
 ident = (:) <$> tokIdentStartChar <*> many tokIdentBodyChar <?> "identifier"                 
@@ -80,6 +88,8 @@ reservedChars = "<>;\n:{}\"'$@,"
 
                 
 parens = within tokParenL tokParenR
+         
+tokGroup sc = within tokGroupStart tokGroupEnd (sepWith tokGenSep sc) <?> "group"
 
 -- |Characters within angle brackets
 -- >>> evalScan "<test>" (angles . many $ notChar '>')
