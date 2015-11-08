@@ -171,7 +171,7 @@ lookAhead lh = do
 -- Right 'h'
 notScan :: Scanner a -> Scanner ()
 notScan sc = tryScan (do
-  res <- optional (lookAhead sc)
+  res <- optional (tryScan (lookAhead sc))
   case res of Nothing -> return ()
               Just _ -> unexpectedErr "notscan")
 
