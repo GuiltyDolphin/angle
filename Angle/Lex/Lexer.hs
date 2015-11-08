@@ -180,6 +180,8 @@ data Op = Add | Sub
 -- <print,<str,x>>
 -- >
 
+exprLit = liftM ExprLit langLit
+
 data LangLit = LitStr String
              | LitInt Int
              | LitList [LangLit]
@@ -197,7 +199,7 @@ langLit = litStr <|> litInt <|> litList <|> litBool <?> "literal"
 -- Left ...
 -- ...
 litStr :: Scanner LangLit
-litStr = liftM LitStr (within tokStringStart tokStringEnd (many tokStringBodyChar)) <?> "string"
+litStr = liftM LitStr (within tokStringStart tokStringEnd (many tokStringBodyChar)) <?> "string literal"
 
 -- |Denary integer
 -- >>> evalScan "123" litInt
@@ -207,7 +209,7 @@ litStr = liftM LitStr (within tokStringStart tokStringEnd (many tokStringBodyCha
 -- Left ...
 -- ...
 litInt :: Scanner LangLit
-litInt = liftM (LitInt . read) (some tokDenaryDigit) <?> "integer"
+litInt = liftM (LitInt . read) (some tokDenaryDigit) <?> "integer literal"
 
 -- |Multi-type list
 -- >>> evalScan "[1,\"hello\",$t]" litList
@@ -217,7 +219,7 @@ litInt = liftM (LitInt . read) (some tokDenaryDigit) <?> "integer"
 -- Left ...
 -- ...
 litList :: Scanner LangLit
-litList = liftM LitList (within tokListStart tokListEnd (sepWith tokEltSep langLit)) <?> "list"
+litList = liftM LitList (within tokListStart tokListEnd (sepWith tokEltSep langLit)) <?> "list literal"
 
 
 -- |Boolean literal
@@ -231,12 +233,16 @@ litList = liftM LitList (within tokListStart tokListEnd (sepWith tokEltSep langL
 -- Left ...
 -- ...
 litBool :: Scanner LangLit
-litBool = liftM LitBool (litTrue <|> litFalse)
+litBool = liftM LitBool (litTrue <|> litFalse) <?> "boolean literal"
   where litTrue = string "$t" >> return True
         litFalse = string "$f" >> return False
 
 
 
+data Expr = ExprIdent LangIdent
+          | ExprLit LangLit
+            deriving (Show)
+            
 
 
 
