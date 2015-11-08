@@ -95,9 +95,20 @@ within start end sc = do
   end
   return res
 
+-- |Like `within', but where `start' and `end' are the same
+-- >>> evalScan "'one'" (surrounded (char '\'') (string "one"))
+-- Right "one"
+--
 surrounded :: Scanner a -> Scanner b -> Scanner b
 surrounded surr = tryScan . within surr surr
 
+-- |`f' succeeds after `sc'
+-- >>> evalScan "test" (followed (char 'e') (char 't'))
+-- Right 't'
+--
+-- >>> evalScan "test" (followed (char 's') (char 't'))
+-- Left ...
+-- ...
 followed :: Scanner a -> Scanner b -> Scanner b
 followed f sc = do
   res <- sc
@@ -105,16 +116,30 @@ followed f sc = do
   return res
   -- tryScan (sc <* f)
 
--- Use first Scanner that matches
+-- Use first Scanner that succeeds
+-- evalScan "test" (choice [char 'e', char 't'])
+-- Right 't'
+--
+-- evalScan "test" (choice [char 'e', char 's'])
+-- Left ...
+-- ...
 choice :: [Scanner a] -> Scanner a
 choice = msum
 
--- Attempt each of xs as an input to `sc' and return first
+-- |Attempt each of xs as an input to `sc' and return first
 -- successful result.
+-- >>> evalScan "test" (oneFrom char "et")
+-- Right 't'
 oneFrom :: (a -> Scanner a) -> [a] -> Scanner a
 oneFrom scf xs = choice $ map scf xs
 
--- Succeeds if it does not parse the specified character
+-- |Succeeds if it does not parse the specified character
+-- >>> evalScan "test" (notChar 'e')
+-- Right 't'
+--
+-- >>> evalScan "test" (notChar 't')
+-- Left ...
+-- ...
 notChar :: Char -> Scanner Char
 notChar ch = cond (/=ch)
 
