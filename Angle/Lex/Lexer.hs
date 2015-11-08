@@ -184,12 +184,14 @@ exprLit = liftM ExprLit langLit
 
 data LangLit = LitStr String
              | LitInt Int
+             | LitFloat Float
              | LitList [LangLit]
              | LitBool Bool
+             | LitRange Expr Expr
                deriving (Show)
 
 langLit :: Scanner LangLit
-langLit = litStr <|> litInt <|> litList <|> litBool <?> "literal"
+langLit = litStr <|> tryScan litFloat <|> litInt <|> litList <|> litBool <|> litRange <?> "literal"
 
 -- |A literal string
 -- >>> evalScan "\"test\"" litStr
@@ -210,6 +212,18 @@ litStr = liftM LitStr (within tokStringStart tokStringEnd (many tokStringBodyCha
 -- ...
 litInt :: Scanner LangLit
 litInt = liftM (LitInt . read) (some tokDenaryDigit) <?> "integer literal"
+         
+
+-- |Floating-point literal
+-- >>> evalScan "12.3" litFloat
+-- Right (...12.3)
+litFloat :: Scanner LangLit
+litFloat = liftM (LitFloat . read) $ do
+             first <- some tokDenaryDigit
+             char '.'
+             rest <- some tokDenaryDigit
+             return (first ++ "." ++ rest)
+             
 
 -- |Multi-type list
 -- >>> evalScan "[1,\"hello\",$t]" litList
@@ -236,6 +250,15 @@ litBool :: Scanner LangLit
 litBool = liftM LitBool (litTrue <|> litFalse) <?> "boolean literal"
   where litTrue = string "$t" >> return True
         litFalse = string "$f" >> return False
+                   
+-- |Dotted range of values
+-- >>> evalScan "(1..7)" litRange
+-- Right (...1...7...)
+litRange = parens (do
+  start <- expr
+  tokRangeSep
+  end <- expr
+  return $ LitRange start end)
 
 
 
