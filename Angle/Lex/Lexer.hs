@@ -254,65 +254,20 @@ langIdent = ident
 
 
 
-data LangFunCall = FC { funName :: LangIdent, funArgs :: [Arg] }
+data LangFunCall = FC { funName :: LangIdent, funArgs :: [Expr] }
   deriving (Show)
-data Arg = Arg { argValue :: Expr
-               , argDir :: Direction
-               , argLevel :: Int }
-  deriving (Show)
-data Direction = DirLeft | DirRight
-  deriving (Show)
-                 
-               
+ 
+arglist = within tokTupleStart tokTupleEnd (sepWith tokEltSep expr)
+
 exprFunCall = liftM ExprFunCall langFunCall
--- |Function call (with arguments)
--- >>> evalScan "<+,6,7>" langFunCall
--- Right (...funName =..."+", funArgs = [...6...,...7...]...)
---
--- >>> evalScan "<add>" langFunCall
--- Right (...funName =..."add", funArgs = []...)
---
--- >>> evalScan "<7,2,->" langFunCall
--- Right (...funName =..."-", funArgs = [...7...,...2...]...)
-langFunCall :: Scanner LangFunCall
-langFunCall = angles (    tryScan procCall 
-                      <|> tryScan prefixFunCall 
-                      <|> tryScan postfixFunCall
-                      <|> infixFunCall) <?> "function call"
-    where procCall = do
-            name <- langIdent
-            lookAhead (char '>')
-            return FC { funName = name
-                      , funArgs = [] }
-          prefixFunCall = do
-            name <- langIdent
-            tokEltSep
-            args <- sepWith tokEltSep expr
-            lookAhead (char '>')
-            return FC { funName = name
-                      , funArgs = mkArgList DirRight args }
-          postfixFunCall = do
-            (ExprIdent name:args) <- liftM reverse $ sepWith tokEltSep expr
-            lookAhead (char '>')
-            return FC { funName = name
-                      , funArgs = mkArgList DirLeft args }
-          infixFunCall = do
-            args <- sepWith tokEltSep expr
-            let (argsSt, (ExprIdent name):argsRst) = break isDecl args
-                argsRight = mkArgList DirRight argsRst
-                argsLeft = mkArgList DirLeft argsSt
-            lookAhead (char '>')
-            return FC { funName = name
-                      , funArgs = argsLeft ++ argsRight }
-          isDecl (ExprIdent (IdentDecl _)) = True
-          isDecl _ = False
-          mkArgList dir args = 
-              map (\(x,level) -> Arg { argValue = x
-                                     , argDir = dir
-                                     , argLevel = level })
-                   (zip args [1..])
-                          
-            
--- <1,@+@,3>
--- <+,1,3>
--- <1,3,+>
+              
+-- |Standard function call
+-- >>> evalScan "fun(1,2)" langFunCall
+-- Right (...funName =..."fun", funArgs = [...1...,...2...]...)
+langFunCall = do
+  name <- langIdent
+  args <- arglist
+  return FC { funName = name
+            , funArgs = args }
+  
+  

@@ -19,6 +19,8 @@ module Angle.Lex.Token
     , tokSpecialStart
     , tokNumStart
     , tokGenSep
+    , tokTupleStart
+    , tokTupleEnd
     , ident
     , angles
     , parens
@@ -79,6 +81,8 @@ tokNumStart = char '#' <?> "number indicator"
 tokGenSep = char ' ' <?> "general separator"
 tokGroupStart = tokParenL <?> "start of group"
 tokGroupEnd = tokParenR <?> "end of group"
+tokTupleStart = tokParenL <?> "start of tuple"
+tokTupleEnd = tokParenR <?> "end of tuple"
 
 -- prop> \xs -> not $ any (`notElem` reservedChars) xs
 -- prop> \xs -> evalScan xs ident
@@ -112,3 +116,6 @@ tokGroup sc = within tokGroupStart tokGroupEnd (sepWith tokGenSep sc) <?> "group
 -- Left ...
 -- ...
 angles = within (char '<') (char '>')
+
+
+tuple sc = within tokTupleStart tokTupleEnd (sepWith tokEltSep sc)
