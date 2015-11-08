@@ -493,7 +493,7 @@ execStructFor name e s = do
 execStructWhile :: Expr -> Stmt -> ExecIO LangLit
 execStructWhile ex s = do
   pos <- liftM envSourceRef get
-  execStructFor (LangIdent "_")
+  execStructFor (LangIdent "__WHILEVAL__")
                     (ExprLit
                      (LitRange (LitInt 1) Nothing Nothing))
                      (SingleStmt
