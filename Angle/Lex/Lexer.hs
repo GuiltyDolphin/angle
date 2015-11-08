@@ -226,10 +226,10 @@ litFloat = liftM (LitFloat . read) $ do
              
 
 -- |Multi-type list
--- >>> evalScan "[1,\"hello\",$t]" litList
+-- >>> evalScan "[1,\"hello\",true]" litList
 -- Right (... [... 1,... "hello",... True])
 --
--- >>> evalScan "1,\"hello\",$t" litList
+-- >>> evalScan "1,\"hello\",true" litList
 -- Left ...
 -- ...
 litList :: Scanner LangLit
@@ -237,19 +237,15 @@ litList = liftM LitList (within tokListStart tokListEnd (sepWith tokEltSep langL
 
 
 -- |Boolean literal
--- >>> evalScan "$t" litBool
+-- >>> evalScan "true" litBool
 -- Right (... True)
 --
--- >>> evalScan "$f" litBool
+-- >>> evalScan "false" litBool
 -- Right (... False)
---
--- >>> evalScan "true" litBool
--- Left ...
--- ...
 litBool :: Scanner LangLit
 litBool = liftM LitBool (litTrue <|> litFalse) <?> "boolean literal"
-  where litTrue = string "$t" >> return True
-        litFalse = string "$f" >> return False
+  where litTrue = tokTrue >> return True
+        litFalse = tokFalse >> return False
                    
 -- |Dotted range of values
 -- >>> evalScan "(1..7)" litRange

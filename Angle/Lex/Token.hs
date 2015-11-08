@@ -22,6 +22,7 @@ module Angle.Lex.Token
     , tokTupleStart
     , tokTupleEnd
     , tokRangeSep
+    , tokTrue, tokFalse
     , tokPeriod
     , ident
     , angles
@@ -86,6 +87,8 @@ tokGroupEnd = tokParenR <?> "end of group"
 tokTupleStart = tokParenL <?> "start of tuple"
 tokTupleEnd = tokParenR <?> "end of tuple"
 tokRangeSep = string ".." <?> "range separator"
+tokTrue = string "true" <?> "true"
+tokFalse = string "false" <?> "false"
 tokPeriod = char '.' <?> "period"
 
 -- prop> \xs -> not $ any (`notElem` reservedChars) xs
