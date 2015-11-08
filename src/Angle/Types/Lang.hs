@@ -317,20 +317,20 @@ instance Show AnnType where
 --
 -- See 'ConstrRef' for a means of providing run-time parameter
 -- constraints in Angle.
-data LangLit = LitStr { getLitStr :: String } -- ^ Strings.
-             | LitInt { getLitInt :: Int } -- ^ Integers, support at least the range -2^29 to 2^29-1.
-             | LitFloat { getLitFloat :: Double } -- ^ Double-precision floating point value.
-             | LitList { getLitList :: [LangLit] } -- ^ List of literal values. Values may be of different types.
-             | LitBool { getLitBool :: Bool } -- ^ Boolean value.
-             | LitChar { getLitChar :: Char } -- ^ Character literals, these cannot be specified by the programmer and are used internally
+data LangLit = LitStr String -- ^ Strings.
+             | LitInt Int -- ^ Integers, support at least the range -2^29 to 2^29-1.
+             | LitFloat Double -- ^ Double-precision floating point value.
+             | LitList [LangLit] -- ^ List of literal values. Values may be of different types.
+             | LitBool Bool -- ^ Boolean value.
+             | LitChar Char -- ^ Character literals, these cannot be specified by the programmer and are used internally
                                              -- by Angle.
              | LitRange LangLit (Maybe LangLit) (Maybe LangLit)
              | LitNull -- ^ Implicit value
                        -- returned from any expression
                        -- that fails to return a value
                        -- explicitly.
-             | LitLambda { getLitLambda :: Lambda } -- ^ A function without a name.
-             | LitKeyword { getLitKeyword :: LangIdent }
+             | LitLambda Lambda -- ^ A function without a name.
+             | LitKeyword LangIdent
                deriving (Show, Eq)
 
 
