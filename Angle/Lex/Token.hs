@@ -81,14 +81,20 @@ tokGroupStart = tokParenL <?> "start of group"
 tokGroupEnd = tokParenR <?> "end of group"
 
 -- prop> \xs -> not $ any (`notElem` reservedChars) xs
-ident = (:) <$> tokIdentStartChar <*> many tokIdentBodyChar <?> "identifier"                 
+ident = do 
+  noneFrom string keywords
+  (:) <$> tokIdentStartChar <*> many tokIdentBodyChar <?> "identifier"                 
         
-reservedChars = "<>;\n:{}\"'$@,"    
+reservedChars = "<>;\n:{}\"'$@, "    
                 
+                
+keywords = ["def", "else", "for", "if", "in", "return", "then", "while"]
 
                 
 parens = within tokParenL tokParenR
          
+tokList = within tokListStart tokListEnd
+tokString = within tokStringStart tokStringEnd
 tokGroup sc = within tokGroupStart tokGroupEnd (sepWith tokGenSep sc) <?> "group"
 
 -- |Characters within angle brackets
