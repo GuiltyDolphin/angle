@@ -81,16 +81,23 @@ tokGroupStart = tokParenL <?> "start of group"
 tokGroupEnd = tokParenR <?> "end of group"
 
 -- prop> \xs -> not $ any (`notElem` reservedChars) xs
-ident = do 
+-- prop> \xs -> evalScan xs ident
+-- ident = do 
+--   noneFrom string keywords
+--   (:) <$> tokIdentStartChar <*> many tokIdentBodyChar <?> "identifier"                 
+--         
+
+ident = do
   noneFrom string keywords
-  (:) <$> tokIdentStartChar <*> many tokIdentBodyChar <?> "identifier"                 
-        
+  (:) <$> alpha <*> (many (alpha <|> digit))
 reservedChars = "<>;\n:{}\"'$@, "    
                 
-                
-keywords = ["def", "else", "for", "if", "in", "return", "then", "while"]
+alpha = charFrom ['A'..'z']
+digit = charFrom ['0'..'9']
 
-                
+keywords = ["defun", "else", "for", "if", "in", "return", "then", "while"]
+
+
 parens = within tokParenL tokParenR
          
 tokList = within tokListStart tokListEnd

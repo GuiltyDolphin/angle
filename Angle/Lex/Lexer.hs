@@ -247,22 +247,11 @@ data Expr = ExprIdent LangIdent
 expr = exprFunCall <|> exprLit <|> exprIdent <?> "expression"
 
 exprIdent = liftM ExprIdent langIdent
-data LangIdent = IdentStd String | IdentDecl String
-  deriving (Show)
+            
+type LangIdent = String
+langIdent = ident
 
--- |Language identifier
--- >>> evalScan "test" langIdent
--- Right (... "test")
--- 
--- >>> evalScan "@test@" langIdent
--- Right (... "test")
-langIdent = identStd <|> identDecl <?> "identifier"
 
--- |Standard identifier
-identStd = liftM IdentStd ident
-
--- |Identifier with raised status
-identDecl = liftM IdentDecl (within tokDeclareStart tokDeclareEnd ident)
 
 
 data LangFunCall = FC { funName :: LangIdent, funArgs :: [Arg] }
