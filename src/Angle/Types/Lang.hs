@@ -224,7 +224,7 @@ instance ShowSyn LangStruct where
         = concat ["defun ", showSyn n, showLambdaFun c]
     showSyn (StructTryCatch s es) = "try " ++ showSyn s ++ concatMap showCatch es
       where
-        showCatch (toCatch, b) = "\ncatch " ++ es' toCatch ++ show b
+        showCatch (toCatch, b) = "\ncatch " ++ es' toCatch ++ showSyn b
         es' toCatch = if length toCatch == 1
                 then showSyn . LitKeyword $ head toCatch
                 else showSyn . LitList . map LitKeyword $ toCatch
