@@ -290,3 +290,19 @@ langFunCall = do
             , funArgs = args }
   
   
+data Stmt = SingleStmt SingStmt | MultiStmt [Stmt]
+            deriving (Show)
+
+data SingStmt = StmtAssign LangIdent Expr
+              | StmtStruct LangStruct
+              | StmtExpr Expr
+                deriving (Show)
+                
+
+data LangStruct = StructFor LangIdent Expr Stmt
+                | StructWhile Expr Stmt
+                | StructIf Expr Stmt (Maybe Stmt)
+                  deriving (Show)
+                  
+
+         
