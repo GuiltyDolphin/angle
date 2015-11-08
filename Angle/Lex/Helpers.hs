@@ -73,11 +73,19 @@ char ch = cond (==ch) <?> show ch
 charFrom :: String -> Scanner Char
 charFrom str = cond (`elem` str)
 
--- Match an entire string
+-- |Match `str' in its entirety
+-- >>> evalScan "test" (string "test")
+-- Right "test"
+--
+-- >>> evalScan "test" (string "testing")
+-- Left ...
+-- ...
 string :: String -> Scanner String
 string str = tryScan (mapM char str) <?> str
 
--- Match scanner sc between start and end
+-- |Match scanner `sc' between `start' and `end'
+-- >>> evalScan "(1)" (within (char '(') (char ')') (char '1'))
+-- Right '1'
 within :: Scanner a -> Scanner b -> Scanner c -> Scanner c
 within start end sc = do
   start
@@ -128,8 +136,9 @@ lookAhead lh = do
   return res
 
 
-
-
+-- |List of `sc' separated with `sep'
+-- >>> evalScan "1,2,3" (sepWith (char ',') (charFrom ['1'..'9']))
+-- Right "123"
 sepWith :: Scanner a -> Scanner b -> Scanner [b]
 sepWith sep sc = tryScan (do
   fs <- sc
