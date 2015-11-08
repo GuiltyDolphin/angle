@@ -131,8 +131,8 @@ assignVarOuter f n v = do
             return res
 
 
-assignVarFunOuter :: LangIdent -> Lambda -> ExecIO LangLit
-assignVarFunOuter = assignVarOuter (\n v -> assignVarLambda n v >> return LitNull)
+assignVarLambdaOuter :: LangIdent -> Lambda -> ExecIO LangLit
+assignVarLambdaOuter = assignVarOuter (\n v -> assignVarLambda n v >> return LitNull)
 
 
 assignVarLitOuter :: LangIdent -> LangLit -> ExecIO LangLit
@@ -398,6 +398,10 @@ execSingStmt (StmtAssign name e) = execExpr e
     >>= (\x -> case x of
         x'@(LitLambda l) -> assignVarLambda name l >> returnVal x'
         x' -> assignVarLit name x')
+execSingStmt (StmtAssignNonLocal name e) = execExpr e
+    >>= (\x -> case x of
+        x'@(LitLambda l) -> assignVarLambdaOuter name l >> returnVal x'
+        x' -> assignVarLitOuter name x')
 execSingStmt (StmtStruct x) = execLangStruct x
 execSingStmt (StmtExpr x) = setEnvSynRep (showSyn x) >> execExpr x
 execSingStmt (StmtComment _) = return LitNull
@@ -538,6 +542,7 @@ callBuiltin (LangIdent "write") xs = builtinArgs xs >>= builtinWrite
 callBuiltin (LangIdent "close") xs = builtinArgs xs >>= builtinClose
 callBuiltin (LangIdent "shell") xs = builtinArgs xs >>= builtinShell
 callBuiltin (LangIdent "include") xs = builtinArgs xs >>= builtinInclude
+callBuiltin (LangIdent "nonlocal") xs = builtinArgs xs >>= builtinNonLocal
 callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
 
 
@@ -590,13 +595,17 @@ builtinInclude xs = mapM_ includeFile xs >> return LitNull
               -- put newEnv { currentFile = currFile, runAsMain = currMain }
               return LitNull
 -- builtinRead [f] >>= builtinEval . (:[])
+
+
+-- | Builtin @nonlocal@ function.
 --
+-- @nonlocal(var)@ attempts to lookup the value of @var@ in any
+-- of the parent scopes of the current scope. Fails with a
+-- @nameError@ if @var@ is not defined.
 --
+-- @nonlocal(:fun, var)@ attempts to lookup the lambda value
+-- of @var@ in a parent scope.
 builtinNonLocal :: [LangLit] -> ExecIO LangLit
-builtinNonLocal [LitKeyword (LangIdent "fun"), LitStr n, LitLambda val]
-    = assignVarFunOuter (LangIdent n) val
-builtinNonLocal [LitStr n, val]
-    = assignVarLitOuter (LangIdent n) val
 builtinNonLocal [LitKeyword (LangIdent "fun"), LitStr n]
     = lookupVarFunOuter (LangIdent n)
 builtinNonLocal [LitStr n]

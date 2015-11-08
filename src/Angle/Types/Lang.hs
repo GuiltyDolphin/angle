@@ -172,6 +172,7 @@ instance ShowSyn Stmt where
 
 instance ShowSyn SingStmt where
     showSyn (StmtAssign n e) = concat [showSyn n, " = ", showSyn e, ";\n"]
+    showSyn (StmtAssignNonLocal n e) = concat [showSyn n, " |= ", showSyn e, ";\n"]
     showSyn (StmtStruct x) = showSyn x
     showSyn (StmtExpr e) = showSyn e ++ ";\n"
     showSyn (StmtComment x) = "#" ++ x ++ "\n"
@@ -186,6 +187,7 @@ instance ShowSyn SingStmt where
 
 -- | A single statement.
 data SingStmt = StmtAssign LangIdent Expr
+              | StmtAssignNonLocal LangIdent Expr
               | StmtComment String -- ^ Comment which is - for all intents and purposes - ignored by the parser.
               | StmtStruct LangStruct
               | StmtExpr Expr -- ^ Expression. Evaluates to a literal.
