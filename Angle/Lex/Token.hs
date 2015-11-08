@@ -14,6 +14,9 @@ module Angle.Lex.Token
     , tokStringEnd
     , tokStringBodyChar
     , tokDenaryDigit
+    , tokDeclareStart
+    , tokDeclareEnd
+    , tokSpecialStart
     , ident
     , angles
     , parens
@@ -43,6 +46,7 @@ data Token = TokFunStart
            | TokStringBody
            | TokDenaryDigit
            | TokPeriod
+           | TokDeclare
              
 
 tokFunStart = char '<' <?> "start of function"
@@ -62,11 +66,16 @@ tokStringStart = char '"' <?> "start of string"
 tokStringEnd = char '"' <?> "end of string"
 tokStringBodyChar = notChar '"' <?> "string body"
 tokDenaryDigit = cond isDigit <?> "denary digit"
+-- TODO: Think of a better (and more relevant) 
+-- name than `declaration'
+tokDeclareStart = char '@' <?> "start declaration"
+tokDeclareEnd = char '@' <?> "end declaration"
+tokSpecialStart = char '$' <?> "start of special value"
 
 -- prop> \xs -> not $ any (`notElem` reservedChars) xs
 ident = (:) <$> tokIdentStartChar <*> many tokIdentBodyChar <?> "identifier"                 
         
-reservedChars = "<>;\n:{}\"'"    
+reservedChars = "<>;\n:{}\"'$@,"    
                 
 
                 

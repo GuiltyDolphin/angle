@@ -6,6 +6,7 @@ module Angle.Lex.Helpers
     , notChar
     , string
     , followed
+    , lookAhead
     , within
     , sepWith
     , charFrom
