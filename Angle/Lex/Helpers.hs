@@ -205,7 +205,7 @@ chain :: [Scanner a] -> Scanner [a]
 chain = sequence
         
 chainFlat :: [Scanner [a]] -> Scanner [a]
-chainFlat scs = chain scs >>= return . concat
+chainFlat = liftM concat . chain
 -- ]]]
 
 -- |List of `sc' separated with `sep'
@@ -220,19 +220,23 @@ sepWith sep sc = tryScan (do
     Just _ -> liftM (fs:) (sepWith sep sc))
 
 -- |Collect sc until `ti' succeeds
--- >>> evalScan "abc.def" (manyTill (char '.') alpha)
+-- >>> evalScan "abc.def" (manyTill (char '.') anyChar)
 -- Right "abc"
+--
+-- >>> evalScan ".abc" (manyTill (char '.') anyChar)
+-- Right ""
 manyTill :: Scanner b -> Scanner a -> Scanner [a]
 manyTill ti sc = many (notScan ti *> sc)
                  
 -- |Like `manyTill', but `sc' must succeed before `ti'
--- >>> evalScan "123.456" (someTill (char '.') digit)
+-- >>> evalScan "123.456" (someTill (char '.') anyChar)
+-- Right "123"
 --
--- >>> evalScan ".123" (someTill (char '.') digit)
+-- >>> evalScan ".123" (someTill (char '.') anyChar)
 -- Left ...
 -- ...
 someTill :: Scanner b -> Scanner a -> Scanner [a]
-someTill ti sc = (:) <$> sc <*> manyTill ti sc
+someTill ti sc = (:) <$> (notScan ti *> sc) <*> manyTill ti sc
 
 -- Fail the scan with the location and provided message.
 failScan :: String -> Scanner a
