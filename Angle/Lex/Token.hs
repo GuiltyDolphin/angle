@@ -109,7 +109,10 @@ tokPeriod = char '.' <?> "period"
 
 ident = do
   noneFrom string keywords
-  (:) <$> alpha <*> (many (alpha <|> digit))
+  res <- (:) <$> alpha <*> many (alpha <|> digit)
+  tokWhitespace
+  return res
+
 reservedChars = "<>;\n:{}\"'$@, "    
                 
 sepChar = ")};, "
