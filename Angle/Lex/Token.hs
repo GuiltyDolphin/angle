@@ -24,6 +24,7 @@ module Angle.Lex.Token
     , tokRangeSep
     , tokTrue, tokFalse
     , tokPeriod
+    , tokString
     , ident
     , angles
     , parens
@@ -112,7 +113,7 @@ keywords = ["defun", "else", "for", "if", "in", "return", "then", "while"]
 parens = within tokParenL tokParenR
          
 tokList = within tokListStart tokListEnd
-tokString = within tokStringStart tokStringEnd
+tokString = within tokStringStart tokStringEnd (many tokStringBodyChar) <?> "string"
 tokGroup sc = within tokGroupStart tokGroupEnd (sepWith tokGenSep sc) <?> "group"
 
 -- |Characters within angle brackets

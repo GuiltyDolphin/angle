@@ -201,7 +201,7 @@ langLit = litStr <|> tryScan litFloat <|> litInt <|> litList <|> litBool <|> lit
 -- Left ...
 -- ...
 litStr :: Scanner LangLit
-litStr = liftM LitStr (within tokStringStart tokStringEnd (many tokStringBodyChar)) <?> "string literal"
+litStr = liftM LitStr tokString <?> "string literal"
 
 -- |Denary integer
 -- >>> evalScan "123" litInt
