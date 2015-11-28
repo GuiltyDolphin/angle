@@ -68,7 +68,6 @@ instance CanErrorWithPos ExecIO where
     getErrorSource = liftM sourceText get
     getErrorFile = liftM currentFile get
     getErrorCallStack = liftM (currentStack . callStack) get
-    -- getErrorStmt = liftM currentStmt get
     getErrorCall = liftM (((,) <$> currentName <*>  currentStmt) . callStack) get
 
 
@@ -183,9 +182,6 @@ popEnvCall = do
         ((newName,_):newStack) = currentStack currStack
         newCallStack = currStack { currentStack = newStack, currentName = newName }
     put currEnv { callStack = newCallStack }
-    -- put currEnv { callStack = newStack, currentName = newName }
-    -- put currEnv
-    --     { callStack = let (_:newStack) = callStack currEnv in newStack }
 
 
 pushEnvCall :: LangIdent -> ExecIO ()
@@ -198,9 +194,6 @@ pushEnvCall newCall = do
         newStack = (oldName, oldStmt) : oldStack
         newCallStack = currStack { currentName = newCall, currentStack = newStack }
     put currEnv { callStack = newCallStack }
-    -- put currEnv { currentName = newCall, callStack = newStack }
-    -- put currEnv { callStack =
-    --     (newCall, currentStmt currEnv) : oldStack }
 
 
 updateStmt :: Stmt -> ExecIO ()
@@ -208,14 +201,12 @@ updateStmt s = do
     currEnv <- getEnv
     let oldStack = callStack currEnv
     put currEnv { callStack = oldStack { currentStmt = s } }
-    -- put currEnv { currentStmt = s }
 
 
 -- | Convert a list or range into a list of literals.
 fromIter :: LangLit -> ExecIO [LangLit]
 fromIter (LitList xs) = return xs
 fromIter (LitStr xs) = return $ map LitChar xs
--- fromIter (LitRange x Nothing Nothing) =
 fromIter (LitRange x (Just y) Nothing) = iterFromTo x y
 fromIter (LitRange x (Just y) (Just z)) = iterFromThenTo x y z
 fromIter (LitRange x Nothing Nothing) = iterFrom x

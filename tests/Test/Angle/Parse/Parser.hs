@@ -17,15 +17,15 @@ testShowSynSingStmt x = showSynTest x singStmt
 
 
 testShowSynLangStruct :: LangStruct -> P.Result
-testShowSynLangStruct x = prettySyn x langStruct -- showSynTest x langStruct
+testShowSynLangStruct x = prettySyn x langStruct
 
 
 testShowSynExpr :: Expr -> P.Result
-testShowSynExpr x = prettySyn x expr -- showSynTest x expr
+testShowSynExpr x = prettySyn x expr
 
 
 testShowSynLambda :: Lambda -> P.Result
-testShowSynLambda x = prettySyn x lambda -- showSynTest x lambda
+testShowSynLambda x = prettySyn x lambda
 
 
 showSynTest :: (ShowSyn a, Eq a) => a -> Parser a -> Bool
@@ -69,8 +69,6 @@ testLitStrEmpty = evalParse "\"\"" litStr == Right (LitStr "")
 
 testLitStr :: String -> Property
 testLitStr x = "\"\\" `noneElem` x ==> litStrShow x litStr
--- testLitStr x = '"' `notElem` x ==> evalParse (escapedStr x) litStr == Right (LitStr x)
---
 
 
 noneElem :: (Eq a) => [a] -> [a] -> Bool
@@ -92,12 +90,6 @@ testLitBool = evalParse "true" litBool == Right (LitBool True)
               && evalParse "false" litBool == Right (LitBool False)
 
 
--- testRange :: LangLit -> LangLit -> LangLit -> Bool
--- testRange x y z = evalParse toTest litRange == Right expected
---     where toTest = concat ["(", showSyn x, "..", showSyn y, "..", showSyn z, ")"]
---           expected = LitRange x y (Just z)
-
-
 testEmptyCall :: Bool
 testEmptyCall = evalParse "foo()" exprFunCall
  == Right (ExprFunCall (LangIdent "foo") False [])
@@ -115,11 +107,9 @@ testOpNeg = evalParse "-x" langOp ==  Right (SpecOp OpNeg (ExprIdent (LangIdent 
 tests :: [TestTree]
 tests = [ testGroup "literals"
           [ testProperty "boolean" testLitBool
---          , testProperty "range" testRange
           , testProperty "integer" testLitInt
           , testProperty "string" testLitStr
           , testProperty "empty string" testLitStrEmpty
---          , testProperty "float" testLitFloat
           ]
         , testGroup "functions"
           [ testProperty "no args from empty call" $ once testEmptyCall

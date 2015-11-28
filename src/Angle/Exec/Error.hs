@@ -148,10 +148,6 @@ implementationErr :: String -> AngleError
 implementationErr = ImplementationError
 
 
--- controlException :: ControlException -> AngleError
--- controlException = ControlException
-
-
 instance Show AngleError where
     show (ImplementationError x) = "Implementation error: " ++ x
     show (ExecError { execErrErr=ee
@@ -184,11 +180,9 @@ instance Show AngleError where
 instance KWError AngleError where
     errToKeyword (ImplementationError x) = error $ "(Attempt to handle) Implementation error: " ++ show x
     errToKeyword (ExecError { execErrErr = e }) = errToKeyword e
-    -- errToKeyword (ControlException{}) = error "Attempt to handle control exception"
 
     genErrKeyword (ImplementationError x) = error $ "(Attempt to handle) Implementation error: " ++ show x
     genErrKeyword (ExecError { execErrErr = e }) = genErrKeyword e
-    -- genErrKeyword (ControlException{}) = error "Attempt to handle control exception"
 
 
 -- | Base for errors that occur during execution of code.
@@ -723,11 +717,6 @@ catchReturn ex h = ex `catchAE`
                    (\e -> case e of
                             ExecError { execErrErr = ControlException (ControlReturn v) } -> h v
                             err -> throwAE err)
--- catchReturn :: (CanError m) => m a -> (LangLit -> m a) -> m a
--- catchReturn ex h = ex `catchAE`
---                    (\e -> case e of
---                             ControlException (ControlReturn v) -> h v
---                             err -> throwAE err)
 
 
 -- | Catch 'ControlBreak', but allow other errors to propagate.
@@ -739,8 +728,6 @@ catchBreak ex h
               { execErrErr = ControlException (ControlBreak v)
               } -> h v
             err -> throwAE err)
-                           -- ControlException (ControlBreak v) -> h v
-                           -- err -> throwAE err)
 
 
 -- | Catch 'ControlContinue', but allow other errors to propagate.
@@ -751,5 +738,3 @@ catchContinue ex v
             ExecError
               { execErrErr = ControlException ControlContinue } -> v
             err -> throwAE err)
-                              -- ControlException ControlContinue -> v
-                              -- err -> throwAE err)

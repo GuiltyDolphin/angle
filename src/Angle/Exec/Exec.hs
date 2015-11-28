@@ -256,7 +256,6 @@ callLambda (Lambda
             , lambdaBody=body}) asClass args
     = do
   fullArgs <- expandParams args
-  -- bindArgs args params
   bindArgs fullArgs params
   let f = if asClass then withClass else id
   res <- f (execStmt body `catchReturn` return)
@@ -408,25 +407,6 @@ execStructTryCatch b catchers = do
     breakTry (Just (LitKeyword (LangIdent "try")))
         = execStructTryCatch b catchers
     breakTry e = throwBreak e
--- execStructTryCatch b catchers = execStmt b `catchAE` genHandle
---   where
---     genHandle e = do
---       env <- getEnv
---       updateEnv env { currentException = Just e }
---       res <- checkCatch e catchers `catchBreak` breakTry
---       newEnv <- getEnv
---       updateEnv newEnv { currentException = Nothing }
---       return res
---     checkCatch e [] = throwError e
---     checkCatch e ((toCatch, ex):es) = if catches
---                                       then execStmt ex
---                                       else checkCatch e es
---       where catches = errToKeyword e `elem` toCatch || genErrKeyword e `elem` toCatch
---                     || LangIdent "error" `elem` toCatch
---     breakTry (Just (LitKeyword (LangIdent "try")))
---         = execStructTryCatch b catchers
---     breakTry e = throwBreak e
-
 
 
 builtinArgs :: [Expr] -> ExecIO [LangLit]
@@ -460,7 +440,7 @@ builtinEval :: [LangLit] -> ExecIO LangLit
 builtinEval xs = do
   let r = evalParse st program
   case r of
-    Left e    -> throwExecError . syntaxErr $ e -- throwExecError . callBuiltinErr $ "eval: no parse"
+    Left e    -> throwExecError . syntaxErr $ e
     Right res -> execStmt res
   where st = argsToString xs
 

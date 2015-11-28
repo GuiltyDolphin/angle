@@ -85,11 +85,6 @@ colNo :: SourcePos -> Int
 colNo (SourcePos (_, cn, _)) = cn
 
 
--- | Retrieve the source index from a source position.
--- sourceIndex :: SourcePos -> Int
--- sourceIndex (SourcePos (_, _, si)) = si
-
-
 -- | Reset the column number whilst incrementing the
 -- line number and source index.
 incNL :: SourcePos -> SourcePos
@@ -254,5 +249,5 @@ sc <?> msg = do
   oldPos <- liftM sourcePos get
   sc `catchError` (\e -> do
     newPos <- liftM sourcePos get
-    if newPos == oldPos then throwError $ e {expectedMsg=msg}--expectedErr msg
+    if newPos == oldPos then throwError $ e {expectedMsg=msg}
     else throwError e)

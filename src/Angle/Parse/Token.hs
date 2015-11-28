@@ -212,7 +212,7 @@ tokChar :: Parser Char
 tokChar = surrounded (char '\'') charNonEmpty
   where
     charNonEmpty = do
-      c <- notChar '\'' -- anyChar
+      c <- notChar '\''
       case c of
         '\\' -> escChar
         _ -> return c

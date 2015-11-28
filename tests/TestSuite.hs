@@ -13,7 +13,7 @@ import qualified Test.Angle.Exec.Types as ExecTypes
 
 
 main :: IO ()
-main = defaultMain allTests -- defaultMainWithArgs allTests ["--timeout=3", "--maximum-test-size=10"]
+main = defaultMain allTests
 
 
 -- | Convert seconds into microseconds

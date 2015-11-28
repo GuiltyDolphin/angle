@@ -575,7 +575,7 @@ constrRefArgSig = tryParse (char ':' >> constrRef)
 callList :: Parser ArgSig
 callList = parens $ do
     params  <- sepWith tokEltSep argElt
-    catcher <- optional catchArg -- optional (string ".." *> identName)
+    catcher <- optional catchArg
     return $ ArgSig params catcher
 
 

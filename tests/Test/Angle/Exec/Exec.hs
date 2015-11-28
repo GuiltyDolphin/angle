@@ -5,15 +5,6 @@ module Test.Angle.Exec.Exec
 import TestHelper
 
 
---filterFun = evalParse
---  [ "defun filter($f, xs) {"
---  , "res = [];"
---  , "for elt in xs do {"
---  , "if f(elt) then res = (+ res elt);"
---  , "}"
---  , "}" ] structDefun
-
-
 appending :: [a] -> [[a]] -> [a]
 appending x = concatMap (++x)
 
@@ -235,7 +226,7 @@ for ident expr body = concat [ "for ", ident, " in "
 
 tests :: [TestTree]
 tests = [ testGroup "filter tests"
-          [ --testProperty "filterLess" testFilterLess
+          [
           ]
         , testGroup "basic operators"
           [ testProperty "less" testLess

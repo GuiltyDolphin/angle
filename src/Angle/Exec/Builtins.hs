@@ -243,7 +243,7 @@ asType (LitBool _) (LitStr y) =
       _       -> return LitNull
 asType (LitList _) x@(LitRange _ (Just _) _) = iterToLit x
 asType (LitList _) (LitRange _ Nothing _) = throwExecError infiniteRangeErr
-asType x y = throwExecError $ typeCastErr (typeOf y) (typeOf x)-- return LitNull
+asType x y = throwExecError $ typeCastErr (typeOf y) (typeOf x)
 
 
 fromStr :: (Read a) => String -> (a -> LangLit) -> ExecIO LangLit
@@ -322,7 +322,6 @@ builtinIndex _ = throwExecError $ callBuiltinErr "index: invalid call signature"
 
 
 splice :: Int -> Int -> [a] -> [a]
--- splice x y xs = take (1+y-x) $ drop x xs
 splice x y = take (y-x) . drop x
 
 
@@ -331,7 +330,6 @@ toLitStr x@(LitStr _) = x
 toLitStr (LitChar x) = LitStr [x]
 toLitStr LitNull = LitStr ""
 toLitStr x = LitStr $ showSyn x
--- toLitStr _ = error "toLitStr: cannot display type"
 
 
 -- | Builtin @getArgs@ function.

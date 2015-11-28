@@ -8,9 +8,7 @@ import TestHelper
 import Angle.Exec.Types.Internal
 
 
--- testFromIterInt :: NonNegative Int -> NonNegative Int -> NonZero Int -> Property
 testFromIterInt :: RangeTriple Int -> Property
--- testFromIterInt (NonNegative x) (NonNegative y) (NonZero z) = monadicIO $ run (runExec (fromIter range)) >>= assertEqual expect
 testFromIterInt (RangeTriple (x,y,z)) = monadicIO $ run (runExec (fromIter range)) >>= assertEqual expect
   where range = LitRange (LitInt x) (Just $ LitInt y) (Just $ LitInt z)
         expect = map LitInt [x,z..y]
@@ -23,7 +21,7 @@ newtype RangeTriple a = RangeTriple (a, a, a)
 instance (Enum a, Arbitrary a) => Arbitrary (RangeTriple a) where
     arbitrary = liftM RangeTriple $ suchThat arbitrary checkRange
       where
-        checkRange (x1,y1,z1) = not ((y' > x' || y' == x') && (z' == x')) -- zeroStep || incorrectStepSign
+        checkRange (x1,y1,z1) = not ((y' > x' || y' == x') && (z' == x'))
           where
             [x', y', z'] = map fromEnum [x1,y1,z1]
 

@@ -8,7 +8,6 @@ module TestHelper
     , Parser
     , evalParse
     , monadicEither
---    , monadicExec
     , liftM
     , monadicIO
     , assertEqual
@@ -61,16 +60,6 @@ instance Arbitrary LangLit where
               let y' = if b1 then Just y else Nothing
                   z' = if b2 then Just z else Nothing
               return $ LitRange x y' z'
-    -- --shrink (LitList xs) = shrink1 LitList xs
-    -- shrink (LitInt x) = shrink1 LitInt x
-    -- shrink (LitStr x) = shrink1 LitStr x
-    -- shrink (LitFloat x) = shrink1 LitFloat x
-    -- shrink (LitBool x) = shrink1 LitBool x
-    -- --shrink (LitRange x y z) = shrink3 LitRange x y z
-    -- --shrink (LitLambda x) = shrink1 LitLambda x
-    -- shrink (LitChar x) = shrink1 LitChar x
-    -- shrink LitNull = [LitNull]
-    -- shrink _ = undefined
 
 
 instance Arbitrary SingStmt where
@@ -94,7 +83,6 @@ instance Arbitrary LangStruct where
                 , (3, liftArby2 StructWhile)
                 , (3, liftM3 StructIf arbitrary (liftArby MultiStmt) arbitrary)
                 , (1, liftArby2 StructDefun)
-                -- , liftArby StructReturn -- Not using atm
                 ]
     shrink (StructFor x y z) = shrink3 StructFor x y z
     shrink (StructWhile x y) = shrink2 StructWhile x y
@@ -117,18 +105,8 @@ instance Arbitrary Expr where
                 , (9, liftArby  ExprLit)
                 , (1, liftM3 ExprFunCall arbitrary arbitrary (liftArby getTinyList))
                 , (4, liftArby  ExprOp)
-                --, (4, liftArby ExprLambda)
                 , (4, liftArby ExprFunIdent)
-                --, (1, liftArby3 ExprRange)
                 ]
-    -- shrink (ExprIdent x) = shrink1 ExprIdent x
-    -- shrink (ExprLit x) = shrink1 ExprLit x
-    -- shrink (ExprFunCall x y) = shrink2 ExprFunCall x y
-    -- shrink (ExprOp x) = shrink1 ExprOp x
-    -- shrink (ExprLambda x) = shrink1 ExprLambda x
-    -- shrink (ExprFunIdent x) = shrink1 ExprFunIdent x
-    -- shrink (ExprList x) = map ExprList $ shrink x
-    -- shrink _ = undefined
 
 
 instance Arbitrary ArgSig where
@@ -337,14 +315,6 @@ runExec e = do
 
 runEx :: String -> PropertyM IO LangLit
 runEx s = let (Right r) = evalParse s program in run $ runExec $ execStmt r
-
--- monadicExec :: PropertyM ExecIO a -> PropertyM ExecIO (IO (Either AngleError a))
--- monadicExec e = do
---  x <- e
---  return (runExecIOBasic x)
-
-
-
 
 
 instance Arbitrary LangType where
