@@ -37,8 +37,10 @@ module Angle.Parse.Parser.Internal
     ) where
 
 
-import Control.Applicative
+import Control.Applicative ((<*), (<*>), (*>), (<$>), liftA)
 import Control.Monad.State
+
+import Text.Parsec
 
 import Angle.Parse.Helpers
 import Angle.Parse.Token
@@ -66,16 +68,16 @@ import Angle.Types.Lang
 --  Which would swap he values of @x@ and @y@, and the value produced by
 --  the series of statements would be the value of the last (value of
 --  @c@).
-stmt :: Parser Stmt
+stmt :: Parser st Stmt
 stmt = (multiStmt <|> singleStmt) <?> "statement"
 
 
-singleStmt :: Parser Stmt
+singleStmt :: Parser st Stmt
 singleStmt = do
   many $ surrounded whitespace stmtComment
-  initPos <- liftM sourcePos get
+  initPos <- getPosition -- liftM sourcePos get
   res <- singStmt
-  endPos <- liftM sourcePos get
+  endPos <- getPosition -- liftM sourcePos get
   return SingleStmt
              { stmtSingStmt  = res
              , stmtSourcePos = SourceRef (initPos, endPos)
@@ -83,7 +85,7 @@ singleStmt = do
 
 
 -- | Statement consisting of zero or more statements.
-multiStmt :: Parser Stmt
+multiStmt :: Parser st Stmt
 multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many (tryParse stmt))
 
 
@@ -106,71 +108,72 @@ multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many (tryPar
 -- [@expr@] executes an expression and produces the value evaluated.
 --
 -- Or a structure may be used, see 'langStruct'.
-singStmt :: Parser SingStmt
-singStmt = stmtStruct
-           <|> stmtReturn <* singStmtEnd
-           <|> stmtRaise <* singStmtEnd
-           <|> stmtBreak <* singStmtEnd
-           <|> stmtAssignGlobal <* singStmtEnd
-           <|> stmtAssignNonLocal <* singStmtEnd
-           <|> stmtAssign <* singStmtEnd
+singStmt :: Parser st SingStmt
+singStmt = try stmtStruct
+           <|> try (stmtReturn <* singStmtEnd)
+           <|> try (stmtRaise <* singStmtEnd)
+           <|> try (stmtBreak <* singStmtEnd)
+           <|> try (stmtAssignGlobal <* singStmtEnd)
+           <|> try (stmtAssignNonLocal <* singStmtEnd)
+           <|> try (stmtAssign <* singStmtEnd)
            <|> stmtExpr   <* singStmtEnd
            <?> "statement"
 
 
-singStmtEnd :: Parser ()
+singStmtEnd :: Parser st ()
 singStmtEnd = surrounded whitespace (void (char ';')) <?> "end of statement"
 
 
 -- | Variable assignment.
-stmtAssign :: Parser SingStmt
+stmtAssign :: Parser st SingStmt
 stmtAssign = StmtAssign
              <$> tryParse (langIdent <* tokAssign)
              <*> expr
 
 
-stmtAssignNonLocal :: Parser SingStmt
+stmtAssignNonLocal :: Parser st SingStmt
 stmtAssignNonLocal = StmtAssignNonLocal
                      <$> tryParse (langIdent <* tokAssignNonLocal)
                      <*> expr
 
 
-stmtAssignGlobal :: Parser SingStmt
+stmtAssignGlobal :: Parser st SingStmt
 stmtAssignGlobal = StmtAssignGlobal
                      <$> tryParse (langIdent <* tokAssignGlobal)
                      <*> expr
 
 
-stmtBreak :: Parser SingStmt
+stmtBreak :: Parser st SingStmt
 stmtBreak = sBreak <|> sContinue
   where sContinue = string "continue" >> return StmtBreak { breakValue=Nothing, breakContinue=True}
         sBreak = string "break" >> (do
-              retV <- optional (tryParse (tokNSpaced *> expr))
+              retV <- optionMaybe (tryParse (tokNSpaced *> expr))
               return StmtBreak { breakValue=retV, breakContinue=False})
 
 
-stmtComment :: Parser SingStmt
+-- Check this (manyTill...)
+stmtComment :: Parser st SingStmt
 stmtComment = StmtComment
-              <$> (char '#' *> manyTill tokEndComment anyChar <* tokEndComment)
+              <$> (char '#' *> manyTill anyChar tokEndComment <* tokEndComment)
     where
       tokEndComment = void (char '\n')
                       <|> void tokEOF
 
 
-stmtStruct :: Parser SingStmt
+stmtStruct :: Parser st SingStmt
 stmtStruct = liftM StmtStruct langStruct
 
 
-stmtReturn :: Parser SingStmt
+stmtReturn :: Parser st SingStmt
 stmtReturn = liftM StmtReturn (string "return " *> expr)
                <?> "return construct"
 
 
-stmtExpr :: Parser SingStmt
+stmtExpr :: Parser st SingStmt
 stmtExpr = liftM StmtExpr expr
 
 
-stmtRaise :: Parser SingStmt
+stmtRaise :: Parser st SingStmt
 stmtRaise = string "raise " >> liftM (StmtRaise . getLitKeyword) litKeyword
 
 
@@ -194,18 +197,18 @@ stmtRaise = string "raise " >> liftM (StmtRaise . getLitKeyword) litKeyword
 --
 -- [@defun ident(args) stmt@] defines a function @ident@ that has
 -- a parameter list @args@ and body @stmt@.
-langStruct :: Parser LangStruct
-langStruct =     structFor
-             <|> structWhile
-             <|> structIf
-             <|> structUnless
-             <|> structDefun
+langStruct :: Parser st LangStruct
+langStruct =     try structFor
+             <|> try structWhile
+             <|> try structIf
+             <|> try structUnless
+             <|> try structDefun
              <|> structTryCatch
              <?> "language construct"
 
 
 -- | For loop.
-structFor :: Parser LangStruct
+structFor :: Parser st LangStruct
 structFor = do
   name <- string "for " *> langIdent
   iter <- string " in " *> expr
@@ -214,7 +217,7 @@ structFor = do
 
 
 -- | While loop.
-structWhile :: Parser LangStruct
+structWhile :: Parser st LangStruct
 structWhile = StructWhile
               <$> (string "while " *> expr)
               <*> (string " do "   *> stmt)
@@ -225,11 +228,11 @@ structWhile = StructWhile
 -- of the form:
 --
 -- if EXPR then STMT {else STMT}
-structIf :: Parser LangStruct
+structIf :: Parser st LangStruct
 structIf = StructIf
            <$> (string "if " *> expr)
            <*> (string " then " *> stmt)
-           <*> optional (string "else " *> stmt)
+           <*> optionMaybe (string "else " *> stmt)
 
 
 -- | unless EXPR STMT
@@ -237,17 +240,17 @@ structIf = StructIf
 -- is equivalent to
 --
 -- if (NOT)EXPR then STMT
-structUnless :: Parser LangStruct
+structUnless :: Parser st LangStruct
 structUnless = do
   e <- string "unless " *> expr
   tokNSpaced
   s <- stmt
-  els <- optional $ string "else " *> stmt
+  els <- optionMaybe $ string "else " *> stmt
   return $ StructIf (ExprOp (SpecOp OpNot e)) s els
 
 
 -- | Function definition.
-structDefun :: Parser LangStruct
+structDefun :: Parser st LangStruct
 structDefun = StructDefun
               <$> (string "defun " *> identName)
               <*> (Lambda
@@ -256,7 +259,7 @@ structDefun = StructDefun
 
 
 -- | Exception handling.
-structTryCatch :: Parser LangStruct
+structTryCatch :: Parser st LangStruct
 structTryCatch = do
     string "try "
     tryCode <- stmt
@@ -272,74 +275,74 @@ structTryCatch = do
 
 
 -- | A program consists of a series of statements.
-program :: Parser Stmt
+program :: Parser st Stmt
 program = liftM MultiStmt $ followed tokEOF (many stmt)
 
 
-exprLit :: Parser Expr
+exprLit :: Parser st Expr
 exprLit = liftM ExprLit langLit
 
 
 -- | Language literals.
-langLit :: Parser LangLit
-langLit = litStr
-          <|> litNull
-          <|> litChar
+langLit :: Parser st LangLit
+langLit = try litStr
+          <|> try litNull
+          <|> try litChar
           <|> tryParse litClosure
           <|> tryParse litLambda
-          <|> litRange
-          <|> litBool
-          <|> litList
+          <|> try litRange
+          <|> try litBool
+          <|> try litList
           <|> tryParse litFloat
-          <|> litInt
+          <|> try litInt
           <|> litKeyword
           <?> "literal"
 
 
 -- | A literal string.
-litStr :: Parser LangLit
+litStr :: Parser st LangLit
 litStr = liftM LitStr tokString
 
 
 -- | Denary integer.
-litInt :: Parser LangLit
+litInt :: Parser st LangLit
 litInt = liftA LitInt tokInt <?> "integer literal"
 
 
 -- | Floating-point literal.
-litFloat :: Parser LangLit
+litFloat :: Parser st LangLit
 litFloat = liftM LitFloat tokFloat
            <?> "floating-point literal"
 
 
 -- | Multi-type list.
-litList :: Parser LangLit
+litList :: Parser st LangLit
 litList = liftM LitList (tokList $ sepWith tokEltSep langLit)
           <?> "list literal"
 
 
-litKeyword :: Parser LangLit
+litKeyword :: Parser st LangLit
 litKeyword = liftM LitKeyword (char ':' >> identKeyword)
 
 
-litLambda :: Parser LangLit
+litLambda :: Parser st LangLit
 litLambda = liftM LitLambda lambda
 
 
-litClosure :: Parser LangLit
+litClosure :: Parser st LangLit
 litClosure = char '$' >> liftM LitClosure lambda
 
 
-exprList :: Parser Expr
+exprList :: Parser st Expr
 exprList = liftM ExprList (tokList $ sepWith tokEltSep expr)
 
 
-exprRange :: Parser Expr
+exprRange :: Parser st Expr
 exprRange = parens $ do
               from <- expr
               string ".."
-              to <- optional expr
-              step <- optional . tryParse $ do
+              to <- optionMaybe expr
+              step <- optionMaybe . tryParse $ do
                         string ".."
                         expr
               return $ ExprRange from to step
@@ -348,14 +351,14 @@ exprRange = parens $ do
 -- | Boolean literal.
 --
 -- litBool = true | false ;
-litBool :: Parser LangLit
+litBool :: Parser st LangLit
 litBool = liftM LitBool (litTrue <|> litFalse)
           <?> "boolean literal"
     where litTrue  = string "true" >> return True
           litFalse = string "false" >> return False
 
 
-litChar :: Parser LangLit
+litChar :: Parser st LangLit
 litChar = liftM LitChar tokChar
 
 
@@ -390,12 +393,12 @@ litChar = liftM LitChar tokChar
 --
 -- [@(start....step)@] range from start to maxmimum bound of type,
 -- incrementing by step.
-litRange :: Parser LangLit
+litRange :: Parser st LangLit
 litRange = tryParse $ parens $ do
              from <- langLit
              string ".."
-             to <- optional langLit
-             step <- optional . tryParse $ do
+             to <- optionMaybe langLit
+             step <- optionMaybe . tryParse $ do
                                 string ".."
                                 langLit
              return $ LitRange from to step
@@ -404,12 +407,12 @@ litRange = tryParse $ parens $ do
 -- | Non-valued literal.
 --
 -- litNull = 'null' | '()' ;
-litNull :: Parser LangLit
-litNull = string "()" <|> string "null" >> return LitNull
+litNull :: Parser st LangLit
+litNull = (string "()" <|> string "null") >> return LitNull
 
 
 -- | Expression.
-expr :: Parser Expr
+expr :: Parser st Expr
 expr = (   tryParse exprLit
        <|> exprList
        <|> exprFunIdent
@@ -420,27 +423,27 @@ expr = (   tryParse exprLit
        <?> "expression"
 
 
-exprIdent :: Parser Expr
+exprIdent :: Parser st Expr
 exprIdent = liftM ExprIdent langIdent <?> "identifier"
 
 
-identName :: Parser LangIdent
+identName :: Parser st LangIdent
 identName = liftM LangIdent (tryParse $ ident False) <?> "identifier"
 
 
-identKeyword :: Parser LangIdent
+identKeyword :: Parser st LangIdent
 identKeyword = liftM LangIdent (tryParse $ ident True)
 
 
-langIdent :: Parser LangIdent
+langIdent :: Parser st LangIdent
 langIdent = identName
 
 
-funIdent :: Parser LangIdent
+funIdent :: Parser st LangIdent
 funIdent = char '$' *> identName
 
 
-exprFunIdent :: Parser Expr
+exprFunIdent :: Parser st Expr
 exprFunIdent = liftM ExprFunIdent funIdent
 
 
@@ -451,7 +454,7 @@ exprFunIdent = liftM ExprFunIdent funIdent
 -- @((x y) (+ x y);)@
 --
 -- References a lambda that performs basic addition.
-lambda :: Parser Lambda
+lambda :: Parser st Lambda
 lambda = parens $ do
     args <- callList <* tokNSpaced
     body <- stmt
@@ -459,11 +462,11 @@ lambda = parens $ do
 
 
 -- | Set of arguments for a function
-arglist :: Parser [Expr]
+arglist :: Parser st [Expr]
 arglist = parens (sepWith tokEltSep (expr <|> exprParamExpand))
 
 
-exprParamExpand :: Parser Expr
+exprParamExpand :: Parser st Expr
 exprParamExpand = liftM ExprParamExpand $ string ".." >> langIdent
 
 
@@ -471,7 +474,7 @@ exprParamExpand = liftM ExprParamExpand $ string ".." >> langIdent
 --
 -- Function calls consist of an identifier followed
 -- by an argument list surrounded by parentheses (see 'arglist').
-exprFunCall :: Parser Expr
+exprFunCall :: Parser st Expr
 exprFunCall = (do
   asClass <- (char '@' >> return True) <|> return False
   name <- tryParse (langIdent <* lookAhead (char '('))
@@ -479,7 +482,7 @@ exprFunCall = (do
   return $ ExprFunCall name asClass args) <?> "function call"
 
 
-exprOp :: Parser Expr
+exprOp :: Parser st Expr
 exprOp = liftM ExprOp langOp
 
 
@@ -490,18 +493,18 @@ exprOp = liftM ExprOp langOp
 --
 -- Multi-operators can take an arbitrary number of arguments (usually
 -- at least one) but must be surrounded by parentheses.
-langOp :: Parser LangOp
+langOp :: Parser st LangOp
 langOp = specOp <|> multiOp
 
 
-makeOp :: Parser a -> Op -> Parser Op
+makeOp :: Parser st a -> Op -> Parser st Op
 makeOp sc op = sc >> return op
 
 
 opAdd, opAnd, opConcat, opDiv, opEq,
   opGreater, opGreaterEq, opLess, opLessEq,
   opMult, opNeg, opNot, opOr, opSub, opExp
-  :: Parser Op
+  :: Parser st Op
 opAdd  = makeOp (char '+')    OpAdd
 opAnd  = makeOp (char '&')    OpAnd
 opConcat = makeOp (string "++") OpConcat
@@ -519,21 +522,21 @@ opSub  = makeOp (char '-')    OpSub
 opExp  = makeOp (string "**") OpExp
 
 
-userOp :: Parser Op
-userOp = liftM (UserOp . LangIdent) (some tokOpChar) <?> "operator"
+userOp :: Parser st Op
+userOp = liftM (UserOp . LangIdent) (many1 tokOpChar) <?> "operator"
 
 
 -- | Special operators that can be used outside of
 -- parentheses in a prefix form.
-specOp :: Parser LangOp
+specOp :: Parser st LangOp
 specOp = choice (map preOp specOps) <?> "special operator"
 
 
-specOps :: [Parser Op]
+specOps :: [Parser st Op]
 specOps = [opNeg, opNot]
 
 
-preOp :: Parser Op -> Parser LangOp
+preOp :: Parser st Op -> Parser st LangOp
 preOp sc = do
   op  <- sc
   opr <- expr
@@ -542,13 +545,13 @@ preOp sc = do
 
 -- |Operators called within parentheses that may have
 -- multiple operands
-multiOp :: Parser LangOp
+multiOp :: Parser st LangOp
 multiOp = parens (choice (map (tryParse . multOp) multiOps)
                   <|> multOp userOp) <?> "operator expression"
 
 
 -- | List of all the MultiOp parsers.
-multiOps :: [Parser Op]
+multiOps :: [Parser st Op]
 multiOps = [ opAdd, opAnd, opConcat
            , opExp
            , opDiv, opEq
@@ -558,44 +561,44 @@ multiOps = [ opAdd, opAnd, opConcat
            , opSub ]
 
 
-multOp :: Parser Op -> Parser LangOp
+multOp :: Parser st Op -> Parser st LangOp
 multOp sc = MultiOp
             <$> (sc <* tokSpace)
-            <*> sepWith (some tokWhitespace) expr
+            <*> sepWith (many1 tokWhitespace) expr
 
 
-constrRef :: Parser ConstrRef
-constrRef = char '@' >> liftM2 ConstrRef langIdent (optional arglist)
+constrRef :: Parser st ConstrRef
+constrRef = char '@' >> liftM2 ConstrRef langIdent (optionMaybe arglist)
 
 
-constrRefArgSig :: Parser ConstrRef
+constrRefArgSig :: Parser st ConstrRef
 constrRefArgSig = tryParse (char ':' >> constrRef)
 
 
-callList :: Parser ArgSig
+callList :: Parser st ArgSig
 callList = parens $ do
     params  <- sepWith tokEltSep argElt
-    catcher <- optional catchArg
+    catcher <- optionMaybe catchArg
     return $ ArgSig params catcher
 
 
-catchArg :: Parser CatchArg
+catchArg :: Parser st CatchArg
 catchArg = do
     string ".."
     n <- identName
-    constr <- optional constrRefArgSig
+    constr <- optionMaybe constrRefArgSig
     return $ CatchArg n constr
 
 
-argElt :: Parser ArgElt
+argElt :: Parser st ArgElt
 argElt = do
   typ <- argSigType
   name <- identName
-  cls <- optional constrRefArgSig
+  cls <- optionMaybe constrRefArgSig
   return $ ArgElt typ name cls
 
 
-argSigType :: Parser AnnType
+argSigType :: Parser st AnnType
 argSigType = char '$' *> return AnnFun
              <|> char '!'*> return AnnLit
              <|> return AnnAny

@@ -28,13 +28,13 @@ testString :: String -> Bool
 testString s = evalParse s (string s) == Right s
 
 
-instance Arbitrary (Parser Char) where
+instance Arbitrary (Parser st Char) where
     arbitrary = do
       c <- arbitrary
       oneof [return $ char c, return $ notChar c]
 
 
-instance Arbitrary (Parser String) where
+instance Arbitrary (Parser st String) where
     arbitrary = do
       s <- arbitrary
       oneof [return $ string s]

@@ -53,69 +53,69 @@ import Angle.Parse.Helpers
 
 
 -- | Start of a multi-stmt.
-tokMultiStmtStart :: Parser Char
+tokMultiStmtStart :: Parser st Char
 tokMultiStmtStart = surrounded whitespace (char '{')
                                     <?> "start of multi-statement"
 
 
 -- | End of a multi-stmt.
-tokMultiStmtEnd :: Parser Char
+tokMultiStmtEnd :: Parser st Char
 tokMultiStmtEnd   = surrounded whitespace (char '}')
                                     <?> "end of multi-statement"
 
 
 -- | Element separator for lists and arguments.
-tokEltSep :: Parser Char
+tokEltSep :: Parser st Char
 tokEltSep         = surrounded whitespace (char ',')
                                     <?> "element separator"
 
 
-tokDenaryDigit :: Parser Char
+tokDenaryDigit :: Parser st Char
 tokDenaryDigit    = cond isDigit    <?> "denary digit"
 
 
 -- | A single space character.
-tokSpace :: Parser Char
+tokSpace :: Parser st Char
 tokSpace          = char ' '        <?> "space"
 
 
 -- | A single space character (see 'isSpace' for what qualifies).
-tokWhitespace :: Parser Char
+tokWhitespace :: Parser st Char
 tokWhitespace     = cond isSpace    <?> "whitespace"
 
 
 -- | Assignment operator character.
-tokAssign :: Parser Char
+tokAssign :: Parser st Char
 tokAssign = surrounded whitespace (char '=')
                 <?> "assignment operator"
 
-tokAssignNonLocal :: Parser String
+tokAssignNonLocal :: Parser st String
 tokAssignNonLocal = surrounded whitespace (string "|=")
                     <?> "nonlocal assignment"
 
 
-tokAssignGlobal :: Parser String
+tokAssignGlobal :: Parser st String
 tokAssignGlobal = surrounded whitespace (string "||=")
                     <?> "global assignment"
 
 
 -- | Matches any amount of whitespace.
-whitespace :: Parser String
+whitespace :: Parser st String
 whitespace = many tokWhitespace
 
 
 -- | Matches when there are no more characters in the stream.
-tokEOF :: Parser ()
+tokEOF :: Parser st ()
 tokEOF            = notParse anyChar
 
 
 -- | Characters valid between statements.
-tokStmtBetween :: Parser String
+tokStmtBetween :: Parser st String
 tokStmtBetween    = whitespace      <?> "ignored characters"
 
 
 -- | Matches a string representing an integer.
-tokInt :: (Integral a, Read a) => Parser a
+tokInt :: (Integral a, Read a) => Parser st a
 tokInt = do
   negve <- optional (char '-')
   res <- read <$> tokDigits <?> "integer"
@@ -124,12 +124,12 @@ tokInt = do
     Just _  -> return (-res)
 
 
-tokDigits :: Parser String
+tokDigits :: Parser st String
 tokDigits = some tokDenaryDigit
 
 
 -- | Matches a string representing a floating-point number.
-tokFloat :: Parser Double
+tokFloat :: Parser st Double
 tokFloat = do
   negve <- optional (char '-')
   f <- tokDigits
@@ -141,7 +141,7 @@ tokFloat = do
 
 
 -- | Matches within square brackets.
-tokList :: Parser a -> Parser a
+tokList :: Parser st a -> Parser st a
 tokList = within tokStartList tokEndList
   where
     tokStartList = char '[' <* whitespace
@@ -151,7 +151,7 @@ tokList = within tokStartList tokEndList
 -- | Function/variable identifier (but not a keyword).
 ident ::
     Bool -- ^Are keywords allowed?
-    -> Parser String
+    -> Parser st String
 ident b = unless b (noneFrom (\x -> string x <* specEnd) keywords) *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar)
     where specEnd = notParse tokIdentBodyChar
           tokIdentStartChar = cond (\x -> isAlpha x || x == '_')
@@ -159,7 +159,7 @@ ident b = unless b (noneFrom (\x -> string x <* specEnd) keywords) *> ((:) <$> t
 
 
 -- | Valid operator character.
-tokOpChar :: Parser Char
+tokOpChar :: Parser st Char
 tokOpChar = charFrom "*/+->=<|&^"
 
 
@@ -186,7 +186,7 @@ keywords = [ "break"
 
 
 -- | Matches within parentheses.
-parens :: Parser a -> Parser a
+parens :: Parser st a -> Parser st a
 parens sc = within tokParenL tokParenR sc
             <?> "parentheses"
   where
@@ -194,21 +194,21 @@ parens sc = within tokParenL tokParenR sc
     tokParenR = whitespace *> char ')'
 
 
-stringNorm :: Parser String
+stringNorm :: Parser st String
 stringNorm = do
   char '"'
-  r <- manyTill (char '"') (withCharEscape False)
-  char '"'
+  r <- manyTill (withCharEscape False) (char '"') -- (char '"') (withCharEscape False)
+  -- char '"'
   return (concat r)
 
 
 -- | String of the form "BODY".
-tokString :: Parser String
+tokString :: Parser st String
 tokString = tryParse stringBS <|> stringNorm
 
 
 -- | Character of the form 'C'.
-tokChar :: Parser Char
+tokChar :: Parser st Char
 tokChar = surrounded (char '\'') charNonEmpty
   where
     charNonEmpty = do
@@ -218,18 +218,18 @@ tokChar = surrounded (char '\'') charNonEmpty
         _ -> return c
 
 
-stringBS :: Parser String
+stringBS :: Parser st String
 stringBS = do
   string "e\""
-  r <- manyTill (char '"') (withCharEscape True)
-  char '"'
+  r <- manyTill (withCharEscape True) (char '"')
+  -- char '"'
   return (concat r)
 
 
 -- | Space or newline followed by optional whitespace.
 --
 -- A common separator in Operators and Lambdas.
-tokNSpaced :: Parser String
+tokNSpaced :: Parser st String
 tokNSpaced = tokSpace <|> tokNewLine >> whitespace
   where
     tokNewLine = char '\n'
@@ -240,7 +240,7 @@ tokNSpaced = tokSpace <|> tokNewLine >> whitespace
 -- it is preceded by a backslash and has no literal
 -- meaning.
 withCharEscape :: Bool -- ^ Treat backslashes as literal backslashes.
-        -> Parser String
+        -> Parser st String
 withCharEscape b = do
   c <- anyChar
   case c of
@@ -251,17 +251,17 @@ withCharEscape b = do
     _    -> return [c]
 
 
-escString :: Parser String
+escString :: Parser st String
 escString = (escEmpty >> return "")
             <|> liftM (:[]) escChar
 
 
-escEmpty :: Parser Char
+escEmpty :: Parser st Char
 escEmpty = char '&'
            <|> (some tokSpace >> char '\\')
 
 
-escChar :: Parser Char
+escChar :: Parser st Char
 escChar = genEsc
           <|> escNum
           <|> asciiEsc
@@ -269,7 +269,7 @@ escChar = genEsc
           <?> "escape code"
 
 
-controlEsc :: Parser Char
+controlEsc :: Parser st Char
 controlEsc = do
   char '^'
   code <- upper
@@ -285,14 +285,14 @@ fromBase :: Int -> String -> Int
 fromBase base = fst . head . readInt base ((<base) . digitToInt) digitToInt
 
 
-numBase :: Int -> Parser Char -> Parser Int
+numBase :: Int -> Parser st Char -> Parser st Int
 numBase base baseDig = do
   s <- some baseDig
   return $ read $ toBase10 $ fromBase base s
   where toBase10 = toBase 10
 
 
-escNum :: Parser Char
+escNum :: Parser st Char
 escNum = do
   code <- numBase 10 tokDenaryDigit
           <|> (char 'o' >> numBase 8 octDigit)
@@ -302,13 +302,13 @@ escNum = do
             octDigit = cond isOctDigit
 
 
-genEsc :: Parser Char
+genEsc :: Parser st Char
 genEsc = choice (map genEscChar escs)
     where genEscChar c = char c >> return (codeToChar [c])
           escs = "abfnrtv\\\"\'"
 
 
-asciiEsc :: Parser Char
+asciiEsc :: Parser st Char
 asciiEsc = choice (map asciiEscChar asciis)
     where asciiEscChar asc = tryParse (string asc) >> return (codeToChar asc)
           asciis = ascii3codes ++ ascii2codes

@@ -28,20 +28,20 @@ testShowSynLambda :: Lambda -> P.Result
 testShowSynLambda x = prettySyn x lambda
 
 
-showSynTest :: (ShowSyn a, Eq a) => a -> Parser a -> Bool
+showSynTest :: (ShowSyn a, Eq a) => a -> Parser String a -> Bool
 showSynTest x sc = evalParse (showSyn x) sc == Right x
 
 
-prettySyn :: (ShowSyn a, Eq a) => a -> Parser a -> P.Result
+prettySyn :: (ShowSyn a, Eq a) => a -> Parser String a -> P.Result
 prettySyn = withPretty f p
     where p x sc = either (const $ "Could not parse: \n" ++ showSyn x)
                      showSyn (evalParse (showSyn x) sc)
           f = showSynTest
 
 
-withPretty :: (a -> Parser b -> Bool) -- ^ Test function to apply
-           -> (a -> Parser b -> String) -- ^ Prettify function
-           -> a -> Parser b -> P.Result
+withPretty :: (a -> Parser st b -> Bool) -- ^ Test function to apply
+           -> (a -> Parser st b -> String) -- ^ Prettify function
+           -> a -> Parser st b -> P.Result
 withPretty f pretty x sc = P.result
                              { P.ok = Just b
                              , P.reason = if b
@@ -75,7 +75,7 @@ noneElem :: (Eq a) => [a] -> [a] -> Bool
 noneElem xs ys = all (`notElem` ys) xs
 
 
-litStrShow :: String -> Parser LangLit -> P.Result
+litStrShow :: String -> Parser String LangLit -> P.Result
 litStrShow = withPretty f p
     where f x sc = evalParse (escapedStr x) sc == Right (LitStr x)
           p x sc = either (const "got an error!\n") showSyn (evalParse (escapedStr x) sc)

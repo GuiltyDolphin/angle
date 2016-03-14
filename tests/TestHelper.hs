@@ -26,6 +26,8 @@ import Control.Monad.State
 import Data.Char (isAlpha, isAlphaNum)
 import qualified Data.Map as M
 
+import Text.Parsec.Pos
+
 import Test.QuickCheck
 import Test.QuickCheck.Monadic
 import Test.Tasty
@@ -314,7 +316,10 @@ runExec e = do
 
 
 runEx :: String -> PropertyM IO LangLit
-runEx s = let (Right r) = evalParse s program in run $ runExec $ execStmt r
+runEx s = case evalParse s program of
+            Left e -> fail ("Could not parse string: " ++ s ++ "\n" ++ show e)
+            Right r -> run $ runExec $ execStmt r
+-- let (Right r) = evalParse s program in run $ runExec $ execStmt r
 
 
 instance Arbitrary LangType where
@@ -329,19 +334,22 @@ langTypes = [LTStr, LTInt, LTFloat, LTList
 
 instance Arbitrary SourceRef where
     arbitrary = do
-      start <- arbitrary
-      end <- arbitrary
-      return $ SourceRef (start, end)
-    shrink (SourceRef x) = shrink1 SourceRef x
+      name <- suchThat arbitrary (all (`elem` ['a'..'z']))
+      (col1, line1) <- arbitrary
+      (col2, line2) <- arbitrary
+      -- start <- arbitrary
+      -- end <- arbitrary
+      return $ SourceRef (newPos name col1 line1, newPos name col2 line2)
+    -- shrink (SourceRef x) = shrink1 SourceRef x
 
 
-instance Arbitrary SourcePos where
-    arbitrary = do
-      f <- liftArby getPositive
-      s <- liftArby getPositive
-      t <- liftArby getPositive
-      return $ SourcePos (f, s, t)
-    shrink (SourcePos x) = shrink1 SourcePos x
+-- instance Arbitrary SourcePos where
+--     arbitrary = do
+--       f <- liftArby getPositive
+--       s <- liftArby getPositive
+--       t <- liftArby getPositive
+--       return $ SourcePos (f, s, t)
+--     shrink (SourcePos x) = shrink1 SourcePos x
 
 assertEqual :: (Monad m, Eq a) => a -> a -> PropertyM m ()
 assertEqual x = assert . (==x)

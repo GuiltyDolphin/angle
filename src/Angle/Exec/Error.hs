@@ -92,7 +92,10 @@ import Data.Function (on)
 import Data.Maybe (catMaybes)
 import qualified System.IO.Error as IO
 
-import Angle.Scanner
+import Text.Parsec.Error
+import Text.Parsec.Pos
+
+-- import Angle.Scanner
 import Angle.Types.Lang
 
 
@@ -174,7 +177,7 @@ instance Show AngleError where
                 ln = show (stmtLine s + 1)
                 f = showSyn c
                 st = let (SingleStmt s' _) = s; tos = showSyn s' in if last tos == '\n' then init tos else tos
-            stmtLine (SingleStmt _ (SourceRef (l,_))) = lineNo l
+            stmtLine (SingleStmt _ (SourceRef (l,_))) = sourceLine l -- lineNo l
 
 
 instance KWError AngleError where

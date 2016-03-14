@@ -23,6 +23,8 @@ testTokChar c = evalParse (show c) tokChar == Right c
 testTokCharAscii :: AsciiChar -> Bool
 testTokCharAscii (AsciiChar c) = evalParse (show c) tokChar == Right c
 
+testTokIdentifier :: LangIdent -> Bool
+testTokIdentifier n@(LangIdent s) = evalParse (showSyn n) (ident False) == Right s
 
 
 
@@ -42,6 +44,9 @@ tests = [ testGroup "numbers"
         , testGroup "strings and characters"
           [ testProperty "tokChar" testTokChar
           , testProperty "tokCharAscii" testTokCharAscii
+          ]
+        , testGroup "identifiers"
+          [ testProperty "ident" testTokIdentifier
           ]
         ]
 

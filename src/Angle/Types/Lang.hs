@@ -110,9 +110,10 @@ module Angle.Types.Lang
 import Numeric (showFFloat)
 import System.IO (Handle)
 
-import Angle.Scanner (SourcePos, beginningOfFile)
+-- import Angle.Scanner (SourcePos, beginningOfFile)
 import Angle.Types.Scope (GenScope)
 
+import Text.Parsec.Pos
 
 type Scope = GenScope LangIdent LangLit Lambda
 
@@ -151,7 +152,7 @@ newtype SourceRef = SourceRef
 -- | The initial `SourceRef' - starting and ending at
 -- the beginning of the file.
 startRef :: SourceRef
-startRef = SourceRef (beginningOfFile, beginningOfFile)
+startRef = SourceRef (initialPos "" , initialPos "")
 
 
 -- | Interface for types that can have a string representation

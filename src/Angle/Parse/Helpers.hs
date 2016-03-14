@@ -38,129 +38,139 @@ module Angle.Parse.Helpers
     , evalParse
     , Parser
     , SourcePos
-    , sourcePos
-    , unexpectedErr
+    -- , sourcePos
+    -- , unexpectedErr
     , (<?>)
     ) where
 
 
-import Control.Applicative
+import Control.Applicative ((<*), (<*>), (*>))
 import Control.Monad.Except
 import Control.Monad.State
 
-import Angle.Scanner
+-- import Angle.Scanner
 
+import Text.Parsec
 
+type Parser st a = Parsec String st a
+
+evalParse s p = runParser p "" "" s
+
+cond = satisfy
 -- | Succeeds if the predicate function returns
 -- true when passed the next character.
-cond :: (Char -> Bool) -> Parser Char
-cond f = tryParse $ do
-  ch <- scanChar
-  if f ch then return ch
-  else unexpectedErr ("character: " ++ show ch)
+-- cond :: (Char -> Bool) -> Parser st Char
+-- cond f = tryParse $ do
+--   ch <- scanChar
+--   if f ch then return ch
+--   else unexpectedErr ("character: " ++ show ch)
 
 
 -- | Attempt to satisfy the provided parser, but revert
 -- the state upon failure.
-tryParse :: Parser a -> Parser a
-tryParse sc = do
-  st <- get
-  sc `catchError` (\e -> do
-    put st
-    throwError e)
+tryParse :: Parser st a -> Parser st a
+tryParse = try
+-- tryParse sc = do
+--   st <- get
+--   sc `catchError` (\e -> do
+--     put st
+--     throwError e)
 
 
 -- | Match the specified character.
-char :: Char -> Parser Char
-char ch = cond (==ch) <?> show ch
+-- char :: Char -> Parser st Char
+-- char ch = cond (==ch) <?> show ch
 
 
 -- | Matches if character is an element of the provided string.
-charFrom :: String -> Parser Char
+charFrom :: String -> Parser st Char
 charFrom str = cond (`elem` str)
 
 
 -- | Match `str' in its entirety.
-string :: String -> Parser String
-string str = tryParse (mapM char str) <?> str
+-- string :: String -> Parser st String
+-- string str = tryParse (mapM char str) <?> str
 
 
 -- | @within start end sc@ matches @sc@ between @start@ and @end@.
-within :: Parser a -> Parser b -> Parser c -> Parser c
+within :: Parser st a -> Parser st b -> Parser st c -> Parser st c
 within start end sc = start *> sc <* end
 
 
 -- | @surrounded x@ is the same as @within x x@.
-surrounded :: Parser a -> Parser b -> Parser b
+surrounded :: Parser st a -> Parser st b -> Parser st b
 surrounded surr = within surr surr
 
 
 -- | Parses second parser before first parser, returning the result
 -- of the second parser.
-followed :: Parser a -> Parser b -> Parser b
+followed :: Parser st a -> Parser st b -> Parser st b
 followed f sc = sc <* f
 
 
--- | Use first Parser that succeeds.
-choice :: [Parser a] -> Parser a
-choice = msum
+-- | Use first Parser st that succeeds.
+-- choice :: [Parser st a] -> Parser st a
+-- choice = msum
 
 
 
 
 -- | Succeeds if it does not parse the specified character.
-notChar :: Char -> Parser Char
+notChar :: Char -> Parser st Char
 notChar ch = cond (/=ch)
 
 
 -- | Matches any character, only fails when there is no more input.
-anyChar :: Parser Char
-anyChar = scanChar <?> "any character"
+-- anyChar :: Parser st Char
+-- anyChar = scanChar <?> "any character"
 
 
 -- | Succeeds if the parser succeeds, but does not consume
 -- input upon success.
-lookAhead :: Parser a -> Parser a
-lookAhead sc = do
-  pos <- get
-  res <- sc
-  put pos
-  return res
+-- lookAhead :: Parser st a -> Parser st a
+-- lookAhead sc = do
+--   pos <- get
+--   res <- sc
+--   put pos
+--   return res
 
 
 -- | Succeeds only if `sc' does not succeed.
-notParse :: (Show a) => Parser a -> Parser ()
-notParse sc = tryParse (do
-  res <- optional (tryParse (lookAhead sc))
-  case res of Nothing -> return ()
-              Just x -> unexpectedErr (show x))
+notParse :: (Show a) => Parser st a -> Parser st ()
+notParse = notFollowedBy
+-- notParse sc = tryParse (do
+--   res <- optional (tryParse (lookAhead sc))
+--   case res of Nothing -> return ()
+--               Just x -> unexpectedErr (show x))
 
 
 -- | @noneFrom sc scs@ builds a list of parsers by
 -- applying @sc@ to each of @scs@, the resultant parser
 -- then succeeds only if all of the resultant parsers
 -- fail.
-noneFrom :: (Show a) => (a -> Parser a) -> [a] -> Parser ()
-noneFrom scf = notParse . oneFrom
-  where oneFrom xs = choice $ map scf xs
+noneFrom :: (Show a) => (a -> Parser st a) -> [a] -> Parser st ()
+-- noneFrom scf = notParse . oneFrom
+--   where oneFrom xs = choice $ map scf xs
+noneFrom f ps = notFollowedBy (choice $ map f ps)
 
 
 -- | List of `sc' separated with `sep'.
-sepWith :: Parser a -> Parser b -> Parser [b]
-sepWith sep sc = tryParse (do
-  fsm <- optional sc
-  case fsm of
-    Nothing -> return []
-    Just fs -> do
-        s <- optional sep
-        case s of
-          Nothing -> return [fs]
-          Just _ -> liftM (fs:) (sepWith sep sc))
+sepWith :: Parser st a -> Parser st b -> Parser st [b]
+sepWith = flip sepEndBy
+-- sepWith sep sc = tryParse (do
+--   fsm <- optional sc
+--   case fsm of
+--     Nothing -> return []
+--     Just fs -> do
+--         s <- optional sep
+--         case s of
+--           Nothing -> return [fs]
+--           Just _ -> liftM (fs:) (sepWith sep sc))
 
 
 -- | Collect sc until `ti' succeeds.
-manyTill :: (Show b) => Parser b -> Parser a -> Parser [a]
-manyTill ti sc = many (notParse ti *> sc)
+-- manyTill :: (Show b) => Parser st b -> Parser st a -> Parser st [a]
+-- manyTill ti sc = many (notParse ti *> sc)
 
 
 
