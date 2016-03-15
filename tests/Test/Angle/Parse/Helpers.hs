@@ -8,6 +8,8 @@ import Test.QuickCheck.Function
 import Angle.Parse.Helpers
 import TestHelper
 
+import Text.Parsec
+
 
 newtype CharScan = CharScan Char
 
@@ -51,12 +53,7 @@ testAnyChar c = evalParse [c] anyChar == Right c
 
 
 testCond :: Fun Char Bool -> Char -> Property
-testCond f c = apply f c ==> evalParse [c] (cond (apply f)) == Right c
-
-
-testCharFrom :: NonEmptyList Char -> Bool
-testCharFrom (NonEmpty cs) = evalParse cs (charFrom cs) == Right (head cs)
-
+testCond f c = apply f c ==> evalParse [c] (satisfy (apply f)) == Right c
 
 tests :: [TestTree]
 tests = [ testGroup "basics"
@@ -67,7 +64,6 @@ tests = [ testGroup "basics"
           , testProperty "string" testString
           , testProperty "anyChar" testAnyChar
           , testProperty "anyCharEmpty" testAnyCharEmpty
-          , testProperty "charFrom" testCharFrom
           ]
         ]
 

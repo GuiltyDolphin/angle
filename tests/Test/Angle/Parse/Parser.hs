@@ -34,8 +34,11 @@ showSynTest x sc = evalParse (showSyn x) sc == Right x
 
 prettySyn :: (ShowSyn a, Eq a) => a -> Parser String a -> P.Result
 prettySyn = withPretty f p
-    where p x sc = either (const $ "Could not parse: \n" ++ showSyn x)
-                     showSyn (evalParse (showSyn x) sc)
+    where p x sc = case evalParse (showSyn x) sc of
+                    Left e -> "Could not parse:\n" ++ showSyn x ++ "\n" ++ show e
+                    Right r -> showSyn r
+    -- where p x sc = either (const $ "Could not parse: \n" ++ showSyn x)
+    --                  showSyn (evalParse (showSyn x) sc)
           f = showSynTest
 
 

@@ -74,7 +74,7 @@ stmt = (multiStmt <|> singleStmt) <?> "statement"
 
 singleStmt :: Parser st Stmt
 singleStmt = do
-  many $ surrounded whitespace stmtComment
+  many $ surrounded spaces stmtComment
   initPos <- getPosition -- liftM sourcePos get
   res <- singStmt
   endPos <- getPosition -- liftM sourcePos get
@@ -86,7 +86,7 @@ singleStmt = do
 
 -- | Statement consisting of zero or more statements.
 multiStmt :: Parser st Stmt
-multiStmt = MultiStmt <$> within tokMultiStmtStart tokMultiStmtEnd (many (tryParse stmt))
+multiStmt = MultiStmt <$> between tokMultiStmtStart tokMultiStmtEnd (many (try stmt))
 
 
 -- | Singular statement.
@@ -121,25 +121,25 @@ singStmt = try stmtStruct
 
 
 singStmtEnd :: Parser st ()
-singStmtEnd = surrounded whitespace (void (char ';')) <?> "end of statement"
+singStmtEnd = surrounded spaces (void (char ';')) <?> "end of statement"
 
 
 -- | Variable assignment.
 stmtAssign :: Parser st SingStmt
 stmtAssign = StmtAssign
-             <$> tryParse (langIdent <* tokAssign)
+             <$> try (langIdent <* tokAssign)
              <*> expr
 
 
 stmtAssignNonLocal :: Parser st SingStmt
 stmtAssignNonLocal = StmtAssignNonLocal
-                     <$> tryParse (langIdent <* tokAssignNonLocal)
+                     <$> try (langIdent <* tokAssignNonLocal)
                      <*> expr
 
 
 stmtAssignGlobal :: Parser st SingStmt
 stmtAssignGlobal = StmtAssignGlobal
-                     <$> tryParse (langIdent <* tokAssignGlobal)
+                     <$> try (langIdent <* tokAssignGlobal)
                      <*> expr
 
 
@@ -147,7 +147,7 @@ stmtBreak :: Parser st SingStmt
 stmtBreak = sBreak <|> sContinue
   where sContinue = string "continue" >> return StmtBreak { breakValue=Nothing, breakContinue=True}
         sBreak = string "break" >> (do
-              retV <- optionMaybe (tryParse (tokNSpaced *> expr))
+              retV <- optionMaybe (try (tokNSpaced *> expr))
               return StmtBreak { breakValue=retV, breakContinue=False})
 
 
@@ -265,7 +265,7 @@ structTryCatch = do
     tryCode <- stmt
     catchers <- many catchSec
     return $ StructTryCatch tryCode catchers
-  where exceptionList = tokList $ sepWith tokEltSep (liftM getLitKeyword litKeyword)
+  where exceptionList = tokList $ sepEndBy (liftM getLitKeyword litKeyword) tokEltSep
         singleE = liftM ((:[]) . getLitKeyword) litKeyword
         catchSec = do
           string "catch "
@@ -288,12 +288,12 @@ langLit :: Parser st LangLit
 langLit = try litStr
           <|> try litNull
           <|> try litChar
-          <|> tryParse litClosure
-          <|> tryParse litLambda
+          <|> try litClosure
+          <|> try litLambda
           <|> try litRange
           <|> try litBool
           <|> try litList
-          <|> tryParse litFloat
+          <|> try litFloat
           <|> try litInt
           <|> litKeyword
           <?> "literal"
@@ -317,7 +317,7 @@ litFloat = liftM LitFloat tokFloat
 
 -- | Multi-type list.
 litList :: Parser st LangLit
-litList = liftM LitList (tokList $ sepWith tokEltSep langLit)
+litList = liftM LitList (tokList $ sepEndBy langLit tokEltSep)
           <?> "list literal"
 
 
@@ -334,7 +334,7 @@ litClosure = char '$' >> liftM LitClosure lambda
 
 
 exprList :: Parser st Expr
-exprList = liftM ExprList (tokList $ sepWith tokEltSep expr)
+exprList = liftM ExprList (tokList $ sepEndBy expr tokEltSep)
 
 
 exprRange :: Parser st Expr
@@ -342,7 +342,7 @@ exprRange = parens $ do
               from <- expr
               string ".."
               to <- optionMaybe expr
-              step <- optionMaybe . tryParse $ do
+              step <- optionMaybe . try $ do
                         string ".."
                         expr
               return $ ExprRange from to step
@@ -394,11 +394,11 @@ litChar = liftM LitChar tokChar
 -- [@(start....step)@] range from start to maxmimum bound of type,
 -- incrementing by step.
 litRange :: Parser st LangLit
-litRange = tryParse $ parens $ do
+litRange = try $ parens $ do
              from <- langLit
              string ".."
              to <- optionMaybe langLit
-             step <- optionMaybe . tryParse $ do
+             step <- optionMaybe . try $ do
                                 string ".."
                                 langLit
              return $ LitRange from to step
@@ -413,11 +413,11 @@ litNull = (string "()" <|> string "null") >> return LitNull
 
 -- | Expression.
 expr :: Parser st Expr
-expr = (   tryParse exprLit
+expr = (   try exprLit
        <|> exprList
        <|> exprFunIdent
-       <|> tryParse exprOp
-       <|> tryParse exprRange
+       <|> try exprOp
+       <|> try exprRange
        <|> exprFunCall
        <|> exprIdent)
        <?> "expression"
@@ -428,11 +428,11 @@ exprIdent = liftM ExprIdent langIdent <?> "identifier"
 
 
 identName :: Parser st LangIdent
-identName = liftM LangIdent (tryParse $ ident False) <?> "identifier"
+identName = liftM LangIdent (try $ ident False) <?> "identifier"
 
 
 identKeyword :: Parser st LangIdent
-identKeyword = liftM LangIdent (tryParse $ ident True)
+identKeyword = liftM LangIdent (try $ ident True)
 
 
 langIdent :: Parser st LangIdent
@@ -463,7 +463,7 @@ lambda = parens $ do
 
 -- | Set of arguments for a function
 arglist :: Parser st [Expr]
-arglist = parens (sepWith tokEltSep (expr <|> exprParamExpand))
+arglist = parens (sepEndBy (expr <|> exprParamExpand) tokEltSep)
 
 
 exprParamExpand :: Parser st Expr
@@ -477,7 +477,7 @@ exprParamExpand = liftM ExprParamExpand $ string ".." >> langIdent
 exprFunCall :: Parser st Expr
 exprFunCall = (do
   asClass <- (char '@' >> return True) <|> return False
-  name <- tryParse (langIdent <* lookAhead (char '('))
+  name <- try (langIdent <* lookAhead (char '('))
   args <- arglist
   return $ ExprFunCall name asClass args) <?> "function call"
 
@@ -546,7 +546,7 @@ preOp sc = do
 -- |Operators called within parentheses that may have
 -- multiple operands
 multiOp :: Parser st LangOp
-multiOp = parens (choice (map (tryParse . multOp) multiOps)
+multiOp = parens (choice (map (try . multOp) multiOps)
                   <|> multOp userOp) <?> "operator expression"
 
 
@@ -564,7 +564,7 @@ multiOps = [ opAdd, opAnd, opConcat
 multOp :: Parser st Op -> Parser st LangOp
 multOp sc = MultiOp
             <$> (sc <* tokSpace)
-            <*> sepWith (many1 tokWhitespace) expr
+            <*> sepEndBy expr (many1 space)
 
 
 constrRef :: Parser st ConstrRef
@@ -572,12 +572,12 @@ constrRef = char '@' >> liftM2 ConstrRef langIdent (optionMaybe arglist)
 
 
 constrRefArgSig :: Parser st ConstrRef
-constrRefArgSig = tryParse (char ':' >> constrRef)
+constrRefArgSig = try (char ':' >> constrRef)
 
 
 callList :: Parser st ArgSig
 callList = parens $ do
-    params  <- sepWith tokEltSep argElt
+    params  <- sepEndBy argElt tokEltSep
     catcher <- optionMaybe catchArg
     return $ ArgSig params catcher
 

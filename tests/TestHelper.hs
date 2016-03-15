@@ -36,7 +36,6 @@ import Test.Tasty.QuickCheck
 import Angle.Parse.Helpers (evalParse, Parser)
 import Angle.Parse.Token (keywords)
 import Angle.Exec.Types.Internal
-import Angle.Scanner (SourcePos(..))
 import Angle.Types.Lang
 import Angle.Types.Scope
 import Angle.Parse.Parser (program)
