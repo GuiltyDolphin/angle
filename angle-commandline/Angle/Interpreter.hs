@@ -16,13 +16,14 @@ import System.Directory (canonicalizePath)
 import System.IO.Error
 import System.Exit
 
+import Text.Parsec.Error
+
 import Angle.Options
 import Angle.Exec.Builtins
 import Angle.Exec.Error
 import Angle.Exec.Exec
 import Angle.Exec.Types
 import Angle.Parse.Parser
-import Angle.Scanner
 import Angle.Types.Lang (Stmt)
 
 

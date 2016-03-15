@@ -31,7 +31,6 @@ library
                      , Angle.Exec.Exec
                      , Angle.Exec.Error
                      , Angle.Parse.Token
-                     , Angle.Scanner
                      , Angle.Exec.Operations
                      , Angle.Exec.Builtins
                      , Angle.Exec.Scope
