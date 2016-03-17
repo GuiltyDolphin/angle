@@ -61,6 +61,14 @@ instance Arbitrary LangLit where
               let y' = if b1 then Just y else Nothing
                   z' = if b2 then Just z else Nothing
               return $ LitRange x y' z'
+    shrink (LitStr x) = LitStr <$> shrink x
+    shrink (LitInt x) = LitInt <$> shrink x
+    shrink (LitFloat x) = LitFloat <$> shrink x
+    shrink (LitList xs) = LitList <$> shrink xs
+    shrink (LitBool x) = LitBool <$> shrink x
+    shrink (LitRange x y z) = LitRange <$> shrink x <*> shrink y <*> shrink z
+    shrink (LitChar x) = LitChar <$> shrink x
+    shrink (LitLambda x) = LitLambda <$> shrink x
 
 
 instance Arbitrary SingStmt where
@@ -108,6 +116,11 @@ instance Arbitrary Expr where
                 , (4, liftArby  ExprOp)
                 , (4, liftArby ExprFunIdent)
                 ]
+    shrink (ExprIdent x) = ExprIdent <$> shrink x
+    shrink (ExprLit x) = ExprLit <$> shrink x
+    shrink (ExprFunCall f b xs) = ExprFunCall <$> shrink f <*> shrink b <*> shrink xs
+    shrink (ExprOp x) = ExprOp <$> shrink x
+    shrink (ExprFunIdent x) = ExprFunIdent <$> shrink x
 
 
 instance Arbitrary ArgSig where
@@ -125,6 +138,7 @@ instance Arbitrary ArgElt where
 
 instance Arbitrary CatchArg where
     arbitrary = liftArby2 CatchArg
+    shrink (CatchArg x y) = CatchArg <$> shrink x <*> shrink y
 
 
 shrink1 :: Arbitrary a => (a -> b) -> a -> [b]
@@ -263,7 +277,10 @@ instance (Arbitrary a) => Arbitrary (SmallList a) where
 
 instance (Arbitrary a) => Arbitrary (TinyList a) where
     arbitrary = sized $ \s -> do
-                  n <- choose (0,s`min`maxTinyListLength)
+                  n <- frequency [ (5, choose (0, 3))
+                                , (2, choose (4, 7))
+                                , (1, choose (8, 10))
+                                ]
                   xs <- vector n
                   return (TinyList xs)
     shrink (TinyList xs) = shrink1 TinyList xs
@@ -325,6 +342,18 @@ instance Arbitrary SourceRef where
       -- start <- arbitrary
       -- end <- arbitrary
       return $ SourceRef (newPos name col1 line1, newPos name col2 line2)
+    shrink (SourceRef (p1, p2)) =
+      let name = sourceName p1
+          line1 = sourceLine p1
+          col1 = sourceColumn p1
+          line2 = sourceLine p2
+          col2 = sourceColumn p2
+      in do
+        (nline1, ncol1) <- shrink (line1, col1)
+        (nline2, ncol2) <- shrink (line2, col2)
+        let newPos1 = newPos name nline1 ncol1
+            newPos2 = newPos name nline2 ncol2
+        return $ SourceRef (newPos1, newPos2)
     -- shrink (SourceRef x) = shrink1 SourceRef x
 
 
