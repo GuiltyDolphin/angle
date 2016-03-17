@@ -52,6 +52,12 @@ testGreaterEq :: Int -> Int -> Property
 testGreaterEq = binTest LitBool (>=) ">="
 
 
+opTest :: (Show a) =>
+  (a -> LangLit) -> ([a] -> a) -> String -> [a] -> Property
+opTest t f op xs = checkResEq st (t $ f xs)
+  where st = opStr t op xs
+
+
 testAdd :: NonEmptyList Int -> Property
 testAdd (NonEmpty xs) = opTest LitInt sum "+" xs
 
@@ -61,7 +67,8 @@ testAnd (NonEmpty xs) = opTest LitBool and "&" xs
 
 
 testSub :: NonEmptyList Int -> Property
-testSub (NonEmpty xs) = opTest LitInt (foldl1 (-)) "-" xs
+testSub (NonEmpty [x]) = opTest LitInt (\[x] -> -x) "-" [x]
+testSub (NonEmpty xs)  = opTest LitInt (foldl1 (-)) "-" xs
 
 
 testMult :: NonEmptyList Int -> Property
@@ -100,16 +107,6 @@ opStr t op xs = concat [ op, "("
                        , last xs'
                        , ");"]
   where xs' = map (showSyn . t) xs
-
-
-opTest ::
-  (Show a) =>
-  (a -> LangLit)
-  -> ([a] -> a)
-  -> String -> [a]
-  -> Property
-opTest t f op xs = checkResEq st (t $ f xs)
-  where st = opStr t op xs
 
 
 opTestUnary :: (a -> LangLit) -> (a -> a) -> String -> a -> Property
