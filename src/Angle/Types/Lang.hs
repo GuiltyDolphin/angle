@@ -244,7 +244,7 @@ showSynArgs = showSynSep "(" ")" ", "
 
 
 showSynOpList :: (ShowSyn a) => [a] -> String
-showSynOpList = showSynSep " " ")" " "
+showSynOpList xs = "(" ++ showSynSep ", " ")" ", " xs
 
 
 -- | Lambdas consist of two parts: the parameter list and the body.
@@ -523,18 +523,14 @@ instance ShowSyn ArgSig where
 
 
 -- | Two forms of operator exist in Angle:
-data LangOp = SpecOp Op Expr
-            -- ^ Special operators that can only be used in prefix
-            -- and act upon a single expresson.
-            | MultiOp Op [Expr]
+data LangOp = MultiOp Op [Expr]
             -- ^ Multi-operators that can take multiple values but
             -- must be enclosed within parentheses.
               deriving (Show, Eq)
 
 
 instance ShowSyn LangOp where
-    showSyn (SpecOp o e) = showSyn o ++ showSyn e
-    showSyn (MultiOp o es) = concat ["(", showSyn o, showSynOpList es]
+    showSyn (MultiOp o es) = showSyn o ++ showSynArgs es
 
 
 -- | Builtin operators.

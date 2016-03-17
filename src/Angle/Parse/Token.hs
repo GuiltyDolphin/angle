@@ -36,6 +36,7 @@ module Angle.Parse.Token
     , keywords
     , tokEOF
     , ident
+    , comma
     , parens
     , tokOpChar
     , tokEltSep
@@ -51,6 +52,15 @@ import Angle.Parse.Helpers
 
 import Text.Parsec
 
+import qualified Text.Parsec.Token as P
+import Text.Parsec.Language
+
+
+angleLexer = P.makeTokenParser emptyDef
+  { P.commentLine = "#" }
+
+comma :: Parser st String
+comma = P.comma angleLexer
 
 -- | Start of a multi-stmt.
 tokMultiStmtStart :: Parser st Char

@@ -159,16 +159,17 @@ negLit :: UnaryOperator
 negLit (LitList xs)  = return $ LitList (reverse xs)
 negLit (LitInt x)    = return $ LitInt (-x)
 negLit (LitFloat x)  = return $ LitFloat (-x)
-negLit x@(LitBool _) = notLit x
+negLit x@(LitBool _) = notLit [x]
 negLit x             = throwExecError $ typeNotValidErr x
 
 
 -- | Logical not operator.
 --
 -- On boolean: performs logical negation.
-notLit :: UnaryOperator
-notLit (LitBool x) = return . LitBool $ not x
-notLit x = throwExecError $ typeNotValidErr x
+notLit :: MultiOperator
+notLit [LitBool x] = return . LitBool $ not x
+notLit [x] = throwExecError $ typeNotValidErr x
+notLit xs = throwExecError $ wrongNumberOfArgumentsErr 1 (length xs)
 
 
 -- | Logical or operator.
@@ -187,7 +188,10 @@ orLit (x:_)              = throwExecError $ typeNotValidErr x
 -- On list followed by integers: treats the integers as indices to remove from the list.
 --
 -- On numerics: subtracts all tailing numerics from the first numeric.
+--
+-- On single operand: see 'negLit'.
 subLit :: MultiOperator
+subLit [x] = negLit x
 subLit (x@(LitList _):ys@(_:_))
     | allType LTInt ys
     = foldM (flip $ \(LitInt i) -> langListDrop i ) x ys

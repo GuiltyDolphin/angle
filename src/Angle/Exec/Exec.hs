@@ -199,14 +199,7 @@ execFunCall = callFun
 
 
 execOp :: LangOp -> ExecIO LangLit
-execOp (SpecOp op expr) = execSpecOp op expr
 execOp (MultiOp op exprs) = execMultiOp op exprs
-
-
-execSpecOp :: Op -> Expr -> ExecIO LangLit
-execSpecOp OpNeg x = execExpr x >>= negLit
-execSpecOp OpNot x = execExpr x >>= notLit
-execSpecOp x _ = throwImplementationErr $ "execSpecOp - not a SpecOp: " ++ show x
 
 
 execMultiOp :: Op -> [Expr] -> ExecIO LangLit
@@ -221,6 +214,7 @@ execMultiOp OpGreaterEq xs = withMultiOp xs greaterEqLit
 execMultiOp OpLess xs      = withMultiOp xs lessLit
 execMultiOp OpLessEq xs    = withMultiOp xs lessEqLit
 execMultiOp OpMult xs      = withMultiOp xs multLit
+execMultiOp OpNot xs       = withMultiOp xs notLit
 execMultiOp OpOr xs        = withMultiOp xs orLit
 execMultiOp OpSub xs       = withMultiOp xs subLit
 execMultiOp (UserOp _) _ = throwImplementationErr "execMultiOp: implement user operators"

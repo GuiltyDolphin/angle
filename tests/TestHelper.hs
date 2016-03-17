@@ -162,24 +162,12 @@ instance Arbitrary Stmt where
 
 
 instance Arbitrary LangOp where
-    arbitrary = frequency
-                [ (7, liftM SpecOp (liftArby getSpecOp) >>= checkOp)
-                , (3, liftM MultiOp (liftArby getMultiOp) >>= liftArby)
-                ]
-        where checkOp f = do -- Prevent -ve on numbers
-                x <- arbitrary
-                case f x of
-                  (SpecOp OpNeg (ExprLit (LitInt _))) -> arbitrary
-                  (SpecOp OpNeg (ExprLit (LitFloat _))) -> arbitrary
-                  r -> return r
-
-    shrink (SpecOp x y) = shrink2 SpecOp x y
+    arbitrary = liftM MultiOp (liftArby getMultiOp) >>= liftArby
     shrink (MultiOp x ys) = shrink2 MultiOp x ys
 
 
 instance Arbitrary Op where
-    arbitrary = oneof [ liftArby getMultiOp
-                      , liftArby getSpecOp]
+    arbitrary = liftArby getMultiOp
 
 
 
@@ -215,14 +203,11 @@ validIdent = (:) <$> chooseAlpha <*> listOf chooseAlphaNum
           chooseAlphaNum = oneof [chooseAlpha, chooseDigit]
 
 
-newtype SpecOp = ArbySpecOp { getSpecOp :: Op }
 
 
 newtype MultiOp = ArbyMultiOp { getMultiOp :: Op }
 
 
-instance Arbitrary SpecOp where
-    arbitrary = elements $ map ArbySpecOp [OpNeg, OpNot]
 
 
 instance Arbitrary MultiOp where
@@ -237,6 +222,7 @@ instance Arbitrary MultiOp where
                 , OpLess
                 , OpLessEq
                 , OpMult
+                , OpNot
                 , OpOr
                 , OpSub
                 ]

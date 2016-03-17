@@ -14,10 +14,10 @@ setupAddF = appending "\n" [defIsInt, defAddInts]
 
 
 defIsInt :: String
-defIsInt = defun "isInt" "x" "return (== x asType(0, x));"
+defIsInt = defun "isInt" "x" "return ==(x, asType(0, x));"
 
 defAddInts :: String
-defAddInts = defun "addInts" "x:@isInt, y:@isInt" "(+ x y);"
+defAddInts = defun "addInts" "x:@isInt, y:@isInt" "+(x, y);"
 
 
 defun :: String -> String -> String -> String
@@ -88,17 +88,15 @@ binTest t f op x y = checkResEq st (t $ f x y)
 
 
 opElts :: String -> [String] -> String
-opElts op xs = concat [ "("
-                       , op, " "
-                       , appending " " (init xs)
+opElts op xs = concat [ op, "("
+                       , appending ", " (init xs)
                        , last xs
                        , ");"]
 
 
 opStr :: (a -> LangLit) -> String -> [a] -> String
-opStr t op xs = concat [ "("
-                       , op, " "
-                       , appending " " (init xs')
+opStr t op xs = concat [ op, "("
+                       , appending ", " (init xs')
                        , last xs'
                        , ");"]
   where xs' = map (showSyn . t) xs
@@ -116,7 +114,7 @@ opTest t f op xs = checkResEq st (t $ f xs)
 
 opTestUnary :: (a -> LangLit) -> (a -> a) -> String -> a -> Property
 opTestUnary t f op x = checkResEq st (t $ f x)
-  where st = concat [op, showSyn $ t x, ";"]
+  where st = concat [op, "(", showSyn $ t x, ")", ";"]
 
 
 callShow :: (Show a) => String -> [a] -> String

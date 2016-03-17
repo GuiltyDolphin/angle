@@ -6,7 +6,13 @@ import Angle.Parse.Parser.Internal
 import qualified Test.QuickCheck.Property as P
 import Angle.Types.Lang
 import TestHelper
+import Control.Monad (liftM2)
 
+arbyOp :: Gen LangOp
+arbyOp = liftM2 MultiOp arbitrary arbitrary
+
+testShowSynMultiOp :: Property
+testShowSynMultiOp = forAll arbyOp (`showSynTest` langOp)
 
 testShowSynStmt :: Stmt -> Bool
 testShowSynStmt x = showSynTest x stmt
@@ -97,14 +103,13 @@ testEmptyCall :: Bool
 testEmptyCall = evalParse "foo()" exprFunCall
  == Right (ExprFunCall (LangIdent "foo") False [])
 
-
 testOpAdd :: Bool
-testOpAdd = evalParse "(+ 1 2)" langOp
+testOpAdd = evalParse "+(1, 2)" langOp
  == Right (MultiOp OpAdd [ExprLit (LitInt 1), ExprLit (LitInt 2)])
 
 
 testOpNeg :: Bool
-testOpNeg = evalParse "-x" langOp ==  Right (SpecOp OpNeg (ExprIdent (LangIdent "x")))
+testOpNeg = evalParse "-(x)" langOp == Right (MultiOp OpSub [ExprIdent (LangIdent "x")])
 
 
 tests :: [TestTree]
@@ -120,6 +125,7 @@ tests = [ testGroup "literals"
         , testGroup "operators"
           [ testProperty "addition operator" $ once testOpAdd
           , testProperty "negation operator" $ once testOpNeg
+          , testProperty "multi operators" testShowSynMultiOp
           ]
         , localOption (QuickCheckMaxSize 10) $
           testGroup "show syntax"

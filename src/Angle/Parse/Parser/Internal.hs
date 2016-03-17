@@ -74,7 +74,6 @@ stmt = (multiStmt <|> singleStmt) <?> "statement"
 
 singleStmt :: Parser st Stmt
 singleStmt = do
-  many $ surrounded spaces stmtComment
   initPos <- getPosition -- liftM sourcePos get
   res <- singStmt
   endPos <- getPosition -- liftM sourcePos get
@@ -246,7 +245,7 @@ structUnless = do
   tokNSpaced
   s <- stmt
   els <- optionMaybe $ string "else " *> stmt
-  return $ StructIf (ExprOp (SpecOp OpNot e)) s els
+  return $ StructIf (ExprOp (MultiOp OpSub [e])) s els
 
 
 -- | Function definition.
@@ -494,7 +493,7 @@ exprOp = liftM ExprOp langOp
 -- Multi-operators can take an arbitrary number of arguments (usually
 -- at least one) but must be surrounded by parentheses.
 langOp :: Parser st LangOp
-langOp = specOp <|> multiOp
+langOp = multiOp
 
 
 makeOp :: Parser st a -> Op -> Parser st Op
@@ -526,28 +525,15 @@ userOp :: Parser st Op
 userOp = liftM (UserOp . LangIdent) (many1 tokOpChar) <?> "operator"
 
 
--- | Special operators that can be used outside of
--- parentheses in a prefix form.
-specOp :: Parser st LangOp
-specOp = choice (map preOp specOps) <?> "special operator"
-
-
 specOps :: [Parser st Op]
 specOps = [opNeg, opNot]
-
-
-preOp :: Parser st Op -> Parser st LangOp
-preOp sc = do
-  op  <- sc
-  opr <- expr
-  return $ SpecOp op opr
 
 
 -- |Operators called within parentheses that may have
 -- multiple operands
 multiOp :: Parser st LangOp
-multiOp = parens (choice (map (try . multOp) multiOps)
-                  <|> multOp userOp) <?> "operator expression"
+multiOp = (choice (map (try . multOp) multiOps) <|> multOp userOp)
+  <?> "operator expression"
 
 
 -- | List of all the MultiOp parsers.
@@ -558,13 +544,14 @@ multiOps = [ opAdd, opAnd, opConcat
            , opGreater, opGreaterEq
            , opLess, opLessEq
            , opMult, opOr
+           , opNot
            , opSub ]
 
 
 multOp :: Parser st Op -> Parser st LangOp
 multOp sc = MultiOp
-            <$> (sc <* tokSpace)
-            <*> sepEndBy expr (many1 space)
+            <$> sc
+            <*> parens (sepEndBy expr comma)
 
 
 constrRef :: Parser st ConstrRef
