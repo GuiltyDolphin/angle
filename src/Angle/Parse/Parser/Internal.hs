@@ -172,7 +172,7 @@ stmtExpr = liftM StmtExpr expr
 
 
 stmtRaise :: Parser st SingStmt
-stmtRaise = string "raise " >> liftM (StmtRaise . getLitKeyword) litKeyword
+stmtRaise = string "raise " >> liftM StmtRaise langLit
 
 
 -- | Language structure.
@@ -252,8 +252,8 @@ structTryCatch = do
     tryCode <- stmt
     catchers <- many catchSec
     return $ StructTryCatch tryCode catchers
-  where exceptionList = tokList $ sepEndBy (liftM getLitKeyword litKeyword) tokEltSep
-        singleE = liftM ((:[]) . getLitKeyword) litKeyword
+  where exceptionList = tokList $ sepEndBy langLit tokEltSep
+        singleE = liftM (:[]) langLit
         catchSec = do
           string "catch "
           toCatch <- singleE <|> exceptionList
@@ -282,7 +282,6 @@ langLit = try litStr
           <|> try litList
           <|> try litFloat
           <|> try litInt
-          <|> litKeyword
           <?> "literal"
 
 
@@ -306,10 +305,6 @@ litFloat = liftM LitFloat tokFloat
 litList :: Parser st LangLit
 litList = liftM LitList (tokList $ sepEndBy langLit tokEltSep)
           <?> "list literal"
-
-
-litKeyword :: Parser st LangLit
-litKeyword = liftM LitKeyword (char ':' >> identKeyword)
 
 
 litLambda :: Parser st LangLit

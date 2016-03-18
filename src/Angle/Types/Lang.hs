@@ -104,6 +104,7 @@ module Angle.Types.Lang
     , allType
     ) where
 
+import Control.Applicative ((<$>))
 import Numeric (showFFloat)
 import System.IO (Handle)
 
@@ -196,7 +197,7 @@ data SingStmt = StmtAssign LangIdent Expr
               | StmtReturn Expr
               | StmtBreak { breakValue :: Maybe Expr
                           , breakContinue :: Bool }
-              | StmtRaise LangIdent
+              | StmtRaise LangLit
                 deriving (Show, Eq)
 
 
@@ -204,7 +205,7 @@ data SingStmt = StmtAssign LangIdent Expr
 data LangStruct = StructFor LangIdent Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)
                 | StructDefun LangIdent Lambda
-                | StructTryCatch Stmt [([LangIdent], Stmt)]
+                | StructTryCatch Stmt [([LangLit], Stmt)]
                   deriving (Show, Eq)
 
 
@@ -225,8 +226,8 @@ instance ShowSyn LangStruct where
       where
         showCatch (toCatch, b) = "\ncatch " ++ es' toCatch ++ showSyn b
         es' toCatch = if length toCatch == 1
-                then showSyn . LitKeyword $ head toCatch
-                else showSyn . LitList . map LitKeyword $ toCatch
+                then showSyn . head $ toCatch
+                else showSyn . LitList $ toCatch
 
 
 
@@ -369,7 +370,6 @@ data LangLit = LitStr String -- ^ Strings.
                        -- explicitly.
              | LitLambda Lambda -- ^ A function without a name.
              | LitClosure Lambda
-             | LitKeyword { getLitKeyword :: LangIdent }
              | LitHandle Handle
                deriving (Show, Eq)
 
@@ -394,7 +394,6 @@ instance ShowSyn LangLit where
     showSyn LitNull = "null"
     showSyn (LitLambda x) = showSyn x
     showSyn (LitClosure x) = showSyn x
-    showSyn (LitKeyword x) = ':' : showSyn x
     showSyn (LitHandle h) = show h
 
 
@@ -411,7 +410,6 @@ data LangType = LTStr
               | LTBool
               | LTRange
               | LTNull
-              | LTKeyword
               | LTLambda
               | LTHandle
                 deriving (Eq)
@@ -429,7 +427,6 @@ typeOf (LitRange{})  = LTRange
 typeOf LitNull       = LTNull
 typeOf (LitLambda{}) = LTLambda
 typeOf (LitClosure{}) = LTLambda
-typeOf (LitKeyword _) = LTKeyword
 typeOf (LitHandle _) = LTHandle
 
 
@@ -449,7 +446,6 @@ instance Show LangType where
     show LTNull = "null"
     show LTRange = "range"
     show LTLambda = "function"
-    show LTKeyword = "keyword"
     show LTChar = "char"
     show LTHandle = "handle"
 

@@ -128,8 +128,8 @@ class (CanError m) => CanErrorWithPos m where
 -- | Errors that can be caught by the user via the try...catch
 -- construct.
 class KWError e where
-    errToKeyword :: e -> LangIdent
-    genErrKeyword :: e -> LangIdent
+    errToKeyword :: e -> LangLit
+    genErrKeyword :: e -> LangLit
     -- ^ General keyword that can be used to handle multiple exceptions
     -- of this type.
 
@@ -167,7 +167,7 @@ instance Show AngleError where
                       Just f -> "In file: " ++ f ++ "\n"
             cECall = showCall eCall
             cEStack = concatMap showCall (reverse eStack)
-            cEk = concat ["\n(:", showSyn $ errToKeyword ee, ")\n"]
+            cEk = concat ["\n(", showSyn $ errToKeyword ee, ")\n"]
             cEp = show start ++ "\n"
             cEe = show ee
             showCall (c,s) = r
@@ -195,7 +195,7 @@ data ExecError = TypeError TypeError
                  | ValueError ValueError
                  | KeywordError KeywordError
                  | EIOError EIOError
-                 | UserError LangIdent
+                 | UserError LangLit
                  | SynError SynError
                  | IncludeError IncludeError
                  | ControlException ControlException
@@ -233,7 +233,7 @@ eioErr = EIOError
 
 
 -- | Custom exceptions.
-userErr :: LangIdent -> ExecError
+userErr :: LangLit -> ExecError
 userErr = UserError
 
 
@@ -258,7 +258,7 @@ instance Show ExecError where
     show (CallError x)    = "call error: " ++ show x
     show (ValueError x) = "value error: " ++ show x
     show (EIOError e) = "io error: " ++ show e
-    show (UserError (LangIdent x)) = "user error: " ++ x
+    show (UserError x) = "user error: " ++ showSyn x
     show (KeywordError x) = "keyword error: " ++ show x
     show (SynError e) = "syntax error:\n" ++ show e
     show (ControlException e) = "control: " ++ show e
@@ -282,7 +282,7 @@ instance KWError ExecError where
     genErrKeyword (CallError e) = genErrKeyword e
     genErrKeyword (ValueError e) = genErrKeyword e
     genErrKeyword (EIOError e) = genErrKeyword e
-    genErrKeyword (UserError{}) = LangIdent "user"
+    genErrKeyword (UserError{}) = LitStr "user"
     genErrKeyword (KeywordError e) = genErrKeyword e
     genErrKeyword (SynError e) = genErrKeyword e
     genErrKeyword (ControlException e) = genErrKeyword e
@@ -349,15 +349,15 @@ instance Show TypeError where
 
 
 instance KWError TypeError where
-    errToKeyword (TypeMismatch{}) = LangIdent "typeMismatch"
-    errToKeyword (TypeUnexpected{}) = LangIdent "typeUnexpected"
-    errToKeyword (TypeNotValid{}) = LangIdent "typeNotValid"
-    errToKeyword (TypeCast{}) = LangIdent "typeCast"
-    errToKeyword (TypeMismatchOp{}) = LangIdent "typeMismatchOp"
-    errToKeyword (TypeExpectConstr{}) = LangIdent "typeExpectConstr"
-    errToKeyword (TypeConstrWrongReturn{}) = LangIdent "typeConstrWrongReturn"
-    errToKeyword (TypeAnnWrong{}) = LangIdent "typeAnnWrong"
-    genErrKeyword _ = LangIdent "typeError"
+    errToKeyword (TypeMismatch{}) = LitStr "typeMismatch"
+    errToKeyword (TypeUnexpected{}) = LitStr "typeUnexpected"
+    errToKeyword (TypeNotValid{}) = LitStr "typeNotValid"
+    errToKeyword (TypeCast{}) = LitStr "typeCast"
+    errToKeyword (TypeMismatchOp{}) = LitStr "typeMismatchOp"
+    errToKeyword (TypeExpectConstr{}) = LitStr "typeExpectConstr"
+    errToKeyword (TypeConstrWrongReturn{}) = LitStr "typeConstrWrongReturn"
+    errToKeyword (TypeAnnWrong{}) = LitStr "typeAnnWrong"
+    genErrKeyword _ = LitStr "typeError"
 
 
 -- | Errors involving identifiers and names.
@@ -399,12 +399,12 @@ instance Show NameError where
 
 
 instance KWError NameError where
-    errToKeyword (NameNotDefined{}) = LangIdent "nameNotDefined"
-    errToKeyword (NameNotDefinedFun{}) = LangIdent "nameNotDefinedFun"
-    errToKeyword (NameNotDefinedLit{}) = LangIdent "nameNotDefinedLit"
-    errToKeyword (NameNotOp{}) = LangIdent "nameNotOp"
-    errToKeyword (AssignToBuiltin{}) = LangIdent "assignToBuiltin"
-    genErrKeyword _ = LangIdent "nameError"
+    errToKeyword (NameNotDefined{}) = LitStr "nameNotDefined"
+    errToKeyword (NameNotDefinedFun{}) = LitStr "nameNotDefinedFun"
+    errToKeyword (NameNotDefinedLit{}) = LitStr "nameNotDefinedLit"
+    errToKeyword (NameNotOp{}) = LitStr "nameNotOp"
+    errToKeyword (AssignToBuiltin{}) = LitStr "assignToBuiltin"
+    genErrKeyword _ = LitStr "nameError"
 
 
 -- | Errors involving operator and function calls.
@@ -436,10 +436,10 @@ instance Show CallError where
 
 
 instance KWError CallError where
-    errToKeyword (WrongNumberOfArguments{}) = LangIdent "wrongNumberOfArguments"
-    errToKeyword (BuiltIn{}) = LangIdent "builtin"
-    errToKeyword (MalformedSignature{}) = LangIdent "malformedSignature"
-    genErrKeyword _ = LangIdent "callError"
+    errToKeyword (WrongNumberOfArguments{}) = LitStr "wrongNumberOfArguments"
+    errToKeyword (BuiltIn{}) = LitStr "builtin"
+    errToKeyword (MalformedSignature{}) = LitStr "malformedSignature"
+    genErrKeyword _ = LitStr "callError"
 
 
 -- | Errors involving keywords.
@@ -457,8 +457,8 @@ instance Show KeywordError where
 
 
 instance KWError KeywordError where
-    errToKeyword ReturnFromGlobal = LangIdent "returnFromGlobal"
-    genErrKeyword _ = LangIdent "keywordError"
+    errToKeyword ReturnFromGlobal = LitStr "returnFromGlobal"
+    genErrKeyword _ = LitStr "keywordError"
 
 
 -- | Raise a 'ExecError' into an 'AngleError'.
@@ -526,12 +526,12 @@ instance Show ValueError where
 
 
 instance KWError ValueError where
-    errToKeyword (IndexOutOfBoundsError{}) = LangIdent "indexOutOfBounds"
-    errToKeyword (BadRange{}) = LangIdent "badRange"
-    errToKeyword InfiniteRange = LangIdent "infiniteRange"
-    errToKeyword (NonEnum{}) = LangIdent "nonEnum"
-    errToKeyword DivideByZero = LangIdent "divideByZero"
-    genErrKeyword _ = LangIdent "valueError"
+    errToKeyword (IndexOutOfBoundsError{}) = LitStr "indexOutOfBounds"
+    errToKeyword (BadRange{}) = LitStr "badRange"
+    errToKeyword InfiniteRange = LitStr "infiniteRange"
+    errToKeyword (NonEnum{}) = LitStr "nonEnum"
+    errToKeyword DivideByZero = LitStr "divideByZero"
+    genErrKeyword _ = LitStr "valueError"
 
 
 
@@ -599,15 +599,15 @@ instance Show EIOError where
 
 
 instance KWError EIOError where
-    errToKeyword (AlreadyExists{}) = LangIdent "alreadyExists"
-    errToKeyword (DoesNotExist{}) = LangIdent "doesNotExist"
-    errToKeyword (AlreadyInUse{}) = LangIdent "alreadyInUse"
-    errToKeyword (DeviceFull{}) = LangIdent "deviceFull"
-    errToKeyword (EOF{}) = LangIdent "eof"
-    errToKeyword (IllegalOperation{}) = LangIdent "illegalOperation"
-    errToKeyword (Permission{}) = LangIdent "permission"
+    errToKeyword (AlreadyExists{}) = LitStr "alreadyExists"
+    errToKeyword (DoesNotExist{}) = LitStr "doesNotExist"
+    errToKeyword (AlreadyInUse{}) = LitStr "alreadyInUse"
+    errToKeyword (DeviceFull{}) = LitStr "deviceFull"
+    errToKeyword (EOF{}) = LitStr "eof"
+    errToKeyword (IllegalOperation{}) = LitStr "illegalOperation"
+    errToKeyword (Permission{}) = LitStr "permission"
 
-    genErrKeyword _ = LangIdent "ioError"
+    genErrKeyword _ = LitStr "ioError"
 
 
 -- | Represents errors that occur during run-time parsing.
@@ -632,10 +632,10 @@ instance Show SynError where
 
 
 instance KWError SynError where
-    errToKeyword (SyntaxError{}) = LangIdent "syntax"
-    errToKeyword (ReadError{}) = LangIdent "read"
+    errToKeyword (SyntaxError{}) = LitStr "syntax"
+    errToKeyword (ReadError{}) = LitStr "read"
 
-    genErrKeyword _ = LangIdent "syntaxError"
+    genErrKeyword _ = LitStr "syntaxError"
 
 
 
@@ -658,9 +658,9 @@ instance Show IncludeError where
 
 
 instance KWError IncludeError where
-    errToKeyword (NoSuchFile{}) = LangIdent "doesNotExist"
-    errToKeyword (BadSyntax{}) = LangIdent "syntax"
-    genErrKeyword _ = LangIdent "include"
+    errToKeyword (NoSuchFile{}) = LitStr "doesNotExist"
+    errToKeyword (BadSyntax{}) = LitStr "syntax"
+    genErrKeyword _ = LitStr "include"
 
 
 -- | Used for control-flow within the language.
@@ -692,11 +692,11 @@ instance Show ControlException where
 
 
 instance KWError ControlException where
-    errToKeyword (ControlReturn{}) = LangIdent "return"
-    errToKeyword (ControlBreak{}) = LangIdent "break"
-    errToKeyword ControlContinue = LangIdent "continue"
+    errToKeyword (ControlReturn{}) = LitStr "return"
+    errToKeyword (ControlBreak{}) = LitStr "break"
+    errToKeyword ControlContinue = LitStr "continue"
 
-    genErrKeyword _ = LangIdent "controlException"
+    genErrKeyword _ = LitStr "controlException"
 
 
 -- | Used for the 'return' keyword.

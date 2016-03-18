@@ -316,11 +316,11 @@ execBreak x = case x of
                           >>= returnVal >>= (throwBreak . Just)
 
 
-raiseException :: LangIdent -> ExecIO LangLit
+raiseException :: LangLit -> ExecIO LangLit
 raiseException e = do
   env <- getEnv
   let currE = currentException env
-  return (LitKeyword e)
+  return e
   case currE of
         Nothing -> throwExecError $ userErr e
         Just err -> if similarErr err
@@ -329,7 +329,7 @@ raiseException e = do
   where
     similarErr err = errToKeyword err == e
                    || genErrKeyword err == e
-                   || LangIdent "error" == e
+                   || LitStr "error" == e
 
 
 execLangStruct :: LangStruct -> ExecIO LangLit
@@ -367,7 +367,7 @@ execStructFor name e s = do
   returnVal (LitList res)
 
 
-execStructTryCatch :: Stmt -> [([LangIdent], Stmt)] -> ExecIO LangLit
+execStructTryCatch :: Stmt -> [([LangLit], Stmt)] -> ExecIO LangLit
 execStructTryCatch b catchers = do
     currEnv <- getEnv
     execStmt b `catchAE` genHandle currEnv
@@ -384,8 +384,8 @@ execStructTryCatch b catchers = do
                                       then execStmt ex
                                       else checkCatch e es
       where catches = errToKeyword e `elem` toCatch || genErrKeyword e `elem` toCatch
-                    || LangIdent "error" `elem` toCatch
-    breakTry (Just (LitKeyword (LangIdent "try")))
+                    || LitStr "error" `elem` toCatch
+    breakTry (Just (LitStr "try"))
         = execStructTryCatch b catchers
     breakTry e = throwBreak e
 
@@ -474,13 +474,13 @@ builtinInclude xs = mapM_ includeFile xs >> return LitNull
 -- of the parent scopes of the current scope. Fails with a
 -- @nameError@ if @var@ is not defined.
 --
--- @nonlocal(:fun, var)@ attempts to lookup the lambda value
+-- @nonlocal("fun", var)@ attempts to lookup the lambda value
 -- of @var@ in a parent scope.
 builtinNonLocal :: [LangLit] -> ExecIO LangLit
-builtinNonLocal [LitKeyword (LangIdent "fun"), LitKeyword n]
-    = liftM LitLambda $ lookupVarFunOuter n
-builtinNonLocal [LitKeyword n]
-    = lookupVarLitOuter n
+builtinNonLocal [LitStr "fun", LitStr n]
+    = liftM LitLambda $ lookupVarFunOuter (LangIdent n)
+builtinNonLocal [LitStr  n]
+    = lookupVarLitOuter (LangIdent n)
 builtinNonLocal _ = throwExecError . callBuiltinErr $ "nonlocal: invalid call signature"
 
 
@@ -489,13 +489,13 @@ builtinNonLocal _ = throwExecError . callBuiltinErr $ "nonlocal: invalid call si
 -- @global(var)@ attempts to lookup the value of @var@ in the global
 -- scope. Fails with a @nameError@ if @var@ is not defined.
 --
--- @global(:fun, var)@ attempts to lookup the lambda value
+-- @global("fun", var)@ attempts to lookup the lambda value
 -- of @var@ in the global scope.
 builtinGlobal :: [LangLit] -> ExecIO LangLit
-builtinGlobal [LitKeyword (LangIdent "fun"), LitKeyword n]
-    = liftM LitLambda $ lookupVarFunGlobal n
-builtinGlobal [LitKeyword n]
-    = lookupVarLitGlobal n
+builtinGlobal [LitStr "fun", LitStr n]
+    = liftM LitLambda $ lookupVarFunGlobal (LangIdent n)
+builtinGlobal [LitStr n]
+    = lookupVarLitGlobal (LangIdent n)
 builtinGlobal _ = throwExecError . callBuiltinErr $ "global: invalid call signature"
 
 
@@ -504,12 +504,12 @@ builtinGlobal _ = throwExecError . callBuiltinErr $ "global: invalid call signat
 -- @local(var)@ attempts to resolve the variable represented by the keyword
 -- @var@.
 --
--- @local(:fun, var)@ attempts to resove the lambda value of @var@@
+-- @local("fun", var)@ attempts to resove the lambda value of @var@@
 builtinLocal :: [LangLit] -> ExecIO LangLit
-builtinLocal [LitKeyword (LangIdent "fun"), LitKeyword n]
-    = liftM LitLambda $ lookupVarFunLocal n
-builtinLocal [LitKeyword n]
-    = lookupVarLitLocal n
+builtinLocal [LitStr "fun", LitStr n]
+    = liftM LitLambda $ lookupVarFunLocal (LangIdent n)
+builtinLocal [LitStr n]
+    = lookupVarLitLocal (LangIdent n)
 builtinLocal _ = throwExecError . callBuiltinErr $ "local: invalid call signature"
 
 

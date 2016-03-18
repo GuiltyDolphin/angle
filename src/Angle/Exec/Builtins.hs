@@ -261,7 +261,7 @@ fromStr s f = case reads s of
 -- keyword @:infinite@.
 builtinLength :: [LangLit] -> ExecIO LangLit
 builtinLength [LitList xs] = return . LitInt $ length xs
-builtinLength [x@(LitRange{})] | isInfiniteRange x = return $ LitKeyword $ LangIdent "infinite"
+builtinLength [x@(LitRange{})] | isInfiniteRange x = return $ LitStr "infinite"
 builtinLength [LitRange x (Just y) Nothing] = return . LitInt $ (fromEnumL y + 1) - fromEnumL x
 builtinLength [LitRange x (Just y) (Just z)] = return .
   LitInt $ ceiling ((fromIntegral div1 / fromIntegral div2) :: Double)
@@ -372,8 +372,8 @@ builtinOpen _ = throwExecError $ callBuiltinErr "open: invalid call signature"
 builtinRead :: [LangLit] -> ExecIO LangLit
 builtinRead [LitHandle h] = liftM LitStr $ withIOError $ hGetContents h
 builtinRead [LitHandle h, LitInt n] = liftM LitStr (withIOError $ liftM unlines $ replicateM n $ hGetLine h) >>= returnVal
-builtinRead [LitKeyword (LangIdent "char"), LitHandle h] = liftM LitChar (withIOError $ hGetChar h) >>= returnVal
-builtinRead [LitKeyword (LangIdent "char"), LitHandle h, LitInt n] = liftM LitStr (withIOError $ replicateM n $ hGetChar h) >>= returnVal
+builtinRead [LitStr "char", LitHandle h] = liftM LitChar (withIOError $ hGetChar h) >>= returnVal
+builtinRead [LitStr "char", LitHandle h, LitInt n] = liftM LitStr (withIOError $ replicateM n $ hGetChar h) >>= returnVal
 builtinRead (s@(LitStr _):xs) = builtinOpen [s, LitStr "<"] >>= (builtinRead . (:xs))
 builtinRead _ = throwExecError $ callBuiltinErr "read: invalid call signature"
 
