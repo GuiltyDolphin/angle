@@ -183,9 +183,6 @@ stmtRaise = string "raise " >> liftM (StmtRaise . getLitKeyword) litKeyword
 -- @expr@, allowing them to be referenced in @stmt@ by the name
 -- @ident@.
 --
--- [@while expr do stmt@] while @expr@ evaluates to @true@, will
--- execute @stmt@ then repeat.
---
 -- [@if expr then stmt1 {else stmt2}@] if @expr@ evaluates to @true@,
 -- executes @stmt1@, otherwise will execute @stmt2@ if it exists, or
 -- produce a null value.
@@ -197,7 +194,6 @@ stmtRaise = string "raise " >> liftM (StmtRaise . getLitKeyword) litKeyword
 -- a parameter list @args@ and body @stmt@.
 langStruct :: Parser st LangStruct
 langStruct =     try structFor
-             <|> try structWhile
              <|> try structIf
              <|> try structUnless
              <|> try structDefun
@@ -212,13 +208,6 @@ structFor = do
   iter <- string " in " *> expr
   body <- string " do " *> stmt
   return $ StructFor name iter body
-
-
--- | While loop.
-structWhile :: Parser st LangStruct
-structWhile = StructWhile
-              <$> (string "while " *> expr)
-              <*> (string " do "   *> stmt)
 
 
 -- | Conditional if statement.

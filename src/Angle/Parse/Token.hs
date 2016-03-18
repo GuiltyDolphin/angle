@@ -197,7 +197,7 @@ keywords = [ "break"
            , "true"
            , "try"
            , "unless"
-           , "while"]
+           ]
 
 validSymbolIdentChars :: String
 validSymbolIdentChars = "*-+<>=/^|&"

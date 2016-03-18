@@ -335,8 +335,6 @@ raiseException e = do
 execLangStruct :: LangStruct -> ExecIO LangLit
 execLangStruct (StructFor name e s)
     = execStructFor name e s `catchBreak` maybe (getEnvValue >>= returnVal) returnVal
-execLangStruct (StructWhile e s)
-    = execStructWhile e s `catchBreak` maybe (getEnvValue >>= returnVal) returnVal
 execLangStruct (StructIf if' thn els)
     = execStructIf if' thn els
 execLangStruct (StructDefun name cs)
@@ -367,17 +365,6 @@ execStructFor name e s = do
   let newS' = deleteLitFromScope name newS
   modifyScope (const $ mergeScope newS' outScope)
   returnVal (LitList res)
-
-
-execStructWhile :: Expr -> Stmt -> ExecIO LangLit
-execStructWhile ex s = do
-  pos <- liftM envSourceRef getEnv
-  execStructFor (LangIdent "__WHILEVAL__")
-                    (ExprLit
-                     (LitRange (LitInt 1) Nothing Nothing))
-                     (SingleStmt
-                     (StmtStruct
-                      (StructIf ex s (Just (SingleStmt (StmtBreak Nothing False) pos)))) pos)
 
 
 execStructTryCatch :: Stmt -> [([LangIdent], Stmt)] -> ExecIO LangLit

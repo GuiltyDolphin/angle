@@ -61,8 +61,6 @@ In Angle, there exist language structures for performing certain tasks.
 of an enumerable type and allows each to be used within the body
 individually.
 
-[@while loops@ : 'StructWhile'] executes the body while some condition holds.
-
 [@if statement@ : 'StructIf'] categorized as a structure for
 convenience, consists of three parts: a condition, a body of code
 that will execute if the condition holds, and an optional body that
@@ -204,7 +202,6 @@ data SingStmt = StmtAssign LangIdent Expr
 
 -- | Specialised language constructs.
 data LangStruct = StructFor LangIdent Expr Stmt
-                | StructWhile Expr Stmt
                 | StructIf Expr Stmt (Maybe Stmt)
                 | StructDefun LangIdent Lambda
                 | StructTryCatch Stmt [([LangIdent], Stmt)]
@@ -216,8 +213,6 @@ instance ShowSyn LangStruct where
         concat [ "for ", showSyn n
                , " in ", showSyn e
                , " do ", showSyn s]
-    showSyn (StructWhile e s) =
-        concat ["while ", showSyn e, " do ", showSyn s]
     showSyn (StructIf e s els)
         = concat [ "if "   , showSyn e
                  , " then ", showSyn s] ++
