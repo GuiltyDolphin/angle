@@ -27,6 +27,7 @@ module Angle.Exec.Operations
     , notLit
     , orLit
     , subLit
+    , isBuiltinOp
     ) where
 
 import Control.Monad
@@ -34,6 +35,10 @@ import Control.Monad
 import Angle.Types.Lang
 import Angle.Exec.Error
 
+import Angle.Parse.Token (builtinOps)
+
+isBuiltinOp :: LangIdent -> Bool
+isBuiltinOp (LangIdent x) = x `elem` builtinOps
 
 -- | Addition operator.
 --

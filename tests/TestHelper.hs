@@ -34,7 +34,7 @@ import Test.Tasty
 import Test.Tasty.QuickCheck
 
 import Angle.Parse.Helpers (evalParse, Parser)
-import Angle.Parse.Token (keywords)
+import Angle.Parse.Token
 import Angle.Exec.Types.Internal
 import Angle.Types.Lang
 import Angle.Types.Scope
@@ -113,13 +113,11 @@ instance Arbitrary Expr where
                 [ (15, liftArby ExprIdent)
                 , (9, liftArby  ExprLit)
                 , (1, liftM3 ExprFunCall arbitrary arbitrary (liftArby getTinyList))
-                , (4, liftArby  ExprOp)
                 , (4, liftArby ExprFunIdent)
                 ]
     shrink (ExprIdent x) = ExprIdent <$> shrink x
     shrink (ExprLit x) = ExprLit <$> shrink x
     shrink (ExprFunCall f b xs) = ExprFunCall <$> shrink f <*> shrink b <*> shrink xs
-    shrink (ExprOp x) = ExprOp <$> shrink x
     shrink (ExprFunIdent x) = ExprFunIdent <$> shrink x
 
 
@@ -175,16 +173,6 @@ instance Arbitrary Stmt where
     shrink (MultiStmt xs) = shrink1 MultiStmt xs
 
 
-instance Arbitrary LangOp where
-    arbitrary = liftM MultiOp (liftArby getMultiOp) >>= liftArby
-    shrink (MultiOp x ys) = shrink2 MultiOp x ys
-
-
-instance Arbitrary Op where
-    arbitrary = liftArby getMultiOp
-
-
-
 liftArby :: (Arbitrary a) => (a -> b) -> Gen b
 liftArby f = liftM f arbitrary
 
@@ -206,9 +194,23 @@ instance Arbitrary ValidLitStr where
 
 
 instance Arbitrary LangIdent where
-    arbitrary = liftM LangIdent $ validIdent `suchThat` isValidIdent
-    shrink (LangIdent x) = map LangIdent (filter isValidIdent (shrink x))
+  arbitrary = liftM LangIdent $ frequency
+                                [ (15, validIdent `suchThat` isValidIdent)
+                                , (2, symbolIdent)
+                                ]
+  shrink (LangIdent x) = map LangIdent (filter isValidIdent (shrink x))
 
+
+newtype SymbolIdentChar = SymbolIdentChar { getSymbolIdentChar :: Char }
+
+
+instance Arbitrary SymbolIdentChar where
+  arbitrary = SymbolIdentChar <$> elements validSymbolIdentChars
+  shrink (SymbolIdentChar c) = SymbolIdentChar <$> filter (/= c) validSymbolIdentChars
+
+
+symbolIdent :: Gen String
+symbolIdent = liftM (fmap getSymbolIdentChar . getTinyList) arbitrary `suchThat` (not . null)
 
 validIdent :: Gen String
 validIdent = (:) <$> chooseAlpha <*> listOf chooseAlphaNum
@@ -217,29 +219,11 @@ validIdent = (:) <$> chooseAlpha <*> listOf chooseAlphaNum
           chooseAlphaNum = oneof [chooseAlpha, chooseDigit]
 
 
+newtype BuiltInOp = BuiltInOp { getBuiltInOp :: LangIdent }
 
 
-newtype MultiOp = ArbyMultiOp { getMultiOp :: Op }
-
-
-
-
-instance Arbitrary MultiOp where
-    arbitrary = elements $ map ArbyMultiOp
-                [ OpAdd
-                , OpAnd
-                , OpConcat
-                , OpDiv
-                , OpEq
-                , OpGreater
-                , OpGreaterEq
-                , OpLess
-                , OpLessEq
-                , OpMult
-                , OpNot
-                , OpOr
-                , OpSub
-                ]
+instance Arbitrary BuiltInOp where
+  arbitrary = elements $ map (BuiltInOp . LangIdent) builtinOps
 
 
 newtype ValidComment = ValidComment String

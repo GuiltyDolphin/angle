@@ -162,8 +162,9 @@ execExpr (ExprLit (LitClosure lam)) = do
 execExpr (ExprLit x) = returnVal x
 execExpr (ExprIdent x) = lookupVarLitLocal x
 execExpr (ExprFunIdent x) = liftM LitLambda $ lookupVarFunLocal x
-execExpr (ExprOp x) = execOp x
-execExpr (ExprFunCall name asClass args) = execFunCall name asClass args
+execExpr (ExprFunCall name asClass args)
+  | isSymbolIdent name && isBuiltinOp name = execOp name args
+  | otherwise = execFunCall name asClass args
 execExpr (ExprList xs) = liftM LitList $ mapM execExpr xs
 execExpr (ExprLambdaCall f xs) = callPureLambda f False xs
 execExpr x@(ExprRange{}) = do
@@ -198,27 +199,26 @@ execFunCall :: LangIdent -> Bool -> [Expr] -> ExecIO LangLit
 execFunCall = callFun
 
 
-execOp :: LangOp -> ExecIO LangLit
-execOp (MultiOp op exprs) = execMultiOp op exprs
+execOp :: LangIdent -> [Expr] -> ExecIO LangLit
+execOp = execMultiOp
 
 
-execMultiOp :: Op -> [Expr] -> ExecIO LangLit
-execMultiOp OpAdd xs       = withMultiOp xs addLit
-execMultiOp OpAnd xs       = withMultiOp xs andLit
-execMultiOp OpConcat xs    = withMultiOp xs concatLit
-execMultiOp OpDiv xs       = withMultiOp xs divLit
-execMultiOp OpEq  xs       = withMultiOp xs eqLit
-execMultiOp OpExp xs       = withMultiOp xs expLit
-execMultiOp OpGreater xs   = withMultiOp xs greaterLit
-execMultiOp OpGreaterEq xs = withMultiOp xs greaterEqLit
-execMultiOp OpLess xs      = withMultiOp xs lessLit
-execMultiOp OpLessEq xs    = withMultiOp xs lessEqLit
-execMultiOp OpMult xs      = withMultiOp xs multLit
-execMultiOp OpNot xs       = withMultiOp xs notLit
-execMultiOp OpOr xs        = withMultiOp xs orLit
-execMultiOp OpSub xs       = withMultiOp xs subLit
-execMultiOp (UserOp _) _ = throwImplementationErr "execMultiOp: implement user operators"
-execMultiOp x _ = throwImplementationErr $ "execMultiOp - not a multiOp: " ++ show x
+execMultiOp :: LangIdent -> [Expr] -> ExecIO LangLit
+execMultiOp (LangIdent "+")  xs = withMultiOp xs addLit
+execMultiOp (LangIdent "&")  xs = withMultiOp xs andLit
+execMultiOp (LangIdent "++") xs = withMultiOp xs concatLit
+execMultiOp (LangIdent "/")  xs = withMultiOp xs divLit
+execMultiOp (LangIdent "==") xs = withMultiOp xs eqLit
+execMultiOp (LangIdent "**") xs = withMultiOp xs expLit
+execMultiOp (LangIdent ">")  xs = withMultiOp xs greaterLit
+execMultiOp (LangIdent ">=") xs = withMultiOp xs greaterEqLit
+execMultiOp (LangIdent "<")  xs = withMultiOp xs lessLit
+execMultiOp (LangIdent "<=") xs = withMultiOp xs lessEqLit
+execMultiOp (LangIdent "*")  xs = withMultiOp xs multLit
+execMultiOp (LangIdent "^")  xs = withMultiOp xs notLit
+execMultiOp (LangIdent "|")  xs = withMultiOp xs orLit
+execMultiOp (LangIdent "-")  xs = withMultiOp xs subLit
+execMultiOp x _ = throwImplementationErr $ "execMultiOp - not a built-in operator: " ++ show x
 
 
 withMultiOp :: [Expr] -> ([LangLit] -> ExecIO LangLit) -> ExecIO LangLit

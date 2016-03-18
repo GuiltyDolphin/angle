@@ -33,7 +33,6 @@ module Angle.Parse.Parser.Internal
     -- ** Expressions
     , expr
     , exprFunCall
-    , langOp
     ) where
 
 
@@ -245,7 +244,7 @@ structUnless = do
   tokNSpaced
   s <- stmt
   els <- optionMaybe $ string "else " *> stmt
-  return $ StructIf (ExprOp (MultiOp OpSub [e])) s els
+  return $ StructIf (ExprFunCall (LangIdent "^") False [e]) s els
 
 
 -- | Function definition.
@@ -415,7 +414,6 @@ expr :: Parser st Expr
 expr = (   try exprLit
        <|> exprList
        <|> exprFunIdent
-       <|> try exprOp
        <|> try exprRange
        <|> exprFunCall
        <|> exprIdent)
@@ -479,79 +477,6 @@ exprFunCall = (do
   name <- try (langIdent <* lookAhead (char '('))
   args <- arglist
   return $ ExprFunCall name asClass args) <?> "function call"
-
-
-exprOp :: Parser st Expr
-exprOp = liftM ExprOp langOp
-
-
--- | Either a special operator or a multi-operator.
---
--- Special operators are prefix and have one operand, i.e., prefix
--- unary operators.
---
--- Multi-operators can take an arbitrary number of arguments (usually
--- at least one) but must be surrounded by parentheses.
-langOp :: Parser st LangOp
-langOp = multiOp
-
-
-makeOp :: Parser st a -> Op -> Parser st Op
-makeOp sc op = sc >> return op
-
-
-opAdd, opAnd, opConcat, opDiv, opEq,
-  opGreater, opGreaterEq, opLess, opLessEq,
-  opMult, opNeg, opNot, opOr, opSub, opExp
-  :: Parser st Op
-opAdd  = makeOp (char '+')    OpAdd
-opAnd  = makeOp (char '&')    OpAnd
-opConcat = makeOp (string "++") OpConcat
-opDiv  = makeOp (char '/')    OpDiv
-opEq   = makeOp (string "==") OpEq
-opGreater = makeOp (char '>') OpGreater
-opGreaterEq = makeOp (string ">=") OpGreaterEq
-opLess = makeOp (char '<')    OpLess
-opLessEq = makeOp (string "<=") OpLessEq
-opMult = makeOp (char '*')    OpMult
-opNeg  = makeOp (char '-')    OpNeg
-opNot  = makeOp (char '^')    OpNot
-opOr   = makeOp (char '|')    OpOr
-opSub  = makeOp (char '-')    OpSub
-opExp  = makeOp (string "**") OpExp
-
-
-userOp :: Parser st Op
-userOp = liftM (UserOp . LangIdent) (many1 tokOpChar) <?> "operator"
-
-
-specOps :: [Parser st Op]
-specOps = [opNeg, opNot]
-
-
--- |Operators called within parentheses that may have
--- multiple operands
-multiOp :: Parser st LangOp
-multiOp = (choice (map (try . multOp) multiOps) <|> multOp userOp)
-  <?> "operator expression"
-
-
--- | List of all the MultiOp parsers.
-multiOps :: [Parser st Op]
-multiOps = [ opAdd, opAnd, opConcat
-           , opExp
-           , opDiv, opEq
-           , opGreater, opGreaterEq
-           , opLess, opLessEq
-           , opMult, opOr
-           , opNot
-           , opSub ]
-
-
-multOp :: Parser st Op -> Parser st LangOp
-multOp sc = MultiOp
-            <$> sc
-            <*> parens (sepEndBy expr comma)
 
 
 constrRef :: Parser st ConstrRef

@@ -75,13 +75,12 @@ non-existant lambda bodies to a name.
 -}
 module Angle.Types.Lang
     ( Expr(..)
-    , LangOp(..)
-    , Op(..)
 
     -- * Fundamental types
     , LangLit(..)
     , isNull
     , LangIdent(..)
+    , isSymbolIdent
 
     -- * Advanced types
     , Stmt(..)
@@ -114,6 +113,8 @@ import System.IO (Handle)
 import Angle.Types.Scope (GenScope)
 
 import Text.Parsec.Pos
+
+import Angle.Parse.Token (validSymbolIdentChars)
 
 type Scope = GenScope LangIdent LangLit Lambda
 
@@ -241,10 +242,6 @@ showSynSep start end sep xs = start ++ concatMap ((++sep) . showSyn) (init xs) +
 
 showSynArgs :: (ShowSyn a) => [a] -> String
 showSynArgs = showSynSep "(" ")" ", "
-
-
-showSynOpList :: (ShowSyn a) => [a] -> String
-showSynOpList xs = "(" ++ showSynSep ", " ")" ", " xs
 
 
 -- | Lambdas consist of two parts: the parameter list and the body.
@@ -471,7 +468,6 @@ data Expr = ExprIdent LangIdent
           | ExprLit LangLit -- ^ Expression wrapping a literal value.
           | ExprFunCall LangIdent Bool [Expr]
           | ExprLambdaCall Lambda [Expr]
-          | ExprOp LangOp
           | ExprList [Expr]
             -- ^ An unevaluated list (see 'LitList').
           | ExprRange Expr (Maybe Expr) (Maybe Expr)
@@ -486,7 +482,6 @@ instance ShowSyn Expr where
     showSyn (ExprIdent x) = showSyn x
     showSyn (ExprLit x) = showSyn x
     showSyn (ExprFunCall n asClass es) = (if asClass then "@" else "") ++ showSyn n ++ showSynArgs es
-    showSyn (ExprOp x) = showSyn x
     showSyn (ExprFunIdent x) = "$" ++ showSyn x
     showSyn (ExprList xs) = showSynList xs
         where showSynList = showSynSep "[" "]" ", "
@@ -504,6 +499,10 @@ instance ShowSyn Expr where
 newtype LangIdent = LangIdent { getIdent :: String }
     deriving (Show, Eq, Ord)
 
+-- | Return 'True' if the identifier consists entirely of valid identifier
+-- symbol characters (see 'validSymbolIdentChars').
+isSymbolIdent :: LangIdent -> Bool
+isSymbolIdent = all (`elem` validSymbolIdentChars) . getIdent
 
 instance ShowSyn LangIdent where
     showSyn = getIdent
@@ -520,56 +519,6 @@ instance ShowSyn ArgSig where
                           else ".."
                         , showSyn x
                         , ")"]) ", " args
-
-
--- | Two forms of operator exist in Angle:
-data LangOp = MultiOp Op [Expr]
-            -- ^ Multi-operators that can take multiple values but
-            -- must be enclosed within parentheses.
-              deriving (Show, Eq)
-
-
-instance ShowSyn LangOp where
-    showSyn (MultiOp o es) = showSyn o ++ showSynArgs es
-
-
--- | Builtin operators.
-data Op = OpAdd
-        | OpAnd -- ^ Logical AND.
-        | OpConcat
-        | OpDiv
-        | OpEq -- ^ Check equality.
-        | OpGreater
-        | OpGreaterEq
-        | OpLess
-        | OpLessEq
-        | OpExp
-        | OpMult
-        | OpNeg
-        | OpNot -- ^ Logical NOT.
-        | OpOr -- ^ Logical OR.
-        | OpSub
-        | UserOp LangIdent
-          deriving (Show, Eq)
-
-
-instance ShowSyn Op where
-    showSyn OpAdd = "+"
-    showSyn OpAnd = "&"
-    showSyn OpConcat = "++"
-    showSyn OpDiv = "/"
-    showSyn OpEq = "=="
-    showSyn OpGreater = ">"
-    showSyn OpGreaterEq = ">="
-    showSyn OpLess = "<"
-    showSyn OpLessEq = "<="
-    showSyn OpMult = "*"
-    showSyn OpNeg = "-"
-    showSyn OpNot = "^"
-    showSyn OpOr = "|"
-    showSyn OpSub = "-"
-    showSyn OpExp = "**"
-    showSyn (UserOp x) = showSyn x
 
 
 showLambdaFun :: Lambda -> String

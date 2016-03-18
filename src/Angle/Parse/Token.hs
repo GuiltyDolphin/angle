@@ -35,7 +35,10 @@ module Angle.Parse.Token
     -- ** Misc
     , keywords
     , tokEOF
+    -- ** Identifiers
     , ident
+    , validSymbolIdentChars
+    , builtinOps
     , comma
     , parens
     , tokOpChar
@@ -152,15 +155,27 @@ tokList = between tokStartList tokEndList
 ident ::
     Bool -- ^Are keywords allowed?
     -> Parser st String
-ident b = unless b (noneFrom (\x -> string x <* specEnd) keywords) *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar)
+ident b = (symbolIdent <|> namedIdent b) <?> "identifier"
+
+namedIdent :: Bool -> Parser st String
+namedIdent b = try (unless b (noneFrom (\x -> string x <* specEnd) keywords) *> ((:) <$> tokIdentStartChar <*> many tokIdentBodyChar))
     where specEnd = notFollowedBy tokIdentBodyChar
           tokIdentStartChar = satisfy (\x -> isAlpha x || x == '_')
           tokIdentBodyChar  = satisfy (\x -> isAlphaNum x || x == '_')
+
+symbolIdent :: Parser st String
+symbolIdent = try (many1 tokIdentBodyChar)
+  where tokIdentBodyChar = satisfy (`elem` validSymbolIdentChars)
 
 
 -- | Valid operator character.
 tokOpChar :: Parser st Char
 tokOpChar = oneOf "*/+->=<|&^"
+
+
+builtinOps :: [String]
+builtinOps = [ "+", "&", "++", "/", "==", ">", ">=", "<", "<="
+             , "*", "^", "|", "-"]
 
 
 -- | Angle keywords.
@@ -183,6 +198,9 @@ keywords = [ "break"
            , "try"
            , "unless"
            , "while"]
+
+validSymbolIdentChars :: String
+validSymbolIdentChars = "*-+<>=/^|&"
 
 
 -- | Matches within parentheses.
