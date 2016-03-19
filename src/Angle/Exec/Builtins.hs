@@ -104,15 +104,12 @@ builtinCallSig name =
                        ( LangIdent "x" )])) startRef
 
 
-builtinVar :: LangIdent -> (LangIdent, VarVal Lambda)
+builtinVar :: LangIdent -> (LangIdent, VarVal LangLit)
 builtinVar name = (name, VarVal
-                           { varDef = Just $ builtinCallSig name
+                           { varDef = Just . LitLambda $ builtinCallSig name
                            , varBuiltin = True })
 
 
-builtinsVars :: BindEnv LangIdent Lambda
-builtinsVars = bindEnvFromList $
-               map (builtinVar . LangIdent) builtins
 
 
 builtinValue :: LangIdent -> LangLit -> (LangIdent, VarVal LangLit)
@@ -121,10 +118,11 @@ builtinValue name val = (name, VarVal
                                  , varBuiltin = True })
 
 
-builtinsValues :: BindEnv LangIdent LangLit
-builtinsValues = bindEnvFromList $
-                 map (\(x,y) -> builtinValue (LangIdent x) y) builtinValues
 
+builtinDefs :: BindEnv LangIdent LangLit
+builtinDefs = bindEnvFromList $ builtinsValues ++ builtinsFuns
+  where builtinsValues = map (\(x, y) -> builtinValue (LangIdent x) y) builtinValues
+        builtinsFuns   = map (builtinVar . LangIdent) builtins
 
 -- | Starting environment with builtin functions defined.
 startEnv :: Env
@@ -132,10 +130,7 @@ startEnv = basicEnv { currentScope = startScope }
 
 
 startScope :: Scope
-startScope = emptyScope
-    { lambdaBindings = builtinsVars
-    , valueBindings = builtinsValues
-    }
+startScope = emptyScope { bindings = builtinDefs }
 
 
 -- | Starting environment for programs not running as main.

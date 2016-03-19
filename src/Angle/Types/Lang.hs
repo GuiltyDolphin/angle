@@ -95,8 +95,6 @@ module Angle.Types.Lang
     , SourceRef(..)
     , startRef
     , ConstrRef(..)
-    , AnnType(..)
-    , typeAnnOf
     , ArgElt(..)
     , Lambda(..)
     , Scope
@@ -115,7 +113,7 @@ import Text.Parsec.Pos
 
 import Angle.Parse.Token (validSymbolIdentChars)
 
-type Scope = GenScope LangIdent LangLit Lambda
+type Scope = GenScope LangIdent LangLit
 
 
 -- | Wraps statements to allow for positional tracking as well
@@ -277,26 +275,20 @@ instance ShowSyn CatchArg where
                             Nothing -> ""
 
 
--- | A single element of a parameter list, allows enforcing of
--- correct annotation types and parameter constraints.
+-- | A single element of a parameter list, allows enforcing of parameter
+-- constraints.
 data ArgElt = ArgElt
-    { argEltType :: AnnType
-    , argEltName :: LangIdent
+    { argEltName :: LangIdent
     , argEltConstr :: Maybe ConstrRef
     } deriving (Show, Eq)
 
 
 instance ShowSyn ArgElt where
-    showSyn (ArgElt {argEltType=typ
-                    , argEltName=name
+    showSyn (ArgElt { argEltName=name
                     , argEltConstr=constr })
-        = case typ of
-            AnnFun   -> "$"
-            AnnLit   -> "!"
-            AnnAny   -> ""
-          ++ showSyn name ++ case constr of
-                               Just c  -> ':' : showSyn c
-                               Nothing -> ""
+        = showSyn name ++ case constr of
+                          Just c  -> ':' : showSyn c
+                          Nothing -> ""
 
 
 -- | Name referencing a function to be used as a parameter constraint.
@@ -330,22 +322,6 @@ instance ShowSyn ConstrRef where
         = '@' : showSyn name ++ showRefArgs
       where
         showRefArgs = maybe "" showSynArgs a
-
-
--- | Possible parameter restrictions provided in definition annotation.
---
--- As an example, in the function @foo(x)@, there
--- is no restriction on what @x@ is passed. However, in the
--- function @bar($x)@, @x@ must be a function if passed to @bar@,
--- if it is anything else an error will occur.
-data AnnType = AnnFun | AnnLit | AnnAny
-               deriving (Eq)
-
-
-instance Show AnnType where
-    show AnnFun = "function"
-    show AnnLit = "literal"
-    show AnnAny = "any"
 
 
 -- | Represents the basic types that can be used in Angle.
@@ -430,13 +406,6 @@ typeOf (LitClosure{}) = LTLambda
 typeOf (LitHandle _) = LTHandle
 
 
--- | Determine the required annotation restriction of a
--- particular literal. See 'AnnType' for more information.
-typeAnnOf :: LangLit -> AnnType
-typeAnnOf (LitLambda{}) = AnnFun
-typeAnnOf _ = AnnLit
-
-
 instance Show LangType where
     show LTList = "list"
     show LTBool = "boolean"
@@ -454,8 +423,6 @@ instance Show LangType where
 -- in some cases they may evaluate to the null literal.
 data Expr = ExprIdent LangIdent
             -- ^ 'LangIdent' when representing a variable.
-          | ExprFunIdent LangIdent
-            -- ^ 'LangIdent' when representing a function.
           | ExprLit LangLit -- ^ Expression wrapping a literal value.
           | ExprFunCall LangIdent Bool [Expr]
           | ExprLambdaCall Lambda [Expr]
@@ -473,7 +440,6 @@ instance ShowSyn Expr where
     showSyn (ExprIdent x) = showSyn x
     showSyn (ExprLit x) = showSyn x
     showSyn (ExprFunCall n asClass es) = (if asClass then "@" else "") ++ showSyn n ++ showSynArgs es
-    showSyn (ExprFunIdent x) = "$" ++ showSyn x
     showSyn (ExprList xs) = showSynList xs
         where showSynList = showSynSep "[" "]" ", "
     showSyn (ExprRange{}) = error "showSyn - cannot show unevaluated range"

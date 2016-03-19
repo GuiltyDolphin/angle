@@ -15,8 +15,7 @@ occur in Angle.
 module Angle.Exec.Error
     (
     -- ** Type errors
-      typeAnnWrongErr
-    , typeConstrWrongReturnErr
+      typeConstrWrongReturnErr
     , typeExpectConstrErr
     , typeMismatchOpErr
     , typeNotValidErr
@@ -297,7 +296,6 @@ data TypeError = TypeMismatch   LangType LangType
                | TypeMismatchOp LangType LangType
                | TypeExpectConstr LangLit LangIdent
                | TypeConstrWrongReturn LangIdent LangType
-               | TypeAnnWrong AnnType AnnType
                deriving (Eq)
 
 
@@ -327,11 +325,6 @@ typeConstrWrongReturnErr :: LangIdent -> LangType -> ExecError
 typeConstrWrongReturnErr cls = typeErr . TypeConstrWrongReturn cls
 
 
--- | Value did not satisfy given annotation constraint.
-typeAnnWrongErr :: AnnType -> AnnType -> ExecError
-typeAnnWrongErr e = typeErr . TypeAnnWrong e
-
-
 -- | Cannot coerce one type to another
 typeCastErr :: LangType -> LangType -> ExecError
 typeCastErr t1 = typeErr . TypeCast t1
@@ -345,7 +338,6 @@ instance Show TypeError where
     show (TypeMismatchOp l r) = "cannot perform operation on types " ++ show l ++ " and " ++ show r
     show (TypeExpectConstr v c) = "expecting value that satisfies function '" ++ showSyn c ++ "' but got: " ++ showSyn v
     show (TypeConstrWrongReturn c t) = "bad class: " ++ showSyn c ++ ", expecting return value of type bool, but got " ++ show t
-    show (TypeAnnWrong t1 t2) = "bad type in function call, expecting " ++ show t1 ++ " but got " ++ show t2
 
 
 instance KWError TypeError where
@@ -356,7 +348,6 @@ instance KWError TypeError where
     errToKeyword (TypeMismatchOp{}) = LitStr "typeMismatchOp"
     errToKeyword (TypeExpectConstr{}) = LitStr "typeExpectConstr"
     errToKeyword (TypeConstrWrongReturn{}) = LitStr "typeConstrWrongReturn"
-    errToKeyword (TypeAnnWrong{}) = LitStr "typeAnnWrong"
     genErrKeyword _ = LitStr "typeError"
 
 

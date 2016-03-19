@@ -27,15 +27,14 @@ module Angle.Types.Scope
     , BindEnv(..)
     , VarVal(..)
     , bindEnvFromList
-    , deleteLitFromScope
+    , deleteFromScope
     , emptyScope
     , emptyVar
     , isDefinedIn
     , isOutermostScope
     , mergeScope
     , resolve
-    , setVarFunInScope
-    , setVarLitInScope
+    , setVarInScope
     , modifyOuterScope
     , modifyGlobalScope
     , globalScope
@@ -68,33 +67,30 @@ type BindMap n a = M.Map n (VarVal a)
 
 -- | Contains variable-value bindings, along with a reference
 -- to a parent scope.
-data GenScope n v f = Scope
-    { outerScope :: Maybe (GenScope n v f) -- ^ Parent scope, if any.
-    , valueBindings :: BindEnv n v
-    , lambdaBindings :: BindEnv n f
+data GenScope n v = Scope
+    { outerScope :: Maybe (GenScope n v) -- ^ Parent scope, if any.
+    , bindings   :: BindEnv n v
     } deriving (Show, Eq)
 
 
--- type GenScope n v f = (Ord n) => GScope n v f
 
 
 -- | True if the given scope has no parent scopes.
-isOutermostScope :: GenScope n v f -> Bool
+isOutermostScope :: GenScope n v -> Bool
 isOutermostScope s = case outerScope s of
                     Nothing -> True
                     Just _  -> False
 
 
 -- | The outermost scope of the given scope stack.
-globalScope :: GenScope n v f -> GenScope n v f
+globalScope :: GenScope n v -> GenScope n v
 globalScope sc@(Scope { outerScope = Nothing }) = sc
 globalScope (Scope { outerScope = Just sc }) = globalScope sc
 
 
--- | True if the scope contains a defition for the given
--- identifier.
-isDefinedIn :: (Ord n) => (GenScope n v f -> BindEnv n a) -> n -> GenScope n v f -> Bool
-isDefinedIn binds name scope = isJust $ lookupBind name $ binds scope
+-- | True if the scope contains a defition for the given identifier.
+isDefinedIn :: (Ord n) => n -> GenScope n v -> Bool
+isDefinedIn name scope = isJust $ lookupBind name $ bindings scope
 
 
 onBind :: (BindMap n a -> b) -> BindEnv n a -> b
@@ -116,13 +112,13 @@ onBinds f x = toBind . (f `on` unBindEnv) x
 -- | Runs a function in the outer scope of that provided.
 --
 -- Returns `Nothing' if no outer scope exists.
-withOuterScope :: GenScope n v f -> (GenScope n v f -> a) -> Maybe a
+withOuterScope :: GenScope n v -> (GenScope n v -> a) -> Maybe a
 withOuterScope sc f = liftM f (outerScope sc)
 
 
 -- | Allows the modification of a parent scope without modifying
 -- the current scope (bar the parent changing).
-modifyOuterScope :: GenScope n v f -> (GenScope n v f -> GenScope n v f) -> GenScope n v f
+modifyOuterScope :: GenScope n v -> (GenScope n v -> GenScope n v) -> GenScope n v
 modifyOuterScope sc parF =
     case outerScope sc of
         Nothing -> sc
@@ -130,7 +126,7 @@ modifyOuterScope sc parF =
 
 
 -- | Modifies the global scope while not affecting non-globals.
-modifyGlobalScope :: GenScope n v f -> (GenScope n v f -> GenScope n v f) -> GenScope n v f
+modifyGlobalScope :: GenScope n v -> (GenScope n v -> GenScope n v) -> GenScope n v
 modifyGlobalScope sc globF =
     if isOutermostScope sc
     then globF sc
@@ -140,44 +136,38 @@ modifyGlobalScope sc globF =
 
 -- | Finds the local-most GenScope that contains a definition
 -- for the specified identifier.
-innerScopeDefining :: (Ord n) => (GenScope n v f -> BindEnv n a) -> n -> GenScope n v f -> Maybe (GenScope n v f)
-innerScopeDefining binds name scope
-    = if isDefinedIn binds name scope
+innerScopeDefining :: (Ord n) => n -> GenScope n v -> Maybe (GenScope n v)
+innerScopeDefining name scope
+    = if isDefinedIn name scope
       then Just scope
-      else join $ withOuterScope scope (innerScopeDefining binds name)
+      else join $ withOuterScope scope (innerScopeDefining name)
 
 
 -- | Retrieves the variable's definition from the local-most
 -- scope in which it is defined.
 --
 -- Returns Nothing if no definition is found.
-resolve :: (Ord n) => (GenScope n v f -> BindEnv n a) -> n -> GenScope n v f -> Maybe (VarVal a)
-resolve binds name scope =
-    case innerScopeDefining binds name scope of
+resolve :: (Ord n) => n -> GenScope n v -> Maybe (VarVal v)
+resolve name scope =
+    case innerScopeDefining name scope of
              Nothing     -> Nothing
-             Just scope' -> fromCurrentScope binds scope'
+             Just scope' -> fromCurrentScope scope'
   where
-    fromCurrentScope b = lookupBind name . b
+    fromCurrentScope = lookupBind name . bindings
 
 
 -- | A scope with no parent or bindings.
-emptyScope :: GenScope n v f
+emptyScope :: GenScope n v
 emptyScope = Scope {
                outerScope = Nothing
-             , valueBindings = emptyBindEnv
-             , lambdaBindings = emptyBindEnv
+             , bindings = emptyBindEnv
              }
 
 
 -- | Run a function over the bindings of a scope.
-onLitBindings
-  :: (BindEnv n v -> BindEnv n v) -> GenScope n v f -> GenScope n v f
-onLitBindings f scope = scope { valueBindings = f $ valueBindings scope }
-
-
-onFunBindings
-  :: (BindEnv n f -> BindEnv n f) -> GenScope n v f -> GenScope n v f
-onFunBindings f scope = scope { lambdaBindings = f $ lambdaBindings scope }
+onBindings
+  :: (BindEnv n v -> BindEnv n v) -> GenScope n v -> GenScope n v
+onBindings f scope = scope { bindings = f $ bindings scope }
 
 
 insertVar :: (Ord n) => n -> VarVal a -> BindEnv n a -> BindEnv n a
@@ -186,32 +176,22 @@ insertVar = insertBind
 
 -- | Set the value definition for the given variable in the given
 -- scope.
-setVarLitInScope :: (Ord n) => n -> VarVal v -> GenScope n v f -> GenScope n v f
-setVarLitInScope name val = onLitBindings (insertVar name val)
-
-
--- | Set the lambda definition for the given variable in the given
--- scope.
-setVarFunInScope :: (Ord n) => n -> VarVal f -> GenScope n v f -> GenScope n v f
-setVarFunInScope name val = onFunBindings (insertVar name val)
-
+setVarInScope :: (Ord n) => n -> VarVal v -> GenScope n v -> GenScope n v
+setVarInScope name val = onBindings (insertVar name val)
 
 
 -- | Merge the binding values of the scopes, favouring the first
 -- when a definition exists in both, but always favouring a
 -- definition over no definition.
-mergeScope :: (Ord n) => GenScope n v f -> GenScope n v f -> GenScope n v f
+mergeScope :: (Ord n) => GenScope n v -> GenScope n v -> GenScope n v
 mergeScope sc1 sc2
-    = let nLits = mergeBinds `on` valueBindings
-          nFuns = mergeBinds `on` lambdaBindings
-      in sc1 { valueBindings = nLits sc1 sc2
-             , lambdaBindings = nFuns sc1 sc2
-             }
+    = let nLits = mergeBinds `on` bindings
+      in sc1 { bindings = nLits sc1 sc2 }
 
 
 -- | Remove the value binding of a variable from the given scope.
-deleteLitFromScope :: (Ord n) => n -> GenScope n v f -> GenScope n v f
-deleteLitFromScope =  onLitBindings . deleteBind
+deleteFromScope :: (Ord n) => n -> GenScope n v -> GenScope n v
+deleteFromScope =  onBindings . deleteBind
 
 
 

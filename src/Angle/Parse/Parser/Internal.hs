@@ -397,7 +397,6 @@ litNull = (string "()" <|> string "null") >> return LitNull
 expr :: Parser st Expr
 expr = (   try exprLit
        <|> exprList
-       <|> exprFunIdent
        <|> try exprRange
        <|> exprFunCall
        <|> exprIdent)
@@ -418,14 +417,6 @@ identKeyword = liftM LangIdent (try $ ident True)
 
 langIdent :: Parser st LangIdent
 langIdent = identName
-
-
-funIdent :: Parser st LangIdent
-funIdent = char '$' *> identName
-
-
-exprFunIdent :: Parser st Expr
-exprFunIdent = liftM ExprFunIdent funIdent
 
 
 -- | Lambdas are unnamed functions which can be assigned to
@@ -488,13 +479,8 @@ catchArg = do
 
 argElt :: Parser st ArgElt
 argElt = do
-  typ <- argSigType
   name <- identName
   cls <- optionMaybe constrRefArgSig
-  return $ ArgElt typ name cls
+  return $ ArgElt name cls
 
 
-argSigType :: Parser st AnnType
-argSigType = char '$' *> return AnnFun
-             <|> char '!'*> return AnnLit
-             <|> return AnnAny

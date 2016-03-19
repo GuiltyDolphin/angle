@@ -60,32 +60,20 @@ bindArgs args (ArgSig
                         [] -> return ()
                         [(_, r)] -> checkSatConstr r (Just cstr) (fromMaybe [] constrArgs)
                         _ -> undefined
-  let toBindFuns = map fst $ filter (isAnnFun . snd)  vals
-      toBindLits = map fst $ filter (isAnnLit . snd) vals
-      toBindAny = map fst (filter (isAnnAny . snd) vals) ++ catchBind
-      isAnnFun AnnFun = True
-      isAnnFun _ = False
-      isAnnLit AnnLit = True
-      isAnnLit _ = False
-      isAnnAny AnnAny = True
-      isAnnAny _ = False
   newScope
-  forM_ toBindFuns (\(x, LitLambda l) -> assignVarFunLocal x l)
-  forM_ toBindLits (uncurry assignVarLitLocal)
-  forM_ toBindAny (uncurry assignVarLitLocal)
+  forM_ vals (uncurry assignVarLocal)
   return ()
 
 
 -- | Make sure the argument satisfies any
 -- class or type restrictions placed upon it.
-checkArg :: Expr -> ArgElt -> ExecIO ((LangIdent, LangLit), AnnType)
-checkArg ex (ArgElt {argEltConstr=constr, argEltType=typ
+checkArg :: Expr -> ArgElt -> ExecIO (LangIdent, LangLit)
+checkArg ex (ArgElt { argEltConstr=constr
                     , argEltName=name}) = do
   v <- execExpr ex
   let cstr = fmap getConstrRef constr
   checkSatConstr v cstr (fromMaybe [] $ maybe Nothing constrRefArgs constr)
-  checkSatType v typ
-  return ((name, v), typ)
+  return (name, v)
 
 
 checkSatConstr :: LangLit -> Maybe LangIdent -> [Expr] -> ExecIO ()
@@ -97,8 +85,11 @@ checkSatConstr v (Just clsName) constrArgs = do
 
 execConstr :: LangLit -> LangIdent -> [Expr] -> ExecIO LangLit
 execConstr val clsName args = do
-  cls <- lookupVarFunLocal clsName
-  res <- callLambda cls True $ ExprLit val : args
+  cls <- lookupVarLocal clsName
+  lambda <- case cls of
+            (LitLambda l) -> return l
+            _ -> throwExecError $ typeUnexpectedErr (typeOf cls) LTLambda
+  res <- callLambda lambda True $ ExprLit val : args
   case res of
     x@(LitBool _) -> return x
     y             -> throwExecError
@@ -117,22 +108,6 @@ withClass s = do
     setClassFalse = assignVarBuiltinLit (LangIdent "as_constr") (LitBool False)
 
 
--- | True if the literal is of the specified annotation type.
-satType :: LangLit -> AnnType -> Bool
-satType _ AnnAny = True
-satType (LitLambda _) AnnFun = True
-satType (LitLambda _) AnnLit = False
-satType _ AnnLit = True
-satType _ _ = False
-
-
--- | Fails if @satType@ returns false with the same arguments.
-checkSatType :: CanErrorWithPos m => LangLit -> AnnType -> m ()
-checkSatType val typ = do
-  let res = satType val typ
-  unless res $ throwExecError $ typeAnnWrongErr typ $ typeAnnOf val
-
-
 -- | True if the given constraint returns true when
 -- passed the literal.
 satConstr :: LangLit -> LangIdent -> [Expr] -> ExecIO Bool
@@ -147,7 +122,7 @@ expandParams [] = return []
 expandParams (x:xs)
   = case x of
         ExprParamExpand n -> do
-            val <- lookupVarLitLocal n
+            val <- lookupVarLocal n
             case val of
               LitList vs -> liftM (map ExprLit vs ++) $ expandParams xs
               _          -> liftM (x:) $ expandParams xs
@@ -160,8 +135,7 @@ execExpr (ExprLit (LitClosure lam)) = do
     currScope <- getScope
     returnVal . LitLambda $ lam { lambdaScope = Just currScope }
 execExpr (ExprLit x) = returnVal x
-execExpr (ExprIdent x) = lookupVarLitLocal x
-execExpr (ExprFunIdent x) = liftM LitLambda $ lookupVarFunLocal x
+execExpr (ExprIdent x) = lookupVarLocal x
 execExpr (ExprFunCall name asClass args)
   | isSymbolIdent name && isBuiltinOp name = execOp name args
   | otherwise = execFunCall name asClass args
@@ -229,11 +203,14 @@ callFun :: LangIdent -> Bool -> [Expr] -> ExecIO LangLit
 callFun x asClass args
     | isBuiltin x = callBuiltin x args
     | otherwise = do
-        l <- lookupVarFunLocal x
-        pushEnvCall x
-        res <- callLambda l asClass args
-        popEnvCall
-        return res
+        l <- lookupVarLocal x
+        case l of
+          (LitLambda lambda) -> do
+            pushEnvCall x
+            res <- callLambda lambda asClass args
+            popEnvCall
+            return res
+          _ -> throwExecError $ typeUnexpectedErr (typeOf l) LTLambda
 
 
 callLambda :: Lambda -> Bool -> [Expr] -> ExecIO LangLit
@@ -266,20 +243,15 @@ execStmt (MultiStmt [x]) = execStmt x
 execStmt (MultiStmt (x:xs)) = execStmt x >> execStmt (MultiStmt xs)
 
 
-assignment
-    :: (LangIdent -> Lambda -> ExecIO ())
-    -> (LangIdent -> LangLit -> ExecIO ())
-    -> LangIdent -> Expr -> ExecIO LangLit
-assignment aFun aLit name e = execExpr e
-    >>= (\x -> case x of
-        x'@(LitLambda l) -> aFun name l >> returnVal x'
-        x' -> aLit name x' >> returnVal x')
+assignment :: (LangIdent -> LangLit -> ExecIO ())
+              -> LangIdent -> Expr -> ExecIO LangLit
+assignment assign name e = execExpr e >>= \x -> assign name x >> return x
 
 
 execSingStmt :: SingStmt -> ExecIO LangLit
-execSingStmt (StmtAssign name e) = assignment assignVarFunLocal assignVarLitLocal name e
-execSingStmt (StmtAssignNonLocal name e) = assignment assignVarFunOuter assignVarLitOuter name e
-execSingStmt (StmtAssignGlobal name e) = assignment assignVarFunGlobal assignVarLitGlobal name e
+execSingStmt (StmtAssign name e) = assignment assignVarLocal name e
+execSingStmt (StmtAssignNonLocal name e) = assignment assignVarOuter name e
+execSingStmt (StmtAssignGlobal name e) = assignment assignVarGlobal name e
 execSingStmt (StmtStruct x) = execLangStruct x
 execSingStmt (StmtExpr x) = do
   res <- execExpr x
@@ -338,7 +310,8 @@ execLangStruct (StructFor name e s)
 execLangStruct (StructIf if' thn els)
     = execStructIf if' thn els
 execLangStruct (StructDefun name cs)
-    = assignVarFunLocal name cs *> return LitNull
+    = let lambda = LitLambda cs
+      in assignVarLocal name lambda *> return lambda
 execLangStruct (StructTryCatch b cs)
     = execStructTryCatch b cs
 
@@ -359,10 +332,10 @@ execStructFor name e s = do
   iterable <- execExpr e >>= fromIter
   outScope <- liftM currentScope getEnv
   res <- forM iterable (\v -> do
-                   assignVarLitLocal name v
+                   assignVarLocal name v
                    execStmt s `catchContinue` getEnvValue)
   newS <- liftM currentScope getEnv
-  let newS' = deleteLitFromScope name newS
+  let newS' = deleteFromScope name newS
   modifyScope (const $ mergeScope newS' outScope)
   returnVal (LitList res)
 
@@ -473,14 +446,9 @@ builtinInclude xs = mapM_ includeFile xs >> return LitNull
 -- @nonlocal(var)@ attempts to lookup the value of @var@ in any
 -- of the parent scopes of the current scope. Fails with a
 -- @nameError@ if @var@ is not defined.
---
--- @nonlocal("fun", var)@ attempts to lookup the lambda value
--- of @var@ in a parent scope.
 builtinNonLocal :: [LangLit] -> ExecIO LangLit
-builtinNonLocal [LitStr "fun", LitStr n]
-    = liftM LitLambda $ lookupVarFunOuter (LangIdent n)
-builtinNonLocal [LitStr  n]
-    = lookupVarLitOuter (LangIdent n)
+builtinNonLocal [LitStr n]
+    = lookupVarOuter (LangIdent n)
 builtinNonLocal _ = throwExecError . callBuiltinErr $ "nonlocal: invalid call signature"
 
 
@@ -488,14 +456,9 @@ builtinNonLocal _ = throwExecError . callBuiltinErr $ "nonlocal: invalid call si
 --
 -- @global(var)@ attempts to lookup the value of @var@ in the global
 -- scope. Fails with a @nameError@ if @var@ is not defined.
---
--- @global("fun", var)@ attempts to lookup the lambda value
--- of @var@ in the global scope.
 builtinGlobal :: [LangLit] -> ExecIO LangLit
-builtinGlobal [LitStr "fun", LitStr n]
-    = liftM LitLambda $ lookupVarFunGlobal (LangIdent n)
 builtinGlobal [LitStr n]
-    = lookupVarLitGlobal (LangIdent n)
+    = lookupVarGlobal (LangIdent n)
 builtinGlobal _ = throwExecError . callBuiltinErr $ "global: invalid call signature"
 
 
@@ -503,13 +466,9 @@ builtinGlobal _ = throwExecError . callBuiltinErr $ "global: invalid call signat
 --
 -- @local(var)@ attempts to resolve the variable represented by the keyword
 -- @var@.
---
--- @local("fun", var)@ attempts to resove the lambda value of @var@@
 builtinLocal :: [LangLit] -> ExecIO LangLit
-builtinLocal [LitStr "fun", LitStr n]
-    = liftM LitLambda $ lookupVarFunLocal (LangIdent n)
 builtinLocal [LitStr n]
-    = lookupVarLitLocal (LangIdent n)
+    = lookupVarLocal (LangIdent n)
 builtinLocal _ = throwExecError . callBuiltinErr $ "local: invalid call signature"
 
 

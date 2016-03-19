@@ -111,12 +111,10 @@ instance Arbitrary Expr where
                 [ (15, liftArby ExprIdent)
                 , (9, liftArby  ExprLit)
                 , (1, liftM3 ExprFunCall arbitrary arbitrary (liftArby getTinyList))
-                , (4, liftArby ExprFunIdent)
                 ]
     shrink (ExprIdent x) = ExprIdent <$> shrink x
     shrink (ExprLit x) = ExprLit <$> shrink x
     shrink (ExprFunCall f b xs) = ExprFunCall <$> shrink f <*> shrink b <*> shrink xs
-    shrink (ExprFunIdent x) = ExprFunIdent <$> shrink x
 
 
 instance Arbitrary ArgSig where
@@ -128,8 +126,8 @@ instance Arbitrary ArgSig where
 
 
 instance Arbitrary ArgElt where
-    arbitrary = liftArby3 ArgElt
-    shrink (ArgElt x y z) = shrink3 ArgElt x y z
+    arbitrary = liftArby2 ArgElt
+    shrink (ArgElt x y) = shrink2 ArgElt x y
 
 
 instance Arbitrary CatchArg where
@@ -153,13 +151,6 @@ shrink3 f x y z = zipWith3 f (shrink x) (shrink y) (shrink z)
 instance Arbitrary ConstrRef where
     arbitrary = liftArby2 ConstrRef
     shrink (ConstrRef x y) = shrink2 ConstrRef x y
-
-
-instance Arbitrary AnnType where
-    arbitrary = elements [AnnFun, AnnLit]
-    shrink AnnFun = [AnnLit]
-    shrink AnnLit = [AnnFun]
-    shrink _ = undefined
 
 
 instance Arbitrary Stmt where
@@ -279,8 +270,8 @@ instance (Arbitrary a) => Arbitrary (VarVal a) where
 
 
 instance Arbitrary Scope where
-    arbitrary = liftArby3 Scope
-    shrink (Scope w x y) = shrink3 Scope w x y
+    arbitrary = liftArby2 Scope
+    shrink (Scope w x) = shrink2 Scope w x
 
 
 -- | Extracts a property from monadic Either code, giving
