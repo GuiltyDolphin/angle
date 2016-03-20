@@ -86,6 +86,7 @@ module Angle.Exec.Error
     ) where
 
 
+import Control.Applicative ((<$>))
 import Control.Monad.Except
 import Data.Function (on)
 import Data.Maybe (catMaybes)
@@ -165,10 +166,18 @@ instance Show AngleError where
                       Nothing -> ""
                       Just f -> "In file: " ++ f ++ "\n"
             cECall = showCall eCall
-            cEStack = concatMap showCall (reverse eStack)
+            cEStack = concatMap showGrouped $ collectCalls $ showCall <$> reverse eStack
             cEk = concat ["\n(", showSyn $ errToKeyword ee, ")\n"]
             cEp = show start ++ "\n"
             cEe = show ee
+            showGrouped (n,x)
+              | n == 1 = x
+              | otherwise = show n ++ " calls:\n" ++ x
+            collectCalls [] = []
+            collectCalls (call:calls)
+              = foldl (\xs@((n,c):cs) c' -> if c' == c
+                                        then (n+1, c):cs
+                                        else (1, c'):xs) [(1, call)] calls
             showCall (c,s) = r
               where
                 r = "  line " ++ ln ++ ", in " ++ f ++ "\n" ++ t
