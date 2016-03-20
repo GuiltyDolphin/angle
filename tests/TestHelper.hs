@@ -4,11 +4,14 @@ module TestHelper
     ( module Test.Tasty
     , module Test.Tasty.QuickCheck
     , module Angle.Types.Lang
+    , module Control.Applicative
+    , module Data.Maybe
     , assert
     , Parser
     , evalParse
     , monadicEither
     , liftM
+    , liftArby
     , monadicIO
     , assertEqual
     , run
@@ -22,9 +25,10 @@ module TestHelper
     ) where
 
 
-import Control.Applicative ((<*>), (<$>))
+import Control.Applicative ((<*>), (<$>), pure)
 import Control.Monad.State
 import Data.Char (isAlpha, isAlphaNum)
+import Data.Maybe (isNothing)
 import qualified Data.Map as M
 
 import Text.Parsec.Pos
@@ -261,7 +265,7 @@ instance (Arbitrary a) => Arbitrary (TinyList a) where
     shrink (TinyList xs) = shrink1 TinyList xs
 
 
-instance (Arbitrary a) => Arbitrary (BindEnv LangIdent a) where
+instance (Ord n, Arbitrary n, Arbitrary v) => Arbitrary (BindEnv n v) where
     arbitrary = liftArby bindEnvFromList
     shrink (BindEnv x) = shrink1 bindEnvFromList (M.toList x)
 
