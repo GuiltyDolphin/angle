@@ -44,13 +44,6 @@ to document or explain parts of code.
 
 [@expressions@] see 'Expr'
 
-[@return@] allows the programmer to exit a function early and use
-the provided value as the function's value.
-
-[@break and continue@] for use during loops: break exits the loop
-immediately, whereas continue starts the next iteration of the loop,
-skipping the rest of the loop body.
-
 [@raise@] allows the user to throw exceptions.
 
 
@@ -172,13 +165,7 @@ instance ShowSyn SingStmt where
     showSyn (StmtStruct x) = showSyn x
     showSyn (StmtExpr e) = showSyn e ++ ";\n"
     showSyn (StmtComment x) = "#" ++ x ++ "\n"
-    showSyn (StmtReturn x) = "return " ++ showSyn x ++ ";\n"
-    showSyn (StmtBreak x False) = "break" ++ retVal ++ ";\n"
-      where
-        retVal = maybe "" ((" "++) . showSyn) x
-    showSyn (StmtBreak Nothing True) = "continue;\n"
     showSyn (StmtRaise e) = "raise " ++ showSyn e ++ ";\n"
-    showSyn (StmtBreak _ _) = error "showSyn: StmtBreak not a valid combination!"
 
 
 -- | A single statement.
@@ -188,9 +175,6 @@ data SingStmt = StmtAssign LangIdent Expr
               | StmtComment String -- ^ Comment which is - for all intents and purposes - ignored by the parser.
               | StmtStruct LangStruct
               | StmtExpr Expr -- ^ Expression. Evaluates to a literal.
-              | StmtReturn Expr
-              | StmtBreak { breakValue :: Maybe Expr
-                          , breakContinue :: Bool }
               | StmtRaise LangLit
                 deriving (Show, Eq)
 

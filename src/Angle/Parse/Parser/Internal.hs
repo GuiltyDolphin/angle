@@ -97,9 +97,6 @@ multiStmt = MultiStmt <$> between tokMultiStmtStart tokMultiStmtEnd (many (try s
 -- [@break {expr}@] exits early from a loop, and produces the value
 -- @expr@ if supplied, or the last value present in the loop.
 --
--- [@continue@] skips the rest of the body of the current loop and
--- begins the next iteration.
---
 -- [@ident = expr@] assigns the value of @expr@ to the variable
 -- @ident@.
 --
@@ -108,13 +105,11 @@ multiStmt = MultiStmt <$> between tokMultiStmtStart tokMultiStmtEnd (many (try s
 -- Or a structure may be used, see 'langStruct'.
 singStmt :: Parser st SingStmt
 singStmt = try stmtStruct
-           <|> try (stmtReturn <* singStmtEnd)
+           <|> try (stmtExpr   <* singStmtEnd)
            <|> try (stmtRaise <* singStmtEnd)
-           <|> try (stmtBreak <* singStmtEnd)
            <|> try (stmtAssignGlobal <* singStmtEnd)
            <|> try (stmtAssignNonLocal <* singStmtEnd)
            <|> try (stmtAssign <* singStmtEnd)
-           <|> stmtExpr   <* singStmtEnd
            <?> "statement"
 
 
@@ -141,14 +136,6 @@ stmtAssignGlobal = StmtAssignGlobal
                      <*> expr
 
 
-stmtBreak :: Parser st SingStmt
-stmtBreak = sBreak <|> sContinue
-  where sContinue = string "continue" >> return StmtBreak { breakValue=Nothing, breakContinue=True}
-        sBreak = string "break" >> (do
-              retV <- optionMaybe (try (tokNSpaced *> expr))
-              return StmtBreak { breakValue=retV, breakContinue=False})
-
-
 -- Check this (manyTill...)
 stmtComment :: Parser st SingStmt
 stmtComment = StmtComment
@@ -160,11 +147,6 @@ stmtComment = StmtComment
 
 stmtStruct :: Parser st SingStmt
 stmtStruct = liftM StmtStruct langStruct
-
-
-stmtReturn :: Parser st SingStmt
-stmtReturn = liftM StmtReturn (string "return " *> expr)
-               <?> "return construct"
 
 
 stmtExpr :: Parser st SingStmt
@@ -208,8 +190,8 @@ langStruct =     try structIf
 structIf :: Parser st LangStruct
 structIf = StructIf
            <$> (string "if " *> expr)
-           <*> (string " then " *> stmt)
-           <*> optionMaybe (string "else " *> stmt)
+           <*> (surrounded spaces (string "then") *> stmt)
+           <*> optionMaybe (try (string "else " *> stmt))
 
 
 -- | unless EXPR STMT

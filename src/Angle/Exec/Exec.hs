@@ -147,7 +147,6 @@ execExpr x@(ExprRange{}) = do
 execExpr x = error ("execExpr: undefined, could not execute: " ++ showSyn x)
 
 
-
 callPureLambda :: Lambda -> Bool -> [Expr] -> ExecIO LangLit
 callPureLambda lam asClass exprs = do
     pushEnvCall (LangIdent "LAMBDA")
@@ -166,8 +165,6 @@ execExprRange (ExprRange x Nothing (Just z))
 execExprRange (ExprRange x (Just y) (Just z))
     = liftM3 LitRange (execExpr x) (liftM Just $ execExpr y) (liftM Just $ execExpr z)
 execExprRange _ = error "excExprRange: passed non-range expression"
-
-
 
 
 execMultiOp :: LangIdent -> [LangLit] -> ExecIO LangLit
@@ -230,7 +227,6 @@ callLambda (Lambda
 -- | Executes a single statement.
 execStmt :: Stmt -> ExecIO LangLit
 execStmt s@(SingleStmt x pos) = updateStmt s >> updatePos pos >> execSingStmt x
-execStmt (MultiStmt (x@(SingleStmt (StmtReturn _) _):_)) = execStmt x
 execStmt (MultiStmt []) = return LitNull
 execStmt (MultiStmt [x]) = execStmt x
 execStmt (MultiStmt (x:xs)) = execStmt x >> execStmt (MultiStmt xs)
@@ -251,20 +247,17 @@ execSingStmt (StmtExpr x) = do
   setEnvSynRep (showSyn res)
   returnVal res
 execSingStmt (StmtComment _) = return LitNull
-execSingStmt (StmtReturn x) = execReturn x
-execSingStmt (StmtBreak x False) = execBreak x
-execSingStmt (StmtBreak _ True) = throwContinue
 execSingStmt (StmtRaise e) = raiseException e
 
+execContinue :: [LangLit] -> ExecIO LangLit
+execContinue _ = throwContinue
 
-execReturn :: Expr -> ExecIO LangLit
-execReturn x = do
+execReturn :: [LangLit] -> ExecIO LangLit
+execReturn [res] = do
   isGlob <- liftM (isOutermostScope . currentScope) getEnv
   if isGlob
       then throwExecError returnFromGlobalErr
-      else do
-          res <- execExpr x
-          case res of
+      else case res of
               LitLambda lam -> do
                   sc <- getScope
                   let newS = case lambdaScope lam of
@@ -272,13 +265,13 @@ execReturn x = do
                                 Just s -> modifyGlobalScope s (\sc' -> sc' { outerScope = Just sc })
                   throwReturn $ LitLambda lam { lambdaScope = Just newS }
               y -> throwReturn y
+execReturn xs = throwExecError $ wrongNumberOfArgumentsErr (length xs) 1
 
 
-execBreak :: Maybe Expr -> ExecIO LangLit
-execBreak x = case x of
-                Nothing -> throwBreak Nothing
-                Just v  -> execExpr v
-                          >>= returnVal >>= (throwBreak . Just)
+execBreak :: [LangLit] -> ExecIO LangLit
+execBreak [] = throwBreak Nothing
+execBreak [x] = returnVal x >>= (throwBreak . Just)
+execBreak _ = throwExecError $ callBuiltinErr "break: invalid call"
 
 
 raiseException :: LangLit -> ExecIO LangLit
@@ -383,6 +376,9 @@ callBuiltin (LangIdent "global")   xs = builtinArgs xs >>= builtinGlobal
 callBuiltin (LangIdent "local")    xs = builtinArgs xs >>= builtinLocal
 callBuiltin (LangIdent "round")    xs = builtinArgs xs >>= builtinRound
 callBuiltin (LangIdent "for")      xs = builtinArgs xs >>= execFor
+callBuiltin (LangIdent "return")   xs = builtinArgs xs >>= execReturn
+callBuiltin (LangIdent "continue") xs = builtinArgs xs >>= execContinue
+callBuiltin (LangIdent "break")    xs = builtinArgs xs >>= execBreak
 callBuiltin x@(LangIdent n)        xs | n `elem` builtinOps = builtinArgs xs >>= execMultiOp x
 callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
 

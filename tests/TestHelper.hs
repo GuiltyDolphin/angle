@@ -82,13 +82,11 @@ instance Arbitrary SingStmt where
                 [ (7, liftArby2 StmtAssign)
                 , (2, liftArby StmtStruct)
                 , (5, liftArby StmtExpr)
-                , (8, liftArby StmtReturn)
                 ]
     shrink (StmtAssign x y) =
         shrink2 StmtAssign x y
     shrink (StmtStruct x) = shrink1 StmtStruct x
     shrink (StmtExpr x) = shrink1 StmtExpr x
-    shrink (StmtReturn x) = shrink1 StmtReturn x
     shrink _ = undefined
 
 

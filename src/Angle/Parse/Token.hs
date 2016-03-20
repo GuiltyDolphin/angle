@@ -182,17 +182,13 @@ builtinOps = [ "+", "&", "++", "/", "==", ">", ">=", "<", "<="
 
 -- | Angle keywords.
 keywords :: [String]
-keywords = [ "break"
-           , "catch"
-           , "continue"
+keywords = [ "catch"
            , "defun"
            , "else"
            , "false"
-           , "for"
            , "if"
            , "null"
            , "raise"
-           , "return"
            , "then"
            , "true"
            , "try"

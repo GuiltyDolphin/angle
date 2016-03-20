@@ -4,6 +4,8 @@ module Test.Angle.Exec.Exec
 
 import TestHelper
 
+import Angle.Exec.Builtins (isBuiltin)
+
 
 appending :: [a] -> [[a]] -> [a]
 appending x = concatMap (++x)
@@ -14,7 +16,7 @@ setupAddF = appending "\n" [defIsInt, defAddInts]
 
 
 defIsInt :: String
-defIsInt = defun "isInt" "x" "return ==(x, asType(0, x));"
+defIsInt = defun "isInt" "x" "return(==(x, asType(0, x)));"
 
 defAddInts :: String
 defAddInts = defun "addInts" "x:@isInt, y:@isInt" "+(x, y);"
@@ -25,7 +27,7 @@ defun n a b = concat ["defun ", n, "(", a, ") ", b]
 
 
 checkRes :: String -> (LangLit -> Bool) -> Property
-checkRes s r = monadicIO $ runEx s >>= (assert . r)
+checkRes s r = monadicIO $ runExBuiltin s >>= (assert . r)
 
 
 checkFail :: String -> Property
@@ -174,7 +176,7 @@ testClassAdd x y = checkFail toRun
 testReturnSimple :: NonLambda -> Property
 testReturnSimple (NonLambda x) = checkResEq toRun x
   where toRun = setupReturnSimple ++ callShowSyn "returnSimple" [x]
-        setupReturnSimple = defun "returnSimple" "x" "return x;"
+        setupReturnSimple = defun "returnSimple" "x" "return(x);"
 
 
 newtype NonLambda = NonLambda LangLit
@@ -190,7 +192,7 @@ testReturnIfEmbedded :: Bool -> NonLambda -> NonLambda -> Property
 testReturnIfEmbedded p (NonLambda x) (NonLambda y) | p = checkResEq toRun x
                            | otherwise = checkResEq toRun y
   where toRun = setupReturnIfEmbedded ++ callShowSyn "returnIfEmbedded" [LitBool p, x, y]
-        setupReturnIfEmbedded = defun "returnIfEmbedded" "p, x, y" "if p then return x; else return y;"
+        setupReturnIfEmbedded = defun "returnIfEmbedded" "p, x, y" "if p then return(x); else return(y);"
 
 
 testForLoopSimple :: TinyList LangLit -> Property
@@ -201,13 +203,21 @@ testForLoopSimple (TinyList xs) = checkResEq toRun (LitList xs)
 testForLoopBreakSimple :: NonEmptyList LangLit -> Property
 testForLoopBreakSimple (NonEmpty xs) = checkResEq toRun (head xs)
   where
-    toRun = for "i" (showSyn $ LitList xs) (multiStmt ["i;", "break;"])
+    toRun = for "i" (showSyn $ LitList xs) (multiStmt ["i;", "break();"])
 
 
 testForLoopBreakWithValue :: NonEmptyList LangLit -> LangLit -> Property
 testForLoopBreakWithValue (NonEmpty xs) y = checkResEq toRun y
   where
-    toRun = for "i" (showSyn $ LitList xs) (multiStmt ["i;", "break " ++ showSyn y ++ ";"])
+    toRun = for "i" (showSyn $ LitList xs) (multiStmt ["i;", "break(", showSyn y, ");"])
+
+
+testForLoopContinue :: [Int] -> Int -> Property
+testForLoopContinue ys y = checkResEq toRun expected
+  where toRun = for "i" (showSyn $ LitList ls) $ concat ["if ==(i, ", y', ") then continue(); else 1;"]
+        ls = LitInt <$> (y:ys)
+        y' = showSyn $ LitInt y
+        expected = LitList $ (\(LitInt x) -> if x == y then LitInt x else LitInt 1) <$> ls
 
 
 multiStmt :: [String] -> String
@@ -217,6 +227,16 @@ multiStmt xs = concat ["{", concat xs, "}"]
 for :: String -> String -> String -> String
 for ident expr body = concat [ "for(", expr, ", ", lambdaStr, ");"]
   where lambdaStr = concat ["(", ident, ") -> ", body]
+
+
+tryCatch :: String -> String -> String -> String
+tryCatch t c b = concat ["try ", t, " catch ", show c, " { ", b, " }"]
+
+testCatchUndefinedName :: LangIdent -> LangLit -> Property
+testCatchUndefinedName n y = not (isBuiltin n) ==> checkResEq toRun y
+  where toRun = tryCatch (singStmt $ showSyn n) "nameNotDefinedLit" (singStmt $ showSyn y)
+        singStmt = (++";")
+
 
 
 tests :: [TestTree]
@@ -246,6 +266,7 @@ tests = [ testGroup "filter tests"
           [ testProperty "simple for-loop" testForLoopSimple
           , testProperty "for loop break - simple" testForLoopBreakSimple
           , testProperty "for loop break - value" testForLoopBreakWithValue
+          , testProperty "for loop continue" testForLoopContinue
           ]
         , testGroup "builtin functions"
           [ testProperty "length" testBuiltinLength
@@ -253,6 +274,9 @@ tests = [ testGroup "filter tests"
           , testProperty "isNull" testBuiltinIsNull
           , testProperty "index - basic" testBuiltinIndexBasic
           , testProperty "str" testBuiltinStr
+          ]
+        , testGroup "try and catch"
+          [ testProperty "name not defined" testCatchUndefinedName
           ]
         ]
 
