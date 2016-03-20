@@ -16,6 +16,7 @@ module TestHelper
     , runExecIOBasic
     , runExec
     , runEx
+    , runExBuiltin
     , SmallList(..)
     , TinyList(..)
     ) where
@@ -40,6 +41,7 @@ import Angle.Types.Lang
 import Angle.Types.Scope
 import Angle.Parse.Parser (program)
 import Angle.Exec.Exec (execStmt)
+import Angle.Exec.Builtins (initialEnvNotMain)
 
 
 instance Arbitrary LangLit where
@@ -282,19 +284,30 @@ monadicEither = monadic (\e -> case e of
                                  Right r -> r)
 
 
-runExec :: ExecIO a -> IO a
-runExec e = do
-  x <- runExecIOBasic e
+
+runExecEnv :: Env -> ExecIO a -> IO a
+runExecEnv env e = do
+  x <- runExecIOEnv env e
   case x of
-    Left _ -> fail "runExec failed"
+    Left err -> fail $ "runExecBuiltin failed with: " ++ show err
     Right r -> return r
 
+runExec :: ExecIO a -> IO a
+runExec = runExecEnv basicEnv
+
+runExecBuiltin :: ExecIO a -> IO a
+runExecBuiltin = runExecEnv initialEnvNotMain
+
+runExEnv :: Env -> String -> PropertyM IO LangLit
+runExEnv env s = case evalParse s program of
+            Left e -> fail ("Could not parse string: " ++ s ++ "\n" ++ show e)
+            Right r -> run $ runExecEnv env $ execStmt r
 
 runEx :: String -> PropertyM IO LangLit
-runEx s = case evalParse s program of
-            Left e -> fail ("Could not parse string: " ++ s ++ "\n" ++ show e)
-            Right r -> run $ runExec $ execStmt r
--- let (Right r) = evalParse s program in run $ runExec $ execStmt r
+runEx = runExEnv basicEnv
+
+runExBuiltin :: String -> PropertyM IO LangLit
+runExBuiltin = runExEnv initialEnvNotMain
 
 
 instance Arbitrary LangType where

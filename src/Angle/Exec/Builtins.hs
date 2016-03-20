@@ -83,6 +83,7 @@ import Angle.Exec.Error
 import Angle.Exec.Types
 import Angle.Types.Lang
 import Angle.Types.Scope
+import Angle.Parse.Token (builtinOps)
 
 
 emptyArgs :: ArgSig
@@ -174,6 +175,7 @@ builtins = [ "print", "str"
            , "local", "nonlocal", "global"
            , "shell"
            , "round"]
+           ++ builtinOps
 
 
 -- | List of builtin variables and their values.

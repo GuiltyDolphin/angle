@@ -31,6 +31,7 @@ import Angle.Exec.Scope
 import Angle.Exec.Types
 import Angle.Types.Lang
 import Angle.Types.Scope
+import Angle.Parse.Token (builtinOps)
 
 
 bindArgs :: [Expr] -> ArgSig -> ExecIO ()
@@ -61,7 +62,7 @@ bindArgs args (ArgSig
                         [(_, r)] -> checkSatConstr r (Just cstr) (fromMaybe [] constrArgs)
                         _ -> undefined
   newScope
-  forM_ vals (uncurry assignVarLocal)
+  forM_ (vals ++ catchBind) (uncurry assignVarLocal)
   return ()
 
 
@@ -136,16 +137,14 @@ execExpr (ExprLit (LitClosure lam)) = do
     returnVal . LitLambda $ lam { lambdaScope = Just currScope }
 execExpr (ExprLit x) = returnVal x
 execExpr (ExprIdent x) = lookupVarLocal x
-execExpr (ExprFunCall name asClass args)
-  | isSymbolIdent name && isBuiltinOp name = execOp name args
-  | otherwise = execFunCall name asClass args
+execExpr (ExprFunCall name asClass args) = execFunCall name asClass args
 execExpr (ExprList xs) = liftM LitList $ mapM execExpr xs
 execExpr (ExprLambdaCall f xs) = callPureLambda f False xs
 execExpr x@(ExprRange{}) = do
   r <- execExprRange x
   checkLitRange r
   returnVal r
-execExpr _ = undefined
+execExpr x = error ("execExpr: undefined, could not execute: " ++ showSyn x)
 
 
 
@@ -169,38 +168,32 @@ execExprRange (ExprRange x (Just y) (Just z))
 execExprRange _ = error "excExprRange: passed non-range expression"
 
 
-execFunCall :: LangIdent -> Bool -> [Expr] -> ExecIO LangLit
-execFunCall = callFun
 
 
-execOp :: LangIdent -> [Expr] -> ExecIO LangLit
-execOp = execMultiOp
-
-
-execMultiOp :: LangIdent -> [Expr] -> ExecIO LangLit
-execMultiOp (LangIdent "+")  xs = withMultiOp xs addLit
-execMultiOp (LangIdent "&")  xs = withMultiOp xs andLit
-execMultiOp (LangIdent "++") xs = withMultiOp xs concatLit
-execMultiOp (LangIdent "/")  xs = withMultiOp xs divLit
-execMultiOp (LangIdent "==") xs = withMultiOp xs eqLit
-execMultiOp (LangIdent "**") xs = withMultiOp xs expLit
-execMultiOp (LangIdent ">")  xs = withMultiOp xs greaterLit
-execMultiOp (LangIdent ">=") xs = withMultiOp xs greaterEqLit
-execMultiOp (LangIdent "<")  xs = withMultiOp xs lessLit
-execMultiOp (LangIdent "<=") xs = withMultiOp xs lessEqLit
-execMultiOp (LangIdent "*")  xs = withMultiOp xs multLit
-execMultiOp (LangIdent "^")  xs = withMultiOp xs notLit
-execMultiOp (LangIdent "|")  xs = withMultiOp xs orLit
-execMultiOp (LangIdent "-")  xs = withMultiOp xs subLit
-execMultiOp x _ = throwImplementationErr $ "execMultiOp - not a built-in operator: " ++ show x
+execMultiOp :: LangIdent -> [LangLit] -> ExecIO LangLit
+execMultiOp (LangIdent "+")  = addLit
+execMultiOp (LangIdent "&")  = andLit
+execMultiOp (LangIdent "++") = concatLit
+execMultiOp (LangIdent "/")  = divLit
+execMultiOp (LangIdent "==") = eqLit
+execMultiOp (LangIdent "**") = expLit
+execMultiOp (LangIdent ">")  = greaterLit
+execMultiOp (LangIdent ">=") = greaterEqLit
+execMultiOp (LangIdent "<")  = lessLit
+execMultiOp (LangIdent "<=") = lessEqLit
+execMultiOp (LangIdent "*")  = multLit
+execMultiOp (LangIdent "^")  = notLit
+execMultiOp (LangIdent "|")  = orLit
+execMultiOp (LangIdent "-")  = subLit
+execMultiOp x = \_ -> throwImplementationErr $ "execMultiOp - not a built-in operator: " ++ show x
 
 
 withMultiOp :: [Expr] -> ([LangLit] -> ExecIO LangLit) -> ExecIO LangLit
 withMultiOp xs f = mapM execExpr xs >>= f
 
 
-callFun :: LangIdent -> Bool -> [Expr] -> ExecIO LangLit
-callFun x asClass args
+execFunCall :: LangIdent -> Bool -> [Expr] -> ExecIO LangLit
+execFunCall x asClass args
     | isBuiltin x = callBuiltin x args
     | otherwise = do
         l <- lookupVarLocal x
@@ -387,6 +380,7 @@ callBuiltin (LangIdent "nonlocal") xs = builtinArgs xs >>= builtinNonLocal
 callBuiltin (LangIdent "global")   xs = builtinArgs xs >>= builtinGlobal
 callBuiltin (LangIdent "local")    xs = builtinArgs xs >>= builtinLocal
 callBuiltin (LangIdent "round")    xs = builtinArgs xs >>= builtinRound
+callBuiltin x@(LangIdent n)        xs | n `elem` builtinOps = builtinArgs xs >>= execMultiOp x
 callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
 
 
