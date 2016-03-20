@@ -263,10 +263,10 @@ exprLit = liftM ExprLit langLit
 -- | Language literals.
 langLit :: Parser st LangLit
 langLit = try litStr
+          <|> try litLambda
           <|> try litNull
           <|> try litChar
           <|> try litClosure
-          <|> try litLambda
           <|> try litRange
           <|> try litBool
           <|> try litList
@@ -417,8 +417,9 @@ langIdent = identName
 --
 -- References a lambda that performs basic addition.
 lambda :: Parser st Lambda
-lambda = parens $ do
-    args <- callList <* tokNSpaced
+lambda = do
+    args <- callList <* spaces
+    symbol "->"
     body <- stmt
     return $ Lambda args body Nothing
 

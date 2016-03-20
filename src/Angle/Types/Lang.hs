@@ -243,8 +243,8 @@ data Lambda = Lambda { lambdaArgs :: ArgSig
 
 instance ShowSyn Lambda where
     showSyn (Lambda args body@(SingleStmt _ _) _)
-         = concat ["(", showSyn args, " ", init $ showSyn body, ")"]
-    showSyn (Lambda args body _) = concat ["(", showSyn args, " ", showSyn body, ")"]
+         = concat [showSyn args, " -> ", init $ showSyn body]
+    showSyn (Lambda args body _) = concat [showSyn args, " -> ", showSyn body]
 
 
 -- | An argument signature.

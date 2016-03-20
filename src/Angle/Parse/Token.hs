@@ -42,6 +42,7 @@ module Angle.Parse.Token
     , brackets
     , comma
     , parens
+    , symbol
     , tokOpChar
     , tokEltSep
     ) where
@@ -213,6 +214,10 @@ parens sc = between tokParenL tokParenR sc
 
 brackets :: Parser st a -> Parser st a
 brackets = between (char '[' <* spaces) (spaces *> char ']')
+
+
+symbol :: String -> Parser st String
+symbol = P.symbol angleLexer
 
 
 stringNorm :: Parser st String
