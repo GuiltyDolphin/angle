@@ -310,7 +310,7 @@ exprList = liftM ExprList (tokList $ sepEndBy expr tokEltSep)
 
 
 exprRange :: Parser st Expr
-exprRange = parens $ do
+exprRange = brackets $ do
               from <- expr
               string ".."
               to <- optionMaybe expr
@@ -366,7 +366,7 @@ litChar = liftM LitChar tokChar
 -- [@(start....step)@] range from start to maxmimum bound of type,
 -- incrementing by step.
 litRange :: Parser st LangLit
-litRange = try $ parens $ do
+litRange = try $ brackets $ do
              from <- langLit
              string ".."
              to <- optionMaybe langLit

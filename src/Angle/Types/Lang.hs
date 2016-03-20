@@ -351,12 +351,12 @@ instance ShowSyn LangLit where
     showSyn (LitBool x) = if x then "true" else "false"
     showSyn (LitRange x y z) = showRange
         where showRange
-                  = concat [ "("
+                  = concat [ "["
                            , showSyn x
                            , ".."
                            , maybe "" showSyn y
                            , maybe "" ((".." ++) . showSyn) z
-                           , ")" ]
+                           , "]" ]
 
     showSyn LitNull = "null"
     showSyn (LitLambda x) = showSyn x

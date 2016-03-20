@@ -39,6 +39,7 @@ module Angle.Parse.Token
     , ident
     , validSymbolIdentChars
     , builtinOps
+    , brackets
     , comma
     , parens
     , tokOpChar
@@ -208,6 +209,10 @@ parens sc = between tokParenL tokParenR sc
   where
     tokParenL = char '(' <* spaces
     tokParenR = spaces *> char ')'
+
+
+brackets :: Parser st a -> Parser st a
+brackets = between (char '[' <* spaces) (spaces *> char ']')
 
 
 stringNorm :: Parser st String
