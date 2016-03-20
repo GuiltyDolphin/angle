@@ -193,21 +193,11 @@ stmtRaise = string "raise " >> liftM StmtRaise langLit
 -- [@defun ident(args) stmt@] defines a function @ident@ that has
 -- a parameter list @args@ and body @stmt@.
 langStruct :: Parser st LangStruct
-langStruct =     try structFor
-             <|> try structIf
+langStruct =     try structIf
              <|> try structUnless
              <|> try structDefun
              <|> structTryCatch
              <?> "language construct"
-
-
--- | For loop.
-structFor :: Parser st LangStruct
-structFor = do
-  name <- string "for " *> langIdent
-  iter <- string " in " *> expr
-  body <- string " do " *> stmt
-  return $ StructFor name iter body
 
 
 -- | Conditional if statement.

@@ -57,10 +57,6 @@ skipping the rest of the loop body.
 == Language structures #structures#
 In Angle, there exist language structures for performing certain tasks.
 
-[@for loops@ : 'StructFor'] a looping structure that iterates over the elements
-of an enumerable type and allows each to be used within the body
-individually.
-
 [@if statement@ : 'StructIf'] categorized as a structure for
 convenience, consists of three parts: a condition, a body of code
 that will execute if the condition holds, and an optional body that
@@ -200,18 +196,13 @@ data SingStmt = StmtAssign LangIdent Expr
 
 
 -- | Specialised language constructs.
-data LangStruct = StructFor LangIdent Expr Stmt
-                | StructIf Expr Stmt (Maybe Stmt)
+data LangStruct = StructIf Expr Stmt (Maybe Stmt)
                 | StructDefun LangIdent Lambda
                 | StructTryCatch Stmt [([LangLit], Stmt)]
                   deriving (Show, Eq)
 
 
 instance ShowSyn LangStruct where
-    showSyn (StructFor n e s) =
-        concat [ "for ", showSyn n
-               , " in ", showSyn e
-               , " do ", showSyn s]
     showSyn (StructIf e s els)
         = concat [ "if "   , showSyn e
                  , " then ", showSyn s] ++

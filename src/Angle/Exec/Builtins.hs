@@ -174,6 +174,7 @@ builtins = [ "print", "str"
            , "include"
            , "local", "nonlocal", "global"
            , "shell"
+           , "for"
            , "round"]
            ++ builtinOps
 

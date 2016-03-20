@@ -298,8 +298,6 @@ raiseException e = do
 
 
 execLangStruct :: LangStruct -> ExecIO LangLit
-execLangStruct (StructFor name e s)
-    = execStructFor name e s `catchBreak` maybe (getEnvValue >>= returnVal) returnVal
 execLangStruct (StructIf if' thn els)
     = execStructIf if' thn els
 execLangStruct (StructDefun name cs)
@@ -320,17 +318,21 @@ execStructIf if' thn els = do
     x               -> throwExecError $ typeUnexpectedErr (typeOf x) LTBool
 
 
-execStructFor :: LangIdent -> Expr -> Stmt -> ExecIO LangLit
-execStructFor name e s = do
-  iterable <- execExpr e >>= fromIter
+execFor :: [LangLit] -> ExecIO LangLit
+execFor [e, s] = (do
+  iterable <- fromIter e
+  lambda <- case s of
+            LitLambda l -> pure l
+            x -> throwExecError $ typeUnexpectedErr (typeOf x) LTLambda
   outScope <- liftM currentScope getEnv
-  res <- forM iterable (\v -> do
-                   assignVarLocal name v
-                   execStmt s `catchContinue` getEnvValue)
+  res <- forM iterable (\v -> let body = newCall lambda v
+                            in execExpr body `catchContinue` getEnvValue)
   newS <- liftM currentScope getEnv
-  let newS' = deleteFromScope name newS
+  let newS' = deleteFromScope (LangIdent "_") newS
   modifyScope (const $ mergeScope newS' outScope)
-  returnVal (LitList res)
+  returnVal (LitList res)) `catchBreak` maybe (getEnvValue >>= returnVal) returnVal
+  where newCall l v = ExprLambdaCall l [ExprLit v]
+execFor _ = throwExecError $ callBuiltinErr "for: invalid call signature"
 
 
 execStructTryCatch :: Stmt -> [([LangLit], Stmt)] -> ExecIO LangLit
@@ -380,6 +382,7 @@ callBuiltin (LangIdent "nonlocal") xs = builtinArgs xs >>= builtinNonLocal
 callBuiltin (LangIdent "global")   xs = builtinArgs xs >>= builtinGlobal
 callBuiltin (LangIdent "local")    xs = builtinArgs xs >>= builtinLocal
 callBuiltin (LangIdent "round")    xs = builtinArgs xs >>= builtinRound
+callBuiltin (LangIdent "for")      xs = builtinArgs xs >>= execFor
 callBuiltin x@(LangIdent n)        xs | n `elem` builtinOps = builtinArgs xs >>= execMultiOp x
 callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
 

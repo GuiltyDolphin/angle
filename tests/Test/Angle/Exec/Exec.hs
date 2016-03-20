@@ -215,8 +215,7 @@ multiStmt xs = concat ["{", concat xs, "}"]
 
 
 for :: String -> String -> String -> String
-for ident expr body = concat [ "for ", ident, " in "
-                             , expr, " do ", body]
+for ident expr body = concat [ "for(", expr, ", ", "((", ident, ") ", body, "));"]
 
 
 tests :: [TestTree]
