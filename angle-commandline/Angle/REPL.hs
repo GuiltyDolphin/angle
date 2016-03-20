@@ -45,7 +45,8 @@ runLine s = do
   case evalParse r stmt of
               Left err -> liftIO $ print err
               Right res -> do
-                toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
+                envBefore <- getEnv
+                toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> updateEnv envBefore >> throwError e)
                 let toShow = case toPrint of
                                 (LitList xs) -> let fpart = LitList (take 10 xs)
                                                     spart = LitList (reverse $ take 5 $ reverse xs)
