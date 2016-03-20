@@ -105,6 +105,9 @@ data CallStack = CallStack
     } deriving (Show, Eq)
 
 
+stackDepth :: CallStack -> Int
+stackDepth = length . currentStack
+
 startStack :: CallStack
 startStack = CallStack { currentStack = []
                        , currentName = LangIdent "MODULE" }
@@ -184,6 +187,9 @@ popEnvCall = do
     put currEnv { callStack = newCallStack }
 
 
+maxStackDepth :: Int
+maxStackDepth = 1000
+
 pushEnvCall :: LangIdent -> ExecIO ()
 pushEnvCall newCall = do
     currEnv <- getEnv
@@ -191,9 +197,12 @@ pushEnvCall newCall = do
         oldName = currentName currStack
         oldStmt = currentStmt currStack
         oldStack = currentStack currStack
+        currDepth = stackDepth currStack
         newStack = (oldName, oldStmt) : oldStack
         newCallStack = currStack { currentName = newCall, currentStack = newStack }
-    put currEnv { callStack = newCallStack }
+    if currDepth >= maxStackDepth
+    then throwExecError $ stackDepthErr currDepth
+    else put currEnv { callStack = newCallStack }
 
 
 updateStmt :: Stmt -> ExecIO ()

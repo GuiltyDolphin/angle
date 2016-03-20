@@ -32,6 +32,7 @@ module Angle.Exec.Error
     , callBuiltinErr
     , malformedSignatureErr
     , wrongNumberOfArgumentsErr
+    , stackDepthErr
 
 
     -- ** Keyword errors
@@ -411,6 +412,7 @@ instance KWError NameError where
 data CallError = WrongNumberOfArguments Int Int
                | BuiltIn String
                | MalformedSignature String
+               | StackDepth Int
     deriving (Eq)
 
 
@@ -428,17 +430,23 @@ callBuiltinErr = callErr . BuiltIn
 malformedSignatureErr :: String -> ExecError
 malformedSignatureErr = callErr . MalformedSignature
 
+-- | Stack depth is too great.
+stackDepthErr :: Int -> ExecError
+stackDepthErr = callErr . StackDepth
+
 
 instance Show CallError where
     show (WrongNumberOfArguments x y) = "wrong number of arguments: expected " ++ show x ++ " but got " ++ show y
     show (BuiltIn x) = "builtin: " ++ x
     show (MalformedSignature x) = "malformed signature: " ++ x
+    show (StackDepth n) = "maximum stack depth reached: " ++ show n
 
 
 instance KWError CallError where
     errToKeyword (WrongNumberOfArguments{}) = LitStr "wrongNumberOfArguments"
     errToKeyword (BuiltIn{}) = LitStr "builtin"
     errToKeyword (MalformedSignature{}) = LitStr "malformedSignature"
+    errToKeyword (StackDepth{}) = LitStr "stackDepth"
     genErrKeyword _ = LitStr "callError"
 
 
