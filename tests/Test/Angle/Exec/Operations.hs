@@ -14,11 +14,12 @@ testAndLitBool xs = monadicIO $ do
                       res <- run $ runExec $ andLit (map LitBool xs)
                       assertEqual (LitBool $ and xs) res
 
+
 testPassAddAsFunction :: Int -> Int -> Property
 testPassAddAsFunction x y
   = monadicIO $ do
     res <- runExBuiltin $ concat
-      ["defun foo(f) f(", show x, ", ", show y,  "); foo(+);"]
+      ["foo = (f) -> f(", show x, ", ", show y,  ");; foo(+);"]
     assertEqual (LitInt (x + y)) res
 
 

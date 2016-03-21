@@ -297,9 +297,6 @@ raiseException e = do
 execLangStruct :: LangStruct -> ExecIO LangLit
 execLangStruct (StructIf if' thn els)
     = execStructIf if' thn els
-execLangStruct (StructDefun name cs)
-    = let lambda = LitLambda cs
-      in assignVarLocal name lambda *> return lambda
 execLangStruct (StructTryCatch b cs)
     = execStructTryCatch b cs
 

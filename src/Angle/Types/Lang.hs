@@ -52,9 +52,6 @@ convenience, consists of three parts: a condition, a body of code
 that will execute if the condition holds, and an optional body that
 will execute if the condition does not hold.
 
-[@function definitions@ : 'StructDefun'] allows the assignment of previously
-non-existant lambda bodies to a name.
-
 [@try catch@ : 'StructTryCatch'] allows basic handling of exceptions.
 -}
 module Angle.Types.Lang
@@ -176,7 +173,6 @@ data SingStmt = StmtAssign LangIdent Expr
 
 -- | Specialised language constructs.
 data LangStruct = StructIf Expr Stmt (Maybe Stmt)
-                | StructDefun LangIdent Lambda
                 | StructTryCatch Stmt [([LangLit], Stmt)]
                   deriving (Show, Eq)
 
@@ -188,8 +184,6 @@ instance ShowSyn LangStruct where
           case els of
             Nothing -> ""
             Just x  -> " else " ++ showSyn x
-    showSyn (StructDefun n c)
-        = concat ["defun ", showSyn n, showLambdaFun c]
     showSyn (StructTryCatch s es) = "try " ++ showSyn s ++ concatMap showCatch es
       where
         showCatch (toCatch, b) = "\ncatch " ++ es' toCatch ++ showSyn b

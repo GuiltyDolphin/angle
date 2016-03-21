@@ -23,7 +23,7 @@ defAddInts = defun "addInts" "x:@isInt, y:@isInt" "+(x, y);"
 
 
 defun :: String -> String -> String -> String
-defun n a b = concat ["defun ", n, "(", a, ") ", b]
+defun n a b = concat [n, " = (", a, ") -> ", b, ";"]
 
 
 checkRes :: String -> (LangLit -> Bool) -> Property

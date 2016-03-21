@@ -166,13 +166,9 @@ stmtExpr = liftM StmtExpr expr
 --
 -- [@unless expr stmt@] if @expr@ evaluates to @false@ then execute
 -- @stmt@, otherwise produce a null value.
---
--- [@defun ident(args) stmt@] defines a function @ident@ that has
--- a parameter list @args@ and body @stmt@.
 langStruct :: Parser st LangStruct
 langStruct =     try structIf
              <|> try structUnless
-             <|> try structDefun
              <|> structTryCatch
              <?> "language construct"
 
@@ -201,15 +197,6 @@ structUnless = do
   s <- stmt
   els <- optionMaybe $ string "else " *> stmt
   return $ StructIf (ExprFunCall (LangIdent "^") False [e]) s els
-
-
--- | Function definition.
-structDefun :: Parser st LangStruct
-structDefun = StructDefun
-              <$> (string "defun " *> identName)
-              <*> (Lambda
-                   <$> callList <* tokStmtBetween
-                   <*> stmt <*> return Nothing)
 
 
 -- | Exception handling.

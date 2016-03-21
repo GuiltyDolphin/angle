@@ -91,12 +91,8 @@ instance Arbitrary SingStmt where
 
 
 instance Arbitrary LangStruct where
-    arbitrary = frequency
-                [ (3, liftM3 StructIf arbitrary (liftArby MultiStmt) arbitrary)
-                , (1, liftArby2 StructDefun)
-                ]
+    arbitrary = liftM3 StructIf arbitrary (liftArby MultiStmt) arbitrary
     shrink (StructIf x y z) = shrink3 StructIf x y z
-    shrink (StructDefun x y) = shrink2 StructDefun x y
     shrink (StructTryCatch x y) = shrink2 StructTryCatch x y
 
 
