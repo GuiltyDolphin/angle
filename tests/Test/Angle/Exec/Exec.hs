@@ -238,6 +238,16 @@ testCatchUndefinedName n y = not (isBuiltin n) ==> checkResEq toRun y
         singStmt = (++";")
 
 
+testRaiseAny :: LangLit -> Property
+testRaiseAny toRaise = checkFail toRun
+  where toRun = "raise(" ++ showSyn toRaise ++ ");"
+
+
+testRaiseCatch :: LangLit -> Property
+testRaiseCatch toRaise = checkResEq toRun LitNull
+  where toRun = concat [ "try { raise(", showSyn toRaise, "); } "
+                       , "catch ", showSyn toRaise, " {}"]
+
 
 tests :: [TestTree]
 tests = [ testGroup "filter tests"
@@ -277,6 +287,10 @@ tests = [ testGroup "filter tests"
           ]
         , testGroup "try and catch"
           [ testProperty "name not defined" testCatchUndefinedName
+          ]
+        , testGroup "raise"
+          [ testProperty "raising anything with no catch produces exception" testRaiseAny
+          , testProperty "raise then catch same with empty body" testRaiseCatch
           ]
         ]
 

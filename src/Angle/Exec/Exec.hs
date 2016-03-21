@@ -247,7 +247,6 @@ execSingStmt (StmtExpr x) = do
   setEnvSynRep (showSyn res)
   returnVal res
 execSingStmt (StmtComment _) = return LitNull
-execSingStmt (StmtRaise e) = raiseException e
 
 execContinue :: [LangLit] -> ExecIO LangLit
 execContinue _ = throwContinue
@@ -272,6 +271,11 @@ execBreak :: [LangLit] -> ExecIO LangLit
 execBreak [] = throwBreak Nothing
 execBreak [x] = returnVal x >>= (throwBreak . Just)
 execBreak _ = throwExecError $ callBuiltinErr "break: invalid call"
+
+
+execRaise :: [LangLit] -> ExecIO LangLit
+execRaise [x] = raiseException x
+execRaise xs = throwExecError $ wrongNumberOfArgumentsErr (length xs) 1
 
 
 raiseException :: LangLit -> ExecIO LangLit
@@ -379,6 +383,7 @@ callBuiltin (LangIdent "for")      xs = builtinArgs xs >>= execFor
 callBuiltin (LangIdent "return")   xs = builtinArgs xs >>= execReturn
 callBuiltin (LangIdent "continue") xs = builtinArgs xs >>= execContinue
 callBuiltin (LangIdent "break")    xs = builtinArgs xs >>= execBreak
+callBuiltin (LangIdent "raise")    xs = builtinArgs xs >>= execRaise
 callBuiltin x@(LangIdent n)        xs | n `elem` builtinOps = builtinArgs xs >>= execMultiOp x
 callBuiltin (LangIdent x) _ = throwImplementationErr $ "callBuiltin - not a builtin function: " ++ x
 

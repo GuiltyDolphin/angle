@@ -44,9 +44,6 @@ to document or explain parts of code.
 
 [@expressions@] see 'Expr'
 
-[@raise@] allows the user to throw exceptions.
-
-
 == Language structures #structures#
 In Angle, there exist language structures for performing certain tasks.
 
@@ -165,7 +162,6 @@ instance ShowSyn SingStmt where
     showSyn (StmtStruct x) = showSyn x
     showSyn (StmtExpr e) = showSyn e ++ ";\n"
     showSyn (StmtComment x) = "#" ++ x ++ "\n"
-    showSyn (StmtRaise e) = "raise " ++ showSyn e ++ ";\n"
 
 
 -- | A single statement.
@@ -175,7 +171,6 @@ data SingStmt = StmtAssign LangIdent Expr
               | StmtComment String -- ^ Comment which is - for all intents and purposes - ignored by the parser.
               | StmtStruct LangStruct
               | StmtExpr Expr -- ^ Expression. Evaluates to a literal.
-              | StmtRaise LangLit
                 deriving (Show, Eq)
 
 

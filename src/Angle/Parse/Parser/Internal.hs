@@ -106,7 +106,6 @@ multiStmt = MultiStmt <$> between tokMultiStmtStart tokMultiStmtEnd (many (try s
 singStmt :: Parser st SingStmt
 singStmt = try stmtStruct
            <|> try (stmtExpr   <* singStmtEnd)
-           <|> try (stmtRaise <* singStmtEnd)
            <|> try (stmtAssignGlobal <* singStmtEnd)
            <|> try (stmtAssignNonLocal <* singStmtEnd)
            <|> try (stmtAssign <* singStmtEnd)
@@ -151,10 +150,6 @@ stmtStruct = liftM StmtStruct langStruct
 
 stmtExpr :: Parser st SingStmt
 stmtExpr = liftM StmtExpr expr
-
-
-stmtRaise :: Parser st SingStmt
-stmtRaise = string "raise " >> liftM StmtRaise langLit
 
 
 -- | Language structure.
