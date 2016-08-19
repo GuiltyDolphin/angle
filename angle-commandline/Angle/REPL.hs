@@ -18,6 +18,8 @@ import Data.List (elemIndices, isSuffixOf)
 import System.Directory (canonicalizePath)
 import System.IO (stdout, hFlush)
 
+import System.Console.Haskeline
+
 import Angle.Exec.Types
 import Angle.Types.Lang
 import Angle.Parse.Parser
@@ -25,6 +27,10 @@ import Angle.Exec.Exec
 import Angle.Exec.Builtins
 
 import Angle.Options
+
+
+instance MonadException ExecIO where
+    controlIO f = join . liftIO $ f (RunIO pure)
 
 
 -- | When user is entering input over multiple lines, consolidate this
@@ -38,20 +44,21 @@ collectLine s multi =
   else return s
 
 
--- | Parse and execute a line of user input.
-runLine :: String -> ExecIO ()
+-- | Parse a line of user input and produce a text response.
+runLine :: String -> ExecIO String
 runLine s = do
   r <- collectLine s 0
   let norm = normalizeStmt r
   case evalParse norm stmt of
-              Left err -> liftIO $ print err
+              Left err -> pure $ show err
               Right res -> do
-                toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
-                let toShow = case toPrint of
-                                (LitList xs) -> showList xs toPrint
-                                (LitStr xs) -> showStr xs toPrint
-                                _ -> showSyn toPrint
-                liftIO $ putStrLn toShow
+                toPrint <- (fmap Right $ execStmt res) `catchError` (\e -> pure (Left $ show e))
+                pure $ case toPrint of
+                         Left s -> s
+                         Right r -> case r of
+                                      (LitList xs) -> showList xs r
+                                      (LitStr xs) -> showStr xs r
+                                      _ -> showSyn r
   where normalizeStmt xs = let hasSemi = isSuffixOf ";" xs
                            in if hasSemi then xs else if null xs then xs else xs ++ ";"
         showList xs toPrint = let fpart = LitList (take 10 xs)
@@ -125,12 +132,17 @@ getInteractiveFile fp = do
 
 -- | Runs a REPL using the Angle programming language.
 interactiveMode :: ExecIO ()
-interactiveMode = do
-  userInput <- liftIO $ prompt "> "
-  unless (userInput=="exit")
-           (do
-             runLine userInput `catchError` const interactiveMode
-             interactiveMode)
+interactiveMode = runInputT defaultSettings loop
+  where loop :: InputT ExecIO ()
+        loop = do
+          userInput <- getInputLine "> "
+          case userInput of
+            Nothing -> pure ()
+            Just "exit" -> pure ()
+            Just input -> do
+             s <- lift $ runLine input
+             outputStrLn s
+             loop
 
 
 prompt :: String -> IO String
