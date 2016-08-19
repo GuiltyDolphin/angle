@@ -87,10 +87,7 @@ printSyn = putStrLn . showSyn
 
 -- | Run interactive mode using the files as initial input.
 interactiveWithFiles :: [FilePath] -> ExecIO ()
-interactiveWithFiles fs = do
-    mapM_ getInteractiveFile fs
-    interactiveMode
-    return ()
+interactiveWithFiles fs = mapM_ getInteractiveFile fs >> interactiveMode
 
 -- interactiveWithFiles fs = do
 --     fileSources <- liftIO $ mapM readFile fs
