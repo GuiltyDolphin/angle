@@ -48,20 +48,22 @@ runLine s = do
               Right res -> do
                 toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
                 let toShow = case toPrint of
-                                (LitList xs) -> let fpart = LitList (take 10 xs)
-                                                    spart = LitList (reverse $ take 5 $ reverse xs)
-                                                in if length xs > 100
-                                                  then init (showSyn fpart) ++ ", ..., " ++ tail (showSyn spart)
-                                                  else showSyn toPrint
-                                (LitStr xs) -> if length xs > 2000
-                                              then let fpart = LitStr (take 1000 xs)
-                                                       spart = LitStr (reverse $ take 1000 $ reverse xs)
-                                                   in init (showSyn fpart) ++ "\n<LONG TEXT OMITTED>\n" ++ tail (showSyn spart)
-                                              else showSyn toPrint
+                                (LitList xs) -> showList xs toPrint
+                                (LitStr xs) -> showStr xs toPrint
                                 _ -> showSyn toPrint
                 liftIO $ putStrLn toShow
   where normalizeStmt xs = let hasSemi = isSuffixOf ";" xs
                            in if hasSemi then xs else if null xs then xs else xs ++ ";"
+        showList xs toPrint = let fpart = LitList (take 10 xs)
+                                  spart = LitList (reverse $ take 5 $ reverse xs)
+                              in if length xs > 100
+                                 then init (showSyn fpart) ++ ", ..., " ++ tail (showSyn spart)
+                                 else showSyn toPrint
+        showStr xs toPrint = if length xs > 2000
+                             then let fpart = LitStr (take 1000 xs)
+                                      spart = LitStr (reverse $ take 1000 $ reverse xs)
+                                  in init (showSyn fpart) ++ "\n<LONG TEXT OMITTED>\n" ++ tail (showSyn spart)
+                             else showSyn toPrint
 
 
 incMultiBy :: String -> Int
