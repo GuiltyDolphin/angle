@@ -14,7 +14,7 @@ import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State (put)
 import Data.Either (lefts, rights)
-import Data.List (elemIndices)
+import Data.List (elemIndices, isSuffixOf)
 import System.Directory (canonicalizePath)
 import System.IO (stdout, hFlush)
 
@@ -42,7 +42,8 @@ collectLine s multi =
 runLine :: String -> ExecIO ()
 runLine s = do
   r <- collectLine s 0
-  case evalParse r stmt of
+  let norm = normalizeStmt r
+  case evalParse norm stmt of
               Left err -> liftIO $ print err
               Right res -> do
                 toPrint <- execStmt res `catchError` (\e -> liftIO (print e) >> throwError e)
@@ -59,6 +60,8 @@ runLine s = do
                                               else showSyn toPrint
                                 _ -> showSyn toPrint
                 liftIO $ putStrLn toShow
+  where normalizeStmt xs = let hasSemi = isSuffixOf ";" xs
+                           in if hasSemi then xs else if null xs then xs else xs ++ ";"
 
 
 incMultiBy :: String -> Int
