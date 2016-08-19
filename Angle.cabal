@@ -9,7 +9,7 @@ license-file:        LICENSE
 author:              Ben Moon
 maintainer:          guiltydolphin@gmail.com
 copyright:           Ben Moon 2015
--- category:
+category:            Compilers/Interpreters
 build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
