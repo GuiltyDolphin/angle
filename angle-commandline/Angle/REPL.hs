@@ -35,21 +35,24 @@ instance MonadException ExecIO where
 
 -- | When user is entering input over multiple lines, consolidate this
 -- into a single statement.
-collectLine :: String -> Int -> ExecIO String
+collectLine :: String -> Int -> InputT ExecIO String
 collectLine s multi =
-  if multi + incMultiBy s > 0
+  let newMulti = multi + incMultiBy s
+  in if newMulti > 0
   then do
-    nxt <- liftIO getLine
-    liftM (s++) $ collectLine nxt (multi + incMultiBy s)
+    nxt <- getInputLineWithInitial "> " (concat $ replicate newMulti "  ", "")
+    case nxt of
+      Nothing -> collectLine s multi
+      Just n -> liftM (s++) $ collectLine n newMulti
   else return s
+  where incMultiBy :: String -> Int
+        incMultiBy xs = count '{' xs - count '}' xs
 
 
 -- | Parse a line of user input and produce a text response.
 runLine :: String -> ExecIO String
 runLine s = do
-  r <- collectLine s 0
-  let norm = normalizeStmt r
-  case evalParse norm stmt of
+  case evalParse s stmt of
               Left err -> pure $ show err
               Right res -> do
                 toPrint <- (fmap Right $ execStmt res) `catchError` (\e -> pure (Left $ show e))
@@ -59,22 +62,16 @@ runLine s = do
                                       (LitList xs) -> showList xs r
                                       (LitStr xs) -> showStr xs r
                                       _ -> showSyn r
-  where normalizeStmt xs = let hasSemi = isSuffixOf ";" xs
-                           in if hasSemi then xs else if null xs then xs else xs ++ ";"
-        showList xs toPrint = let fpart = LitList (take 10 xs)
-                                  spart = LitList (reverse $ take 5 $ reverse xs)
-                              in if length xs > 100
-                                 then init (showSyn fpart) ++ ", ..., " ++ tail (showSyn spart)
-                                 else showSyn toPrint
-        showStr xs toPrint = if length xs > 2000
-                             then let fpart = LitStr (take 1000 xs)
-                                      spart = LitStr (reverse $ take 1000 $ reverse xs)
-                                  in init (showSyn fpart) ++ "\n<LONG TEXT OMITTED>\n" ++ tail (showSyn spart)
-                             else showSyn toPrint
-
-
-incMultiBy :: String -> Int
-incMultiBy xs = count '{' xs - count '}' xs
+    where showList xs toPrint = let fpart = LitList (take 10 xs)
+                                    spart = LitList (reverse $ take 5 $ reverse xs)
+                                in if length xs > 100
+                                   then init (showSyn fpart) ++ ", ..., " ++ tail (showSyn spart)
+                                   else showSyn toPrint
+          showStr xs toPrint = if length xs > 2000
+                               then let fpart = LitStr (take 1000 xs)
+                                        spart = LitStr (reverse $ take 1000 $ reverse xs)
+                                    in init (showSyn fpart) ++ "\n<LONG TEXT OMITTED>\n" ++ tail (showSyn spart)
+                               else showSyn toPrint
 
 
 count :: Eq a => a -> [a] -> Int
@@ -136,10 +133,14 @@ interactiveMode = runInputT defaultSettings loop
           case userInput of
             Nothing -> pure ()
             Just "exit" -> pure ()
-            Just input -> do
-             s <- lift $ runLine input
-             outputStrLn s
-             loop
+            Just input -> runInputLine input >> loop
+        runInputLine l = do
+          r <- collectLine l 0
+          let norm = normalizeStmt r
+          s <- lift $ runLine norm
+          outputStrLn s
+        normalizeStmt xs = let hasSemi = isSuffixOf ";" xs
+                           in if hasSemi then xs else if null xs then xs else xs ++ ";"
 
 
 prompt :: String -> IO String
