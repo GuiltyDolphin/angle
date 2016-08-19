@@ -15,6 +15,9 @@ build-type:          Simple
 cabal-version:       >=1.10
 description:         An implementation of a small, weak and dynamically typed,
                      interpreted, functional programming language.
+source-repository head
+  type: git
+  location: git://github.com/GuiltyDolphin/angle.git
 
 
 flag test-properties
